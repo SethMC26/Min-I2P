@@ -1,0 +1,5 @@
+{
+  "port": 5001,
+  "debug": true,
+  "database-file": "test-data/database/database.json"
+}
