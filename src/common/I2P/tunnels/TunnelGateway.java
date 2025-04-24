@@ -1,10 +1,10 @@
 package common.I2P.tunnels;
 
 import common.I2P.I2NP.I2NPMessage;
-import common.I2P.RouterID;
-import common.transport.SOCK;
+import common.I2P.IDs.RouterID;
 
 import javax.crypto.SecretKey;
+import java.io.IOException;
 
 /**
  * This class represents a gateway in a tunnel
@@ -37,7 +37,7 @@ public class TunnelGateway extends Tunnel{
     }
 
     @Override
-    boolean handleMessage(I2NPMessage message, SOCK socket) {
+    void handleMessage(I2NPMessage message) throws IOException {
         throw new RuntimeException("Not implemented");
     }
 }

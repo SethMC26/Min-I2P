@@ -1,9 +1,9 @@
 package common.I2P.tunnels;
 
 import common.I2P.I2NP.I2NPMessage;
-import common.transport.SOCK;
 
 import javax.crypto.SecretKey;
+import java.io.IOException;
 
 /**
  * Abstract class for all Tunnels
@@ -61,6 +61,11 @@ public abstract class Tunnel {
         this.replyIV = replyIV;
     }
 
-   abstract boolean handleMessage(I2NPMessage message, SOCK socket);
+    /**
+     * Handles I2NP Message in tunnel
+     * @param message I2NP message received
+     * @throws IOException Throws if error occurs while sending
+     */
+   abstract void handleMessage(I2NPMessage message) throws IOException;
 
 }

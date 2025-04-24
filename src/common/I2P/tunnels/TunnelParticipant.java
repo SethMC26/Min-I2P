@@ -1,10 +1,10 @@
 package common.I2P.tunnels;
 
 import common.I2P.I2NP.I2NPMessage;
-import common.I2P.RouterID;
-import common.transport.SOCK;
+import common.I2P.IDs.RouterID;
 
 import javax.crypto.SecretKey;
+import java.io.IOException;
 
 /**
  * This class represents a Participant in a Tunnel
@@ -29,7 +29,7 @@ public class TunnelParticipant extends Tunnel{
      * @param nextHop RouterID for next Router in path
      * @param nextTunnelID Integer TunnelID on next hop
      */
-    protected TunnelParticipant(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey,
+    public TunnelParticipant(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey,
                                 SecretKey replyKey, byte[] replyIV, RouterID nextHop, Integer nextTunnelID) {
         super(TYPE.PARTICIPANT, tunnelID, tunnelEncryptionKey, tunnelIVKey, replyKey, replyIV);
         this.nextHop = nextHop;
@@ -37,7 +37,7 @@ public class TunnelParticipant extends Tunnel{
     }
 
     @Override
-    boolean handleMessage(I2NPMessage message, SOCK socket) {
+    void handleMessage(I2NPMessage message) throws IOException {
         throw new RuntimeException("Not implemented");
     }
 }
