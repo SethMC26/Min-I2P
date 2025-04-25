@@ -6,6 +6,10 @@ import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
 
 import java.io.InvalidObjectException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 /**
  * RouterInfo Defines all of the data that a router wants to publish for the network to see
@@ -41,10 +45,41 @@ public class RouterInfo implements JSONSerializable {
         this.routerAddress = new RouterAddress(host,port);
     }
 
+    /**
+     * Create RouterInfo from json
+     * @param json
+     * @throws InvalidObjectException
+     */
     public RouterInfo(JSONObject json) throws InvalidObjectException {
         deserialize(json);
     }
 
+    /**
+     * Get SHA256 hash of this class
+     * @return 32 byte SHA256 hash of this class
+     */
+    public byte[] getHash() {
+        try {
+            //hash this class
+            MessageDigest md = MessageDigest.getInstance("SHA256");
+            //update hash with router info
+            md.update(routerID.getElgamalPublicKey().getEncoded());
+            md.update(routerID.getDSASHA1PublicKey().getEncoded());
+            //update hash with date
+            ByteBuffer longBytes = ByteBuffer.allocate(Long.BYTES);
+            longBytes.putLong(date);
+            md.update(longBytes);
+            //update hash with host
+            md.update(routerAddress.host.getBytes(StandardCharsets.UTF_8));
+            //update hash with port
+            ByteBuffer portByte = ByteBuffer.allocate(Integer.BYTES);
+            portByte.putInt(routerAddress.port);
+            md.update(portByte);
+
+            return md.digest();
+        }
+        catch (NoSuchAlgorithmException ex) {throw new RuntimeException(ex);} //should not hit this case
+    }
     /**
      * Deserialize a JSON of RouterInfo
      * @param jsonType JSONObject of RouterInfo
@@ -67,7 +102,7 @@ public class RouterInfo implements JSONSerializable {
         JSONObject json = new JSONObject();
         json.put("routerID", routerID.toJSONType());
         json.put("date", date);
-        json.put("routerAddress", routerAddress);
+        json.put("routerAddress", routerAddress.toJSONType());
         return json;
     }
 

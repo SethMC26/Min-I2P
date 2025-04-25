@@ -32,7 +32,7 @@ public class RouterID implements JSONSerializable {
     /**
      * Create new RouterID from JSON(wraps KeysAndCerts)
      * @param json JSONObject to deserialize
-     * @throws if json is invalid
+     * @throws throws if json is invalid
      */
     public RouterID(JSONObject json) throws InvalidObjectException{
         keys = new KeysAndCerts(json);
@@ -48,7 +48,7 @@ public class RouterID implements JSONSerializable {
 
     /**
      * Gets SHA-256 hash of this RouterID
-     * @return Base64 encoding of the first 16 bytes of RouterID SHA256 hash
+     * @return 32 byte SHA256 hash of this RouterID
      */
     public byte[] getHash() {
         try {

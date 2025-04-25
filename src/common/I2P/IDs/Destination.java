@@ -6,6 +6,8 @@ import merrimackutil.json.types.JSONType;
 
 import java.io.InvalidObjectException;
 import java.security.Key;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 
 /**
@@ -34,10 +36,27 @@ public class Destination implements JSONSerializable {
         keys = new KeysAndCerts(json);
     }
 
-    public PublicKey getElgamalPublicKey() {
+    public PublicKey getSigningPublicKey() {
         return keys.getSigningPublicKey();
     }
 
+    /**
+     * Get SHA256 byte hash of this destination
+     * @return 32-byte SHA256 hash of this Destination
+     */
+    public byte[] getHash() {
+        try {
+            //hash payload of message
+            MessageDigest md = MessageDigest.getInstance("SHA256");
+            md.update(keys.getSigningPublicKey().getEncoded());
+
+            //take only first 3 bytes of hash(I2P spec uses 1 but we are using base64 encoding is 6 bit aligned
+            // So 3 bytes is the smallest we can have without padding bytes (24 bits divides evenly into 6)
+            return md.digest();
+
+        }
+        catch (NoSuchAlgorithmException ex) {throw new RuntimeException(ex);} //should not hit this case
+    }
     /**
      * wraps KeysAndCerts deserialize
      */

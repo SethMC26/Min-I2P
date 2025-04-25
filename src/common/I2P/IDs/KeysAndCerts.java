@@ -78,7 +78,6 @@ public class KeysAndCerts implements JSONSerializable {
             catch (InvalidKeySpecException e) {throw new InvalidObjectException("Signing Key is not valid");}
             catch (NoSuchAlgorithmException e) {throw new RuntimeException(e);} //should never hit case
         }
-
     }
 
     @Override
@@ -88,7 +87,7 @@ public class KeysAndCerts implements JSONSerializable {
 
         //could be null if used for destination
         if (signingPublicKey != null) {
-            json.put("signingPublicKey", signingPublicKey);
+            json.put("signingPublicKey", Base64.toBase64String(signingPublicKey.getEncoded()));
         }
 
         return json;
