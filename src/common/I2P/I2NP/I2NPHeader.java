@@ -65,7 +65,7 @@ public class I2NPHeader implements JSONSerializable {
     /**
      * Message for this I2NP header
      */
-    private JSONObject message;
+    private I2NPMessage message;
 
     /**
      *
@@ -74,7 +74,7 @@ public class I2NPHeader implements JSONSerializable {
      * @param expiration Epoch time when message will expire
      * @param message message to send
      */
-    I2NPHeader(TYPE type, int msgID, Long expiration, JSONObject message) {
+    I2NPHeader(TYPE type, int msgID, Long expiration, I2NPMessage message) {
         this.type = type;
         this.msgID = msgID;
         this.expiration = expiration;
@@ -85,7 +85,7 @@ public class I2NPHeader implements JSONSerializable {
         {
             //hash payload of message
             MessageDigest md = MessageDigest.getInstance("SHA256");
-            md.update(message.toJSON().getBytes(StandardCharsets.UTF_8));
+            md.update(message.serialize().getBytes(StandardCharsets.UTF_8));
             //take only first 3 bytes of hash(I2P spec uses 1 but we are using base64 encoding is 6 bit aligned
             // So 3 bytes is the smallest we can have without padding bytes (24 bits divides evenly into 6)
             chks = Arrays.copyOfRange(md.digest(), 0, 3);
@@ -132,7 +132,15 @@ public class I2NPHeader implements JSONSerializable {
         //decode bytes in base64 strings
         chks = Base64.decode(messageJSON.getString("chks"));
 
-        message = messageJSON.getObject("message");
+        JSONObject messageObj = messageJSON.getObject("message");
+
+        switch (type) {
+            case TYPE.DATABASELOOKUP:
+                message = new DatabaseStore(messageObj);
+                break;
+            default:
+                throw new InvalidObjectException("Bad type: " + type);
+        }
     }
 
     public TYPE getType() {
@@ -147,12 +155,7 @@ public class I2NPHeader implements JSONSerializable {
         return expiration;
     }
 
-    public I2NPMessage getMessage() throws InvalidObjectException {
-        switch (type) {
-            case TYPE.DATABASELOOKUP:
-                return new DatabaseStore(message);
-            default:
-                throw new IllegalArgumentException("Bad type: " + type);
-        }
+    public I2NPMessage getMessage()  {
+        return message;
     }
 }
