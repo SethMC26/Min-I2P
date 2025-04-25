@@ -10,7 +10,10 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InvalidObjectException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Server {
 
@@ -19,6 +22,9 @@ public class Server {
     private static boolean debug = false;
     private static int port;
     private static String databaseFile;
+    private static String usersFile;
+    private static AudioDatabase audioDatabase;
+    private static UsersDatabase usersDatabase;
 
     /**
      * Prints the usage of the server
@@ -103,6 +109,11 @@ public class Server {
             usage();
         }
         processArgs(args);
+        usersDatabase = new UsersDatabase(usersFile);
+        //audioDatabase = new AudioDatabase(databaseFile);
+
+        usersDatabase.addUser("test", "test", "test", "test");
+
     }
 
     /**
@@ -120,10 +131,7 @@ public class Server {
         JSONObject obj = (JSONObject) jsonType;
 
         // Check if the JSON object has the needed keys
-        if (!(obj.containsKey("database-file") && obj.containsKey("port"))) {
-            System.err.println("Config file did not have proper keys");
-            throw new InvalidObjectException("JSONObject does not have needed values");
-        }
+        obj.checkValidity(new String[]{"port", "database-file", "users-file"});
 
         if (obj.containsKey("debug"))
             debug = obj.getBoolean("debug");
@@ -131,6 +139,7 @@ public class Server {
         // Set the variables to the values in the JSON object
         port = obj.getInt("port");
         databaseFile = obj.getString("database-file");
+        usersFile = obj.getString("users-file");
     }
 
     /**
@@ -142,5 +151,19 @@ public class Server {
         if (debug) {
             System.out.println(message);
         }
+    }
+
+    private static void serverStart() {
+        ExecutorService executor = Executors.newFixedThreadPool(10);
+
+        try {
+
+            while(true) {
+                executor.execute(new ServerConnectionHandler(audioDatabase, usersDatabase));
+            }
+        } catch (Exception e) {
+            System.err.println("Error starting server: " + e.getMessage());
+        }
+
     }
 }
