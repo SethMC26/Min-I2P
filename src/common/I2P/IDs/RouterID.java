@@ -1,7 +1,11 @@
 package common.I2P.IDs;
 
+import merrimackutil.json.JSONSerializable;
+import merrimackutil.json.types.JSONObject;
+import merrimackutil.json.types.JSONType;
 import org.bouncycastle.util.encoders.Base64;
 
+import java.io.InvalidObjectException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
@@ -10,7 +14,7 @@ import java.util.Arrays;
 /**
  * Class to uniquely identify router
  */
-public class RouterID {
+public class RouterID implements JSONSerializable {
     /**
      * keys used - I2P spec uses KeysAndCerts for Destinations
      */
@@ -25,6 +29,15 @@ public class RouterID {
         keys = new KeysAndCerts(elgamalPublicKey, DSASHA1PublicKey);
     }
 
+    /**
+     * Create new RouterID from JSON(wraps KeysAndCerts)
+     * @param json JSONObject to deserialize
+     * @throws if json is invalid
+     */
+    public RouterID(JSONObject json) throws InvalidObjectException{
+        keys = new KeysAndCerts(json);
+    }
+
     public PublicKey getElgamalPublicKey() {
         return keys.getPublicKey();
     }
@@ -32,7 +45,6 @@ public class RouterID {
     public PublicKey getDSASHA1PublicKey() {
         return keys.getSigningPublicKey();
     }
-
 
     /**
      * Gets first 16 bytes of SHA-256 hash of this RouterID
@@ -51,5 +63,23 @@ public class RouterID {
 
         }
         catch (NoSuchAlgorithmException ex) {throw new RuntimeException(ex);} //should not hit this case
+    }
+
+    /**
+     * wraps KeysAndCerts deserialize
+     */
+    @Override
+    public void deserialize(JSONType jsonType) throws InvalidObjectException {
+        if (!(jsonType instanceof JSONObject))
+            throw new InvalidObjectException("jsontype must be a JSONObject");
+        keys = new KeysAndCerts((JSONObject) jsonType);
+    }
+
+    /**
+     * Wraps KeysAndCerts toJSONType
+     */
+    @Override
+    public JSONObject toJSONType() {
+        return keys.toJSONType();
     }
 }

@@ -1,12 +1,16 @@
 package common.I2P.NetworkDB;
 
 import common.I2P.IDs.Destination;
+import merrimackutil.json.JSONSerializable;
+import merrimackutil.json.types.JSONObject;
+import merrimackutil.json.types.JSONType;
 
+import java.io.InvalidObjectException;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.util.Set;
 
-public class LeaseSet {
+public class LeaseSet implements JSONSerializable {
     /**
      * Destination leases belong to
      */
@@ -28,4 +32,25 @@ public class LeaseSet {
      * Leases in lease set
      */
     Set<Lease> leases;
+
+    public LeaseSet(JSONObject json) throws InvalidObjectException{
+        deserialize(json);
+    }
+
+    /**
+     * @param jsonType
+     * @throws InvalidObjectException
+     */
+    @Override
+    public void deserialize(JSONType jsonType) throws InvalidObjectException {
+
+    }
+
+    /**
+     * @return
+     */
+    @Override
+    public JSONType toJSONType() {
+        return null;
+    }
 }

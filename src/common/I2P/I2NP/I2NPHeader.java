@@ -74,7 +74,7 @@ public class I2NPHeader implements JSONSerializable {
      * @param expiration Epoch time when message will expire
      * @param message message to send
      */
-    I2NPHeader(TYPE type, int msgID, Long expiration, I2NPMessage message) {
+    public I2NPHeader(TYPE type, int msgID, Long expiration, I2NPMessage message) {
         this.type = type;
         this.msgID = msgID;
         this.expiration = expiration;
