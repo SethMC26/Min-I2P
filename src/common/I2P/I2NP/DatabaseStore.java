@@ -54,7 +54,6 @@ public class DatabaseStore extends I2NPMessage{
      * @param message@throws InvalidObjectException Throws if JSONObject is not valid for type of I2NPMessage
      */
     DatabaseStore(JSONObject message) throws InvalidObjectException {
-        super(message);
         deserialize(message);
     }
 
@@ -85,14 +84,14 @@ public class DatabaseStore extends I2NPMessage{
     /**
      * Set necessary data is reply is needed(in class sets reply token to 1)
      * @param replyTunnelID The tunnelID of the inbound gateway of the tunnel the reponse should be sent to
-     * @param replyGateway SHA256 hash of the RouterInfo entry to reach the gateway.
+     * @param replyGateway SHA256 hash of the RouterInfo entry to reach the gateway - use {@code RouterInfo.getHash()}.
      */
     public void setReply(int replyTunnelID, byte[] replyGateway) {
         this.replyToken = 1;
         this.replyTunnelID = replyTunnelID;
         this.replyGateway = replyGateway;
     }
-
+    //default flag
     @Override
     public void deserialize(JSONType jsonType) throws InvalidObjectException {
         if (!(jsonType instanceof JSONObject))

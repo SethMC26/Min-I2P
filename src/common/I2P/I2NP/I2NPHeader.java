@@ -96,8 +96,6 @@ public class I2NPHeader implements JSONSerializable {
             //should not hit this case
            throw new RuntimeException(ex);
         }
-
-
     }
 
     I2NPHeader(JSONObject json) throws InvalidObjectException {
@@ -112,7 +110,7 @@ public class I2NPHeader implements JSONSerializable {
         messageJSON.put("msgID", msgID);
         messageJSON.put("expiration", expiration);
         messageJSON.put("chks", Base64.toBase64String(chks));
-        messageJSON.put("message", message);
+        messageJSON.put("message", message.toJSONType());
 
         return messageJSON;
     }
@@ -135,8 +133,17 @@ public class I2NPHeader implements JSONSerializable {
         JSONObject messageObj = messageJSON.getObject("message");
 
         switch (type) {
-            case TYPE.DATABASELOOKUP:
+            case TYPE.DATABASESTORE:
                 message = new DatabaseStore(messageObj);
+                break;
+            case TYPE.DATABASELOOKUP:
+                message = new DatabaseLookup(messageObj);
+                break;
+            case TYPE.DATABASESEARCHREPLY:
+                message = new DatabaseSearchReply(messageObj);
+                break;
+            case TYPE.DELIVERYSTATUS:
+                message = new DeliveryStatus(messageObj);
                 break;
             default:
                 throw new InvalidObjectException("Bad type: " + type);
