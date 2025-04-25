@@ -13,7 +13,7 @@ public class TunnelEndpoint extends Tunnel{
     private RouterID replyRouter;
     private Integer replyTunnelID;
     /**
-     * Create TunnelGateway
+     * Create Tunnel Endpoint
      * @param tunnelID Integer ID of tunnel - could be null if Inbound
      * @param tunnelEncryptionKey AES key for encrypting messages
      * @param tunnelIVKey AES key for IV encryption
