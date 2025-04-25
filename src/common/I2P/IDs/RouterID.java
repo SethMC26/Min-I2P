@@ -47,10 +47,10 @@ public class RouterID implements JSONSerializable {
     }
 
     /**
-     * Gets first 16 bytes of SHA-256 hash of this RouterID
+     * Gets SHA-256 hash of this RouterID
      * @return Base64 encoding of the first 16 bytes of RouterID SHA256 hash
      */
-    public String getHash() {
+    public byte[] getHash() {
         try {
             //hash payload of message
             MessageDigest md = MessageDigest.getInstance("SHA256");
@@ -59,7 +59,7 @@ public class RouterID implements JSONSerializable {
 
             //take only first 3 bytes of hash(I2P spec uses 1 but we are using base64 encoding is 6 bit aligned
             // So 3 bytes is the smallest we can have without padding bytes (24 bits divides evenly into 6)
-            return Base64.toBase64String(Arrays.copyOfRange(md.digest(), 0, 16));
+            return md.digest();
 
         }
         catch (NoSuchAlgorithmException ex) {throw new RuntimeException(ex);} //should not hit this case
