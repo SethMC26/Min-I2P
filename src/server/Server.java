@@ -110,9 +110,11 @@ public class Server {
         }
         processArgs(args);
         usersDatabase = new UsersDatabase(usersFile);
-        //audioDatabase = new AudioDatabase(databaseFile);
+        audioDatabase = new AudioDatabase(databaseFile);
 
         usersDatabase.addUser("test", "test", "test", "test");
+
+        audioDatabase.addAudio("test", "test");
 
     }
 

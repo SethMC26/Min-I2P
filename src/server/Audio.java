@@ -1,6 +1,7 @@
 package server;
 
 import merrimackutil.json.JSONSerializable;
+import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
 
 import java.io.InvalidObjectException;
@@ -31,14 +32,44 @@ public class Audio implements JSONSerializable {
         deserialize(json);
     }
 
+    /**
+     * Gets the audio name of this audio
+     *
+     * @return - String audio name
+     */
+    public String getName() {
+        return audioName;
+    }
+
+    /**
+     * Gets the audio of this audio
+     *
+     * @return - String audio
+     */
+    public String getAudio() {
+        return audio;
+    }
+
 
     @Override
     public void deserialize(JSONType jsonType) throws InvalidObjectException {
+        if (!(jsonType instanceof JSONObject)) {
+            throw new InvalidObjectException("Audio JSON is not a JSONObject");
+        }
 
+        JSONObject obj = (JSONObject) jsonType;
+
+        obj.checkValidity(new String[]{"audioName", "audio"});
+
+        this.audioName = obj.getString("audioName");
+        this.audio = obj.getString("audio");
     }
 
     @Override
     public JSONType toJSONType() {
-        return null;
+        JSONObject obj = new JSONObject();
+        obj.put("audioName", audioName);
+        obj.put("audio", audio);
+        return obj;
     }
 }
