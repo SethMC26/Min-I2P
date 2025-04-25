@@ -30,7 +30,7 @@ public class Destination implements JSONSerializable {
      * @param json JSON
      * @throws InvalidObjectException throws if JSON is invalid
      */
-    Destination(JSONObject json) throws InvalidObjectException {
+    public Destination(JSONObject json) throws InvalidObjectException {
         keys = new KeysAndCerts(json);
     }
 

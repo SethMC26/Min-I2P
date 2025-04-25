@@ -84,7 +84,7 @@ public class KeysAndCerts implements JSONSerializable {
     @Override
     public JSONObject toJSONType() {
         JSONObject json = new JSONObject();
-        json.put("publicKey", Base64.encode(publicKey.getEncoded()));
+        json.put("publicKey", Base64.toBase64String(publicKey.getEncoded()));
 
         //could be null if used for destination
         if (signingPublicKey != null) {

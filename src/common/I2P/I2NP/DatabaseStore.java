@@ -132,7 +132,7 @@ public class DatabaseStore extends I2NPMessage{
         JSONObject databaseStoreJSON = new JSONObject();
 
         databaseStoreJSON.put("type", storeType);
-        databaseStoreJSON.put("key", Base64.encode(key));
+        databaseStoreJSON.put("key", Base64.toBase64String(key));
         databaseStoreJSON.put("replyToken", replyToken);
 
         //if reply token greater than 0 then we need reply data
