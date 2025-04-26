@@ -76,57 +76,64 @@ public class NetDB {
     }
 
     /**
-     * Retrieve up to {@code k} closest peers (Records) to the given key from the routing table.
-     * This method searches outward from the starting bucket (based on XOR distance)
-     * both lower and higher until enough entries are collected.
+     * Retrieve up to {@code k} closest RouterInfo records to the given key from the routing table.
+     * Only RouterInfos will be returned, LeaseSets are ignored.
      *
-     * @param key the 32-byte SHA256 hash key to find close peers to
-     * @param k the maximum number of peers to return
-     * @return a list of up to {@code k} closest Records
-     * @author ChatGPT
+     * @param key the 32-byte SHA256 hash key to find close routers for
+     * @param k the maximum number of RouterInfos to return
+     * @return a list of up to {@code k} closest RouterInfo Records
+     *
+     * @author ChatGPT (OpenAI Assistant) - collaborator
      */
-    public synchronized ArrayList<Record> getKClosestPeers(byte[] key, int k) {
+    public synchronized ArrayList<RouterInfo> getKClosestRouterInfos(byte[] key, int k) {
+        // Calculate XOR distance from our own router ID to the target key
         int startDistance = calculateXORMetric(routerInfo.getHash(), key);
+        //below is chatgpt generated but it did what i wanted for this kind of annoying bit of code
 
-        ArrayList<Record> result = new ArrayList<>(k);
-        //chatGPT generated but it actually did a decent job here me finks
+        ArrayList<RouterInfo> result = new ArrayList<>(k); // Prepare result list with initial capacity
 
-        // Initialize pointers to scan outward from startDistance
-        int lower = startDistance;
-        int higher = startDistance + 1;
+        int lower = startDistance;    // Start searching downward
+        int higher = startDistance + 1; // Start searching upward
 
-        // Keep searching outward until we collect enough Records
-        while (result.size() < k && (lower >= 0 || higher <= 256)) {
-            // Check lower bucket
+        // Expand search outward until we find enough RouterInfo records or search bounds exhausted
+        while (result.size() < k && (lower >= 0 || higher <= 255)) {
+
+            // Check lower bucket if in bounds
             if (lower >= 0) {
                 HashMap<String, Record> bucket = routingTable.get(lower);
                 if (bucket != null) {
-                    result.addAll(bucket.values());
-                    if (result.size() >= k) {
-                        break;
+                    for (Record record : bucket.values()) {
+                        // Only add if the record is of type ROUTERINFO
+                        if (record.getRecordType() == Record.RecordType.ROUTERINFO) {
+                            result.add((RouterInfo) record);
+                            if (result.size() >= k) {
+                                break; // Stop if we have enough
+                            }
+                        }
                     }
                 }
-                lower--;
+                lower--; // Move to next lower bucket
             }
 
-            // Check higher bucket
-            if (higher <= 256) {
+            // Check higher bucket if in bounds
+            if (higher <= 255) {
                 HashMap<String, Record> bucket = routingTable.get(higher);
                 if (bucket != null) {
-                    result.addAll(bucket.values());
-                    if (result.size() >= k) {
-                        break;
+                    for (Record record : bucket.values()) {
+                        // Only add if the record is of type ROUTERINFO
+                        if (record.getRecordType() == Record.RecordType.ROUTERINFO) {
+                            result.add((RouterInfo) record);
+                            if (result.size() >= k) {
+                                break; // Stop if we have enough
+                            }
+                        }
                     }
                 }
-                higher++;
+                higher++; // Move to next higher bucket
             }
         }
 
-        // Return exactly k entries if we collected too many
-        if (result.size() > k) {
-            return new ArrayList<>(result.subList(0, k));
-        }
-
+        // Return the list of RouterInfo records found
         return result;
     }
 
