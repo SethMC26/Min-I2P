@@ -1,6 +1,6 @@
 package common.I2P.I2NP;
 
-import common.I2P.tunnels.Tunnel;
+import common.I2P.tunnels.TunnelManager;
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.types.JSONArray;
 import merrimackutil.json.types.JSONObject;
@@ -12,7 +12,7 @@ import java.io.InvalidObjectException;
 import java.util.HashMap;
 import java.util.List;
 
-public class TunnelBuild  implements JSONSerializable{
+public class TunnelBuild implements JSONSerializable{
     /**
      * Records key is toPeer 16 byte SHA256 hash of peerID with value being record
      */
@@ -22,7 +22,7 @@ public class TunnelBuild  implements JSONSerializable{
         deserialize(json);
     }
 
-    TunnelBuild(List<Record> records) {
+    public TunnelBuild(List<Record> records) {
         this.records = new HashMap<>();
 
         for (Record record : records) {

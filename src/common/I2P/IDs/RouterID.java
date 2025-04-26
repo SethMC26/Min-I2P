@@ -25,7 +25,7 @@ public class RouterID implements JSONSerializable {
      * @param elgamalPublicKey 256 byte elgamal public key
      * @param DSASHA1PublicKey 128 byte DSA-SHA1 public key
      */
-    RouterID(PublicKey elgamalPublicKey, PublicKey DSASHA1PublicKey) {
+    public RouterID(PublicKey elgamalPublicKey, PublicKey DSASHA1PublicKey) {
         keys = new KeysAndCerts(elgamalPublicKey, DSASHA1PublicKey);
     }
 
