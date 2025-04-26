@@ -65,7 +65,9 @@ public class I2NPSocket extends DatagramSocket {
         DatagramPacket pkt = new DatagramPacket(new byte[MAX_SIZE], MAX_SIZE);
         receive(pkt);
 
-        String json = new String(pkt.getData(), StandardCharsets.UTF_8);
+        //this is a hacky trick  to only get bytes received in message real protocols add lengths to avoid this issue
+        //We are fake mathematician and Engineers anyways whats a little hack among friends
+        String json = new String(pkt.getData(), 0, pkt.getLength(), StandardCharsets.UTF_8);
         JSONObject obj = JsonIO.readObject(json);
 
         return new I2NPHeader(obj);

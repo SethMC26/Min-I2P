@@ -1,10 +1,12 @@
 package common.I2P.NetworkDB;
 
 import common.I2P.I2NP.I2NPMessage;
+import common.Logger;
 import org.bouncycastle.util.encoders.Base64;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.HashMap;
 
 /**
@@ -20,7 +22,10 @@ public class NetDB {
      * a corresponding record to that hash(RouterInfo or LeaseSet)
      */
     private HashMap<Integer, HashMap<String, Record>> routingTable;
-
+    /**
+     *
+     */
+    private Logger log = Logger.getInstance();
     /**
      * Create a new NetDB for this router {@code routerInfo}
      * @param routerInfo routerInfo
@@ -38,6 +43,11 @@ public class NetDB {
      * @param record Record to store {@code RouterInfo or LeaseSet}
      */
     public synchronized void store(Record record) {
+        if (!record.verifySignature()) {
+            log.warn("NetDB: Record has Invalid signature disregarding");
+            return;
+        }
+
         //calculate distance between hash and record hash
         int distance = calculateXORMetric(routerInfo.getHash(), record.getHash());
 
@@ -55,6 +65,8 @@ public class NetDB {
 
         //add record to bucket under its key(hash of record)
         bucket.put(Base64.toBase64String(record.getHash()), record);
+        log.trace("Put record into bucket " + distance);
+        log.trace(logNetDB());
     }
 
     /**
@@ -65,7 +77,7 @@ public class NetDB {
     public synchronized Record lookup(byte[] key) {
         //calculate distance between hash and record we want to find(under key)
         int distance = calculateXORMetric(routerInfo.getHash(), key);
-
+        log.trace("NetDB: distance is " + distance);
         //sanity check remove for prod
         assert distance <= 256 : "distance greater than 256! Distance" + distance;
 
@@ -75,6 +87,7 @@ public class NetDB {
         if (bucket == null)
             return null;
         //Attempt to find record in bucket(will return null if not found)
+        log.trace(logNetDB());
         return bucket.get(Base64.toBase64String(key));
     }
 
@@ -158,4 +171,35 @@ public class NetDB {
         //return 256 - bits1.length();
         return bits1.length(); //take length to find leading zeros after xor
     }
+
+    /**
+     * Dump the entire routing table, bucket-by-bucket, showing all keys.
+     *
+     * @return a formatted text snapshot (ready for logging or console output)
+     */
+    public String logNetDB() {
+        StringBuilder out = new StringBuilder();
+
+        // Buckets are numbered 0-256 (inclusive).  Highest first for readability.
+        for (int idx = 256; idx >= 0; idx--) {
+            HashMap<String, Record> bucket = routingTable.get(idx);
+            if (bucket == null || bucket.isEmpty()) {
+                continue;                 // skip empty buckets
+            }
+
+            out.append(String.format("%n--- Bucket %-3d (size %d) %s%n",
+                    idx,
+                    bucket.size(),
+                    "─".repeat(40)));
+
+            // Stable order helps diff successive dumps
+            bucket.keySet()
+                    .stream()
+                    .sorted()               // alphabetical
+                    .forEach(key -> out.append("   ").append(key).append('\n'));
+        }
+        return out.toString();
+    }
+
+
 }

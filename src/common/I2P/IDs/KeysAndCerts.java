@@ -58,10 +58,11 @@ public class KeysAndCerts implements JSONSerializable {
             throw new InvalidObjectException("Must be JSONObject");
 
         JSONObject keysAndCertsJSON = (JSONObject) jsonType;
+
         if (!keysAndCertsJSON.containsKey("publicKey"))
             throw new InvalidObjectException("Missing key - publicKey");
 
-        byte[] publicKeyBytes = Base64.decode(keysAndCertsJSON.getString("publickey"));
+        byte[] publicKeyBytes = Base64.decode(keysAndCertsJSON.getString("publicKey"));
         try {
             publicKey = KeyFactory.getInstance("ElGamal").generatePublic(new X509EncodedKeySpec(publicKeyBytes));
         }

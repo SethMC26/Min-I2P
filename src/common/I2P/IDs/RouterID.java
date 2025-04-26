@@ -42,7 +42,7 @@ public class RouterID implements JSONSerializable {
         return keys.getPublicKey();
     }
 
-    public PublicKey getDSASHA1PublicKey() {
+    public PublicKey getSigningPublicKey() {
         return keys.getSigningPublicKey();
     }
 
