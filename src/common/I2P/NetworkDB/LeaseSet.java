@@ -8,9 +8,9 @@ import merrimackutil.json.types.JSONType;
 import org.bouncycastle.util.encoders.Base64;
 
 import java.io.InvalidObjectException;
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.HashSet;
@@ -25,11 +25,6 @@ public class LeaseSet extends Record implements JSONSerializable {
      */
     private PublicKey encryptionKey;
     /**
-     * Signing public key that can be used to revoke leaseSet
-     * @implNote Spec includes this but im not sure if we need it
-     */
-    private PublicKey signingPublicKey;
-    /**
      * Signature of this LeaseSet by Destinations Signing Private key
      */
     private byte[] signature;
@@ -43,16 +38,36 @@ public class LeaseSet extends Record implements JSONSerializable {
      * @param leases HashSet containing leases
      * @param destination destination lease belong to
      * @param encryptionKey elgamal public key for encryption
-     * @param singingPublicKey signingPublicKey key to verify signature
-     * @param signature Signature of all data using the corresponding private signing key to {@code signingPublicKey}
+     * @param signingKey PrivateKey to use to sign this LeaseSet - should be signed by destination
      */
-    public LeaseSet(HashSet<Lease> leases, Destination destination, PublicKey encryptionKey, PublicKey singingPublicKey, byte[] signature) {
+    public LeaseSet(HashSet<Lease> leases, Destination destination, PublicKey encryptionKey, PrivateKey signingKey) {
         super(RecordType.LEASESET);
         this.leases = leases;
         this.destination = destination;
         this.encryptionKey = encryptionKey;
-        this.signingPublicKey = singingPublicKey;
-        this.signature = signature;
+
+        //sign LeaseSet
+        try {
+            //get signature ready
+            Signature signing = Signature.getInstance("Ed25519");
+            signing.initSign(signingKey);
+            //sign this leases
+            for (Lease lease : leases) {
+                signing.update(lease.getTunnelGW());
+                signing.update(ByteBuffer.allocate(Integer.BYTES).putInt(lease.getTunnelID()).array());
+                signing.update(ByteBuffer.allocate(Long.BYTES).putLong(lease.getExpiration()).array());
+            }
+            //sign destination
+            signing.update(destination.getSigningPublicKey().getEncoded());
+            //sign encryption key
+            signing.update(encryptionKey.getEncoded());
+            //get signature
+            this.signature = signing.sign();
+        } catch (NoSuchAlgorithmException | SignatureException e) {
+            throw new RuntimeException(e); //should never hit case
+        } catch (InvalidKeyException e) {
+            throw new RuntimeException("Bad private key for SHA1withDSA" + e);
+        }
     }
 
     /**
@@ -74,6 +89,36 @@ public class LeaseSet extends Record implements JSONSerializable {
        return destination.getHash();
     }
 
+    /**
+     * Verify the signature of this record given a public key
+     * @return true if signature is valid false otherwise
+     */
+    @Override
+    public boolean verifySignature() {
+        //sign LeaseSet
+        try {
+            //get signature ready
+            Signature signing = Signature.getInstance("Ed25519");
+            signing.initVerify(destination.getSigningPublicKey());
+            //sign this leases
+            for (Lease lease : leases) {
+                signing.update(lease.getTunnelGW());
+                signing.update(ByteBuffer.allocate(Integer.BYTES).putInt(lease.getTunnelID()).array());
+                signing.update(ByteBuffer.allocate(Long.BYTES).putLong(lease.getExpiration()).array());
+            }
+            //sign destination
+            signing.update(destination.getSigningPublicKey().getEncoded());
+            //sign encryption key
+            signing.update(encryptionKey.getEncoded());
+            //verify signature
+            return signing.verify(signature);
+        } catch (NoSuchAlgorithmException | SignatureException e) {
+            throw new RuntimeException(e); //should never hit case
+        } catch (InvalidKeyException e) {
+            throw new RuntimeException("Bad private key for SHA1withDSA" + e);
+        }
+    }
+
     @Override
     public void deserialize(JSONType jsonType) throws InvalidObjectException {
         if (!(jsonType instanceof JSONObject))
@@ -91,15 +136,6 @@ public class LeaseSet extends Record implements JSONSerializable {
             encryptionKey = KeyFactory.getInstance("ElGamal").generatePublic(new X509EncodedKeySpec(publicKeyBytes));
         }
         catch (InvalidKeySpecException e) {throw new InvalidObjectException("Public Key is not valid");}
-        catch (NoSuchAlgorithmException e) {throw new RuntimeException(e);} //should never hit case
-
-        //lets decode the signature from the bytes
-        byte[] signingKeyBytes = Base64.decode(json.getString("signingPublicKey"));
-        try {
-            signingPublicKey = KeyFactory.getInstance("DSA").generatePublic(
-                    new X509EncodedKeySpec(signingKeyBytes));
-        }
-        catch (InvalidKeySpecException e) {throw new InvalidObjectException("Signing Key is not valid");}
         catch (NoSuchAlgorithmException e) {throw new RuntimeException(e);} //should never hit case
 
         //add all Leases in under "leases"
@@ -120,7 +156,6 @@ public class LeaseSet extends Record implements JSONSerializable {
         JSONObject json = new JSONObject();
         json.put("destination", destination.toJSONType());
         json.put("encryptionKey", Base64.toBase64String(encryptionKey.getEncoded()));
-        json.put("signingPublicKey", Base64.toBase64String(signingPublicKey.getEncoded()));
         json.put("signature", Base64.toBase64String(signature));
 
         //add leases as an array
@@ -131,5 +166,17 @@ public class LeaseSet extends Record implements JSONSerializable {
         json.put("leases", leasesArray);
 
         return json;
+    }
+
+    public HashSet<Lease> getLeases() {
+        return leases;
+    }
+
+    public Destination getDestination() {
+        return destination;
+    }
+
+    public PublicKey getEncryptionKey() {
+        return encryptionKey;
     }
 }

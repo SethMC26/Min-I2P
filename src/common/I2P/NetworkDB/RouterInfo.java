@@ -56,9 +56,10 @@ public class RouterInfo extends Record implements JSONSerializable {
             signing.initSign(signingKey);
             //sign this RouterInfo
             signing.update(routerID.getElgamalPublicKey().getEncoded());
-            signing.update(routerID.getDSASHA1PublicKey().getEncoded());
+            signing.update(routerID.getSigningPublicKey().getEncoded());
             signing.update(ByteBuffer.allocate(Long.BYTES).putLong(date).array());
             signing.update(host.getBytes(StandardCharsets.UTF_8));
+            signing.update(ByteBuffer.allocate(Integer.BYTES).putInt(port).array());
             //get signature
             this.signature = signing.sign();
         } catch (NoSuchAlgorithmException | SignatureException e) {
@@ -88,7 +89,7 @@ public class RouterInfo extends Record implements JSONSerializable {
             MessageDigest md = MessageDigest.getInstance("SHA256");
             //update hash with router info
             md.update(routerID.getElgamalPublicKey().getEncoded());
-            md.update(routerID.getDSASHA1PublicKey().getEncoded());
+            md.update(routerID.getSigningPublicKey().getEncoded());
             //update hash with date
             ByteBuffer longBytes = ByteBuffer.allocate(Long.BYTES);
             longBytes.putLong(date);
@@ -104,6 +105,32 @@ public class RouterInfo extends Record implements JSONSerializable {
         }
         catch (NoSuchAlgorithmException ex) {throw new RuntimeException(ex);} //should not hit this case
     }
+
+    /**
+     * Verify the signature of this record given a public key
+     * @return true if signature is valid false otherwise
+     */
+    @Override
+    public boolean verifySignature() {
+        try {
+            //get signature ready
+            Signature signing = Signature.getInstance("Ed25519");
+            signing.initVerify(routerID.getSigningPublicKey());
+            //update signature in same order we created signature
+            signing.update(routerID.getElgamalPublicKey().getEncoded());
+            signing.update(routerID.getSigningPublicKey().getEncoded());
+            signing.update(ByteBuffer.allocate(Long.BYTES).putLong(date).array());
+            signing.update(routerAddress.host.getBytes(StandardCharsets.UTF_8));
+            signing.update(ByteBuffer.allocate(Integer.BYTES).putInt(routerAddress.port).array());
+
+            return signing.verify(signature);
+        } catch (NoSuchAlgorithmException | SignatureException e) {
+            throw new RuntimeException(e); //should never hit case
+        } catch (InvalidKeyException e) {
+            throw new RuntimeException("Bad private key for SHA1withDSA" + e);
+        }
+    }
+
     /**
      * Deserialize a JSON of RouterInfo
      * @param jsonType JSONObject of RouterInfo
@@ -115,12 +142,12 @@ public class RouterInfo extends Record implements JSONSerializable {
             throw new InvalidObjectException("Type must be JSONObject");
 
         JSONObject json = (JSONObject) jsonType;
-        json.checkValidity(new String[] {"routerID", "data", "routerAddress", "signature"});
+        json.checkValidity(new String[] {"routerID", "date", "routerAddress", "signature"});
 
         routerID = new RouterID(json.getObject("routerID"));
         date = json.getLong("date"); //gosh this get long sure is something huh
         routerAddress = new RouterAddress(json.getObject("routerAddress"));
-        signature = Base64.decode("signature");
+        signature = Base64.decode(json.getString("signature"));
     }
 
     @Override

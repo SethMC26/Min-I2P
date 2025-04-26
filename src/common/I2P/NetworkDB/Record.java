@@ -2,6 +2,8 @@ package common.I2P.NetworkDB;
 
 import merrimackutil.json.JSONSerializable;
 
+import java.security.PublicKey;
+
 /**
  * Records are entires that can be stored in netDB
  */
@@ -42,4 +44,10 @@ public abstract class Record implements JSONSerializable {
     public RecordType getRecordType() {
         return recordType;
     }
+
+    /**
+     * Verify the signature of this record given a public key
+     * @return true if signature is valid false otherwise
+     */
+    public abstract boolean verifySignature();
 }
