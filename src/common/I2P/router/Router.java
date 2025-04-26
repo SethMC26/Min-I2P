@@ -6,11 +6,16 @@ import common.I2P.I2NP.I2NPMessage;
 import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.Tunnel;
+import common.I2P.tunnels.TunnelEndpoint;
+import common.I2P.tunnels.TunnelGateway;
+import common.I2P.tunnels.TunnelManager;
+import common.I2P.tunnels.TunnelParticipant;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -18,13 +23,10 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Router implements Runnable{
     /**
-     * Map of current inbound Tunnels, key is Tunnel ID and Value is appropriate Tunnel
+     * TunnelManager is responsible for managing tunnels
      */
-    ConcurrentHashMap<Integer, Tunnel> inboundTunnels = new ConcurrentHashMap<>();
-    /**
-     * Map of current outbound Tunnels, key is Tunnel ID and Value is appropriate Tunnel
-     */
-    ConcurrentHashMap<Integer, Tunnel> outboundTunnels = new ConcurrentHashMap<>();
+    TunnelManager tunnelManager = new TunnelManager();
+    
     /**
      * Socket is for connecting to client using I2CP protocol
      */
@@ -57,23 +59,59 @@ public class Router implements Runnable{
     }
 
     /**
+     * Build a tunnel using TunnelEndpoint, TunnelGateway, and TunnelParticipant classes
+     * We are operating under the assumption that tunnels do not have time outs and are persistent
+     * When someone connects to the network, they will call this method to build outbound and inbound tunnels for themselves
+     * Reminder: we need some way in the netdb to mark what users the tunnels correspond to
+     * - that info should be retrieved from the build request message sent to the router from the client
+     */
+    public void buildTunnels() {
+        //todo build tunnel using TunnelEndpoint, TunnelGateway, and TunnelParticipant classes
+
+        // generate a random tunnel ID
+        Integer tunnelID = (int) (Math.random() * Integer.MAX_VALUE); // random tunnel id
+        // add check to netdb to see if this tunnel id is already in use
+
+        Tunnel outboundTunnel = new Tunnel();
+
+        // set this router as the tunnel gateway
+        TunnelGateway tunnelGateway = new TunnelGateway(null, null, null, null, null, null, null);
+
+        // add the tunnel gateway to the tunnel manager
+        outboundTunnel.addTunnelObject(tunnelGateway);
+
+        // randomly select tunnel participants and add them to the tunnel
+        List<TunnelParticipant> tunnelParticipants = new ArrayList<>();
+        for (int i = 0; i < 5; i++) { // example: 5 participants
+            // in reality, you would select random routers from the network database
+            TunnelParticipant participant = new TunnelParticipant(null, null, null, null, null, null, null);
+            outboundTunnel.addTunnelObject(participant);
+        }
+
+        // select a random tunnel endpoint and add it to the tunnel
+        // query the network database for a random router
+        TunnelEndpoint tunnelEndpoint = new TunnelEndpoint(null, null, null, null, null, null, null);
+        
+        // add the endpoint to the tunnel
+        outboundTunnel.addTunnelObject(tunnelEndpoint);
+
+        // todo: generate build message
+        // send build message to all participants and endpoint
+        // if recieived a good response, then we can add the tunnel to the tunnel manager
+
+        // add the tunnel to the tunnel manager
+        tunnelManager.addOutboundTunnel(tunnelID, outboundTunnel);
+
+    }
+    
+    /**
      * Route incoming I2NP messages to appropriate tunnel
      * @param tunnelID Integer ID of tunnel to route message to
      * @param message I2NPMessage to route
      */
     public void routeMessage(Integer tunnelID, I2NPMessage message) throws IOException {
         //todo check if tunnel is inbound or outbound and route accordingly
-        Tunnel tunnel = inboundTunnels.get(tunnelID);
-
-        if (tunnel != null) {
-           tunnel = outboundTunnels.get(tunnelID);
-        }
-
-        if (tunnel != null) {
-            tunnel.handleMessage(message);
-        } else {
-            throw new IOException("Tunnel not found for ID: " + tunnelID);
-        }
+        
     }
 
     @Override

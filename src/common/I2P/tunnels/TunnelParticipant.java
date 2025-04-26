@@ -9,7 +9,7 @@ import java.io.IOException;
 /**
  * This class represents a Participant in a Tunnel
  */
-public class TunnelParticipant extends Tunnel{
+public class TunnelParticipant extends TunnelObject{
     /**
      * what router is the next one in the path
      */

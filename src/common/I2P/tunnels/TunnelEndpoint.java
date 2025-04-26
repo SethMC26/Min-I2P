@@ -9,7 +9,7 @@ import java.io.IOException;
 /**
  * This class represents a TunnelEndpoint
  */
-public class TunnelEndpoint extends Tunnel{
+public class TunnelEndpoint extends TunnelObject{
     private RouterID replyRouter;
     private Integer replyTunnelID;
     /**
