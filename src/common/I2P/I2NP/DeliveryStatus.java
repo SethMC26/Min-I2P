@@ -32,7 +32,7 @@ public class DeliveryStatus extends I2NPMessage{
      * @param msgID msg ID of the message for this delivery static
      * @param timestamp Epoch time of when message was successfully created/delivered
      */
-    DeliveryStatus(int msgID, long timestamp) {
+    public DeliveryStatus(int msgID, long timestamp) {
         this.msgID = msgID;
         this.timestamp = timestamp;
     }
@@ -55,4 +55,6 @@ public class DeliveryStatus extends I2NPMessage{
         json.put("timestamp", timestamp);
         return json;
     }
+
+
 }
