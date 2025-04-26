@@ -9,8 +9,7 @@ import org.bouncycastle.util.encoders.Base64;
 import java.io.InvalidObjectException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.security.*;
 
 /**
  * RouterInfo Defines all of the data that a router wants to publish for the network to see
@@ -43,14 +42,30 @@ public class RouterInfo extends Record implements JSONSerializable {
      * @param date Date RouterInfo was published
      * @param host Host of router's address
      * @param port Port to Router is listening to
-     * @param signature Signature of data in router info from RouterID's corresponding private key
+     * @param signingKey PrivateKey to use to sign this RouterID
      */
-    RouterInfo(RouterID routerID, long date, String host, int port, byte[] signature) {
+    public RouterInfo(RouterID routerID, long date, String host, int port, PrivateKey signingKey) {
         super(RecordType.ROUTERINFO);
         this.routerID = routerID;
         this.date = date;
         this.routerAddress = new RouterAddress(host,port);
-        this.signature = signature;
+
+        try {
+            //get signature ready
+            Signature signing = Signature.getInstance("Ed25519");
+            signing.initSign(signingKey);
+            //sign this RouterInfo
+            signing.update(routerID.getElgamalPublicKey().getEncoded());
+            signing.update(routerID.getDSASHA1PublicKey().getEncoded());
+            signing.update(ByteBuffer.allocate(Long.BYTES).putLong(date).array());
+            signing.update(host.getBytes(StandardCharsets.UTF_8));
+            //get signature
+            this.signature = signing.sign();
+        } catch (NoSuchAlgorithmException | SignatureException e) {
+            throw new RuntimeException(e); //should never hit case
+        } catch (InvalidKeyException e) {
+            throw new RuntimeException("Bad private key for SHA1withDSA" + e);
+        }
     }
 
     /**
