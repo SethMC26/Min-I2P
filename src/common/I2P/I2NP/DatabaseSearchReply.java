@@ -31,7 +31,7 @@ public class DatabaseSearchReply extends I2NPMessage{
      * @param peerHashes ArrayList of SHA256 hash of RouterIDs that Router thinks is closest
      * @param fromHash SHA256 hash of RouterInfo of the Router this reply was sent from
      */
-    DatabaseSearchReply(byte[] key, ArrayList<byte[]> peerHashes, byte[] fromHash) {
+    public DatabaseSearchReply(byte[] key, ArrayList<byte[]> peerHashes, byte[] fromHash) {
         this.key = key;
         this.peerHashes = peerHashes;
         this.fromHash = fromHash;

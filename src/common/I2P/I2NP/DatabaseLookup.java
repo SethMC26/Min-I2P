@@ -93,4 +93,20 @@ public class DatabaseLookup extends I2NPMessage{
 
         return jsonObj;
     }
+
+    public byte[] getKey() {
+        return key;
+    }
+
+    public byte[] getFromHash() {
+        return fromHash;
+    }
+
+    public int getReplyFlag() {
+        return replyFlag;
+    }
+
+    public int getReplyTunnelID() {
+        return replyTunnelID;
+    }
 }

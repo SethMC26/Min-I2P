@@ -2,6 +2,7 @@ package common.I2P.router;
 
 import common.I2P.I2NP.*;
 import common.I2P.NetworkDB.NetDB;
+import common.I2P.NetworkDB.Record;
 import common.I2P.NetworkDB.RouterInfo;
 import common.transport.I2NPSocket;
 
@@ -17,8 +18,10 @@ public class RouterServiceThread implements Runnable{
     private I2NPHeader messageHeader;
     private SecureRandom random;
 
-    RouterServiceThread(NetDB networkDatabase, I2NPSocket socket, I2NPHeader messageHeader) {
+    private RouterInfo router;
+    RouterServiceThread(NetDB networkDatabase,RouterInfo router, I2NPSocket socket, I2NPHeader messageHeader) {
         this.netDB = networkDatabase;
+        this.router = router;
         this.sock = socket;
         this.messageHeader = messageHeader;
         this.random = new SecureRandom();
@@ -40,7 +43,7 @@ public class RouterServiceThread implements Runnable{
 
             case DATABASELOOKUP:
                 DatabaseLookup lookup = (DatabaseLookup) messageHeader.getMessage();
-
+                handleLookup(lookup);
                 break;
             case DATABASESEARCHREPLY:
                 DatabaseSearchReply searchReply = (DatabaseSearchReply) messageHeader.getMessage();
@@ -50,7 +53,6 @@ public class RouterServiceThread implements Runnable{
                 DatabaseStore store = (DatabaseStore) messageHeader.getMessage();
                 //add Record to our netDB
                 handleStore(store);
-
                 break;
             case DELIVERYSTATUS:
                 DeliveryStatus status = (DeliveryStatus) messageHeader.getMessage();
@@ -67,7 +69,45 @@ public class RouterServiceThread implements Runnable{
                 throw new RuntimeException("Bad message type " + messageHeader.getType()); // should never hit case in prod
         }
     }
+    private void handleLookup(DatabaseLookup lookup) {
+        //result message
+        I2NPMessage result;
+        //try to find record
+        Record record = netDB.lookup(lookup.getKey());
 
+        if (record != null) {
+           result = new DatabaseStore(record); //create store message if we found record
+        }
+        //if no record found send search reply with closest peers
+        else {
+            //get hashes of closest peers that could have key
+            ArrayList<byte[]> closestPeersHashes = new ArrayList<>();
+            for (RouterInfo currPeer : netDB.getKClosestRouterInfos(lookup.getKey(), 3)) {
+                closestPeersHashes.add(currPeer.getHash());
+            }
+            result = new DatabaseSearchReply(lookup.getKey(), closestPeersHashes, router.getHash());
+        }
+
+        I2NPHeader response = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, messageHeader.getMsgID(),
+                System.currentTimeMillis() + 1000, result);
+
+        //send result to peer who requested it
+        switch (lookup.getReplyFlag()) {
+            case 0 -> {
+                try {
+                    sock.sendMessage(response);
+                }
+                catch (IOException e) {
+                    System.err.println("could not send message I/O error " + e.getMessage());
+                }
+            }
+            case 1 -> {
+                //todo send message on tunnel using tunnelID
+                int tunnelID = lookup.getReplyTunnelID();
+            }
+        }
+
+    }
     private void handleStore(DatabaseStore store) {
         //add Record to our netDB
         netDB.store(store.getRecord());
