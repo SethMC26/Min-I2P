@@ -4,6 +4,7 @@ import common.I2P.IDs.RouterID;
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
+import org.bouncycastle.util.encoders.Base64;
 
 import java.io.InvalidObjectException;
 import java.nio.ByteBuffer;
@@ -16,7 +17,7 @@ import java.security.NoSuchAlgorithmException;
  *
  * @implNote Spec has addresses as an array but I think for our case we will just have each router have a single address
  */
-public class RouterInfo implements JSONSerializable {
+public class RouterInfo extends Record implements JSONSerializable {
     /**
      * Router ID of this router
      */
@@ -31,6 +32,10 @@ public class RouterInfo implements JSONSerializable {
      * RouterAddress for RouterInfo
      */
     private RouterAddress routerAddress;
+    /**
+     * Signature of this RouterIndo from corresponding private key in RouterID
+     */
+    private byte[] signature;
 
     /**
      * Create new RouterInfo Object
@@ -38,11 +43,14 @@ public class RouterInfo implements JSONSerializable {
      * @param date Date RouterInfo was published
      * @param host Host of router's address
      * @param port Port to Router is listening to
+     * @param signature Signature of data in router info from RouterID's corresponding private key
      */
-    RouterInfo(RouterID routerID, long date, String host, int port) {
+    RouterInfo(RouterID routerID, long date, String host, int port, byte[] signature) {
+        super(RecordType.ROUTERINFO);
         this.routerID = routerID;
         this.date = date;
         this.routerAddress = new RouterAddress(host,port);
+        this.signature = signature;
     }
 
     /**
@@ -51,6 +59,7 @@ public class RouterInfo implements JSONSerializable {
      * @throws InvalidObjectException
      */
     public RouterInfo(JSONObject json) throws InvalidObjectException {
+        super(RecordType.ROUTERINFO);
         deserialize(json);
     }
 
@@ -91,10 +100,12 @@ public class RouterInfo implements JSONSerializable {
             throw new InvalidObjectException("Type must be JSONObject");
 
         JSONObject json = (JSONObject) jsonType;
+        json.checkValidity(new String[] {"routerID", "data", "routerAddress", "signature"});
 
         routerID = new RouterID(json.getObject("routerID"));
         date = json.getLong("date"); //gosh this get long sure is something huh
         routerAddress = new RouterAddress(json.getObject("routerAddress"));
+        signature = Base64.decode("signature");
     }
 
     @Override
@@ -103,6 +114,7 @@ public class RouterInfo implements JSONSerializable {
         json.put("routerID", routerID.toJSONType());
         json.put("date", date);
         json.put("routerAddress", routerAddress.toJSONType());
+        json.put("signature", Base64.toBase64String(signature));
         return json;
     }
 

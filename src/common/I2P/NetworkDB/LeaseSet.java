@@ -15,7 +15,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.HashSet;
 
-public class LeaseSet implements JSONSerializable {
+public class LeaseSet extends Record implements JSONSerializable {
     /**
      * Destination leases belong to
      */
@@ -47,6 +47,7 @@ public class LeaseSet implements JSONSerializable {
      * @param signature Signature of all data using the corresponding private signing key to {@code signingPublicKey}
      */
     public LeaseSet(HashSet<Lease> leases, Destination destination, PublicKey encryptionKey, PublicKey singingPublicKey, byte[] signature) {
+        super(RecordType.LEASESET);
         this.leases = leases;
         this.destination = destination;
         this.encryptionKey = encryptionKey;
@@ -60,7 +61,17 @@ public class LeaseSet implements JSONSerializable {
      * @throws InvalidObjectException throws if JSON is invalid
      */
     public LeaseSet(JSONObject json) throws InvalidObjectException{
+        super(RecordType.LEASESET);
         deserialize(json);
+    }
+
+    /**
+     * Get SHA256 hash of destination
+     * @return 32 byte sha256 hash
+     */
+    @Override
+    public byte[] getHash() {
+       return destination.getHash();
     }
 
     @Override
