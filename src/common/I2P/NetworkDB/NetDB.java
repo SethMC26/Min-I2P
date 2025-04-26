@@ -28,6 +28,9 @@ public class NetDB {
     public NetDB(RouterInfo routerInfo) {
         this.routerInfo = routerInfo;
         routingTable = new HashMap<>(); //create new routingTable we will use lazy initialization for each bucket
+
+        //we will store ourselfs in netDB in case someone wants to lookup us
+        store(routerInfo);
     }
 
     /**

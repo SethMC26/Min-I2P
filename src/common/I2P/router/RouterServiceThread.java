@@ -4,6 +4,7 @@ import common.I2P.I2NP.*;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.Record;
 import common.I2P.NetworkDB.RouterInfo;
+import common.Logger;
 import common.transport.I2NPSocket;
 
 import java.io.IOException;
@@ -19,12 +20,13 @@ public class RouterServiceThread implements Runnable{
     private SecureRandom random;
 
     private RouterInfo router;
-    RouterServiceThread(NetDB networkDatabase,RouterInfo router, I2NPSocket socket, I2NPHeader messageHeader) {
+    private Logger log;
+    public RouterServiceThread(NetDB networkDatabase, RouterInfo router, I2NPHeader messageHeader) {
         this.netDB = networkDatabase;
         this.router = router;
-        this.sock = socket;
         this.messageHeader = messageHeader;
         this.random = new SecureRandom();
+        this.log= Logger.getInstance();
     }
 
     /**
@@ -32,26 +34,31 @@ public class RouterServiceThread implements Runnable{
      */
     @Override
     public void run() {
-        if (!messageHeader.isPayloadValid())
-            return; //corrupt message - may want to add response for reliable send in future
+        log.trace("Received message " + messageHeader.toJSONType().getFormattedJSON());
+        if (!messageHeader.isPayloadValid()){
+            log.warn("Received corrupted payload");
+            return;//corrupt message - may want to add response for reliable send in future
+        }
 
-        if (messageHeader.getExpiration() > System.currentTimeMillis())
+        if (messageHeader.getExpiration() > System.currentTimeMillis()) {
+            log.warn("Received expired message");
             return; //message has expired throw away
-
+        }
 
         switch(messageHeader.getType()) {
-
             case DATABASELOOKUP:
                 DatabaseLookup lookup = (DatabaseLookup) messageHeader.getMessage();
+                log.trace("Handling lookup message " + lookup.toJSONType().getFormattedJSON());
                 handleLookup(lookup);
                 break;
             case DATABASESEARCHREPLY:
                 DatabaseSearchReply searchReply = (DatabaseSearchReply) messageHeader.getMessage();
-
+                log.trace("Handling search reply " + searchReply.toJSONType().getFormattedJSON());
                 break;
             case DATABASESTORE:
                 DatabaseStore store = (DatabaseStore) messageHeader.getMessage();
                 //add Record to our netDB
+                log.trace("Handling store message " + store.toJSONType().getFormattedJSON());
                 handleStore(store);
                 break;
             case DELIVERYSTATUS:
@@ -76,10 +83,12 @@ public class RouterServiceThread implements Runnable{
         Record record = netDB.lookup(lookup.getKey());
 
         if (record != null) {
+            log.trace("Found Record in NetDB");
            result = new DatabaseStore(record); //create store message if we found record
         }
         //if no record found send search reply with closest peers
         else {
+            log.trace("Record not found sending nearest neighbors");
             //get hashes of closest peers that could have key
             ArrayList<byte[]> closestPeersHashes = new ArrayList<>();
             for (RouterInfo currPeer : netDB.getKClosestRouterInfos(lookup.getKey(), 3)) {
@@ -91,6 +100,7 @@ public class RouterServiceThread implements Runnable{
         I2NPHeader response = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, messageHeader.getMsgID(),
                 System.currentTimeMillis() + 1000, result);
 
+        log.trace("Response message is " + response.toJSONType().getFormattedJSON());
         //send result to peer who requested it
         switch (lookup.getReplyFlag()) {
             case 0 -> {

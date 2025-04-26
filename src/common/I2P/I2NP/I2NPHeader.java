@@ -133,6 +133,7 @@ public class I2NPHeader implements JSONSerializable {
                 break;
             case TYPE.TUNNELBUILD:
                 message = new TunnelBuild(messageObj);
+                break;
             default:
                 throw new InvalidObjectException("Bad type: " + type);
         }
