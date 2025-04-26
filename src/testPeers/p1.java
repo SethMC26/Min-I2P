@@ -1,5 +1,6 @@
 package testPeers;
 
+import common.I2P.I2NP.DatabaseLookup;
 import common.I2P.I2NP.DatabaseStore;
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.IDs.RouterID;
@@ -55,9 +56,19 @@ public class p1 {
             sock.connect(new InetSocketAddress("127.0.0.1", 8080));
 
             DatabaseStore databaseStore = new DatabaseStore(routerInfo);
-            //databaseStore.setReply(500, new byte[32]);
-            I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, 1, System.currentTimeMillis() + 10, databaseStore);
+            I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, 1, System.currentTimeMillis() + 1000, databaseStore);
 
+            sock.sendMessage(msg);
+
+            try {
+                Thread.sleep(1_000);                 // wait 1000 ms
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();  // restore interrupt status
+            }
+
+            DatabaseLookup databaseLookup = new DatabaseLookup(routerInfo.getHash(), routerInfo.getHash());
+            databaseStore.setReply(500, new byte[32]);
+            msg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000, databaseLookup);
             sock.sendMessage(msg);
         }
         catch(Exception e) {

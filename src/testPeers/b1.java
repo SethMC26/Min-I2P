@@ -18,7 +18,7 @@ public class b1 {
     public static void main(String[] args) {
         Security.addProvider(new BouncyCastleProvider());
         Logger log = Logger.getInstance();
-        log.setMinLevel(Logger.Level.DEBUG);
+        log.setMinLevel(Logger.Level.TRACE);
 
 
         try {
