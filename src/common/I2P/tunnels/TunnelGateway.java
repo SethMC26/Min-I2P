@@ -37,7 +37,18 @@ public class TunnelGateway extends Tunnel{
     }
 
     @Override
-    void handleMessage(I2NPMessage message) throws IOException {
+    public void handleMessage(I2NPMessage message) throws IOException {
+        // encrypt
+        // send message to next hop
         throw new RuntimeException("Not implemented");
+    }
+
+    private byte[] encryptMessage(I2NPMessage message) {
+        // Implement encryption using tunnelEncryptionKey and tunnelIVKey
+        return new byte[0]; // placeholder
+    }
+
+    private void sendToNextHop(byte[] encryptedMessage) {
+        // Send to next router in tunnel
     }
 }

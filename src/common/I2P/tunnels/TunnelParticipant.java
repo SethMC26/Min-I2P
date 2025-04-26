@@ -37,7 +37,24 @@ public class TunnelParticipant extends Tunnel{
     }
 
     @Override
-    void handleMessage(I2NPMessage message) throws IOException {
+    public void handleMessage(I2NPMessage message) throws IOException {
+        // decrypt the message
+        // remove the outside layer
+        // send to next hop
         throw new RuntimeException("Not implemented");
+    }
+
+    private byte[] decryptLayer(I2NPMessage message) {
+        // AES decrypt one layer
+        return new byte[0]; // placeholder
+    }
+
+    private I2NPMessage rebuildMessage(byte[] decrypted) {
+        // Reconstruct message
+        return null;
+    }
+
+    private void sendToNextHop(I2NPMessage message) {
+        // Send to next hop
     }
 }

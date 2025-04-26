@@ -30,7 +30,18 @@ public class TunnelEndpoint extends Tunnel{
     }
 
     @Override
-    void handleMessage(I2NPMessage message) throws IOException {
+    public void handleMessage(I2NPMessage message) throws IOException {
+        // decrypt the message
+        // deliver to local destination or inbound tunnel gateway
         throw new RuntimeException("Not implemented");
+    }
+
+    private byte[] decryptCompletely(I2NPMessage message) {
+        // Final decryption step
+        return new byte[0]; // placeholder
+    }
+
+    private void deliver(byte[] payload) {
+        // Hand off to local destination (e.g., client or service) or inbound tunnel gateway
     }
 }

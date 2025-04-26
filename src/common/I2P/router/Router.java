@@ -3,12 +3,14 @@ package common.I2P.router;
 import common.I2P.I2NP.DatabaseStore;
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.I2NPMessage;
+import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.Tunnel;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -52,6 +54,26 @@ public class Router implements Runnable{
         clientSock = new ServerSocket(7000); //hard coded for now we will fix later
 
         //todo connect to bootstrap peer to get initial networkdb and tunnels
+    }
+
+    /**
+     * Route incoming I2NP messages to appropriate tunnel
+     * @param tunnelID Integer ID of tunnel to route message to
+     * @param message I2NPMessage to route
+     */
+    public void routeMessage(Integer tunnelID, I2NPMessage message) throws IOException {
+        //todo check if tunnel is inbound or outbound and route accordingly
+        Tunnel tunnel = inboundTunnels.get(tunnelID);
+
+        if (tunnel != null) {
+           tunnel = outboundTunnels.get(tunnelID);
+        }
+
+        if (tunnel != null) {
+            tunnel.handleMessage(message);
+        } else {
+            throw new IOException("Tunnel not found for ID: " + tunnelID);
+        }
     }
 
     @Override

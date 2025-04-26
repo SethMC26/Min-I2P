@@ -66,6 +66,6 @@ public abstract class Tunnel {
      * @param message I2NP message received
      * @throws IOException Throws if error occurs while sending
      */
-   abstract void handleMessage(I2NPMessage message) throws IOException;
+   public abstract void handleMessage(I2NPMessage message) throws IOException;
 
 }
