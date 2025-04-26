@@ -1,9 +1,11 @@
 package common.I2P.NetworkDB;
 
+import merrimackutil.json.JSONSerializable;
+
 /**
  * Records are entires that can be stored in netDB
  */
-public abstract class Record {
+public abstract class Record implements JSONSerializable {
     /**
      * Type of record {@code LEASESET or ROUTERINFO}
      * @apiNote made to help with casting

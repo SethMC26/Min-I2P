@@ -12,7 +12,7 @@ import java.io.InvalidObjectException;
 import java.util.HashMap;
 import java.util.List;
 
-public class TunnelBuild  implements JSONSerializable{
+public class TunnelBuild extends I2NPMessage implements JSONSerializable{
     /**
      * Records key is toPeer 16 byte SHA256 hash of peerID with value being record
      */

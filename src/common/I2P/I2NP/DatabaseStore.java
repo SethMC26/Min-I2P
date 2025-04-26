@@ -1,6 +1,8 @@
 package common.I2P.I2NP;
 
+import common.I2P.NetworkDB.Lease;
 import common.I2P.NetworkDB.LeaseSet;
+import common.I2P.NetworkDB.Record;
 import common.I2P.NetworkDB.RouterInfo;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
@@ -39,14 +41,9 @@ public class DatabaseStore extends I2NPMessage{
     private byte[] replyGateway;
 
     /**
-     * RouterInfo for database message, type must be 0
+     * Record to store {@code must be RouterInfo or LeaseSet}
      */
-    private RouterInfo routerInfo;
-
-    /**
-     *  LeaseSet in database message, type must be 1
-     */
-    private LeaseSet leaseSet;
+    private Record record;
 
     /**
      * Create I2NPMessage from JSONObject
@@ -58,27 +55,17 @@ public class DatabaseStore extends I2NPMessage{
     }
 
     /**
-     * Create databaseStore message with RouterInfo
-     * @param key SHA256 hash as key
-     * @param routerInfo RouterInfo to store
-     * @apiNote must call setReply if reply needed
+     * Create DatabaseStore message for {@code record}
+     * @param record Record to store
      */
-    public DatabaseStore(byte[] key, RouterInfo routerInfo) {
-        this.storeType = 0;
-        this.key = key;
-        this.routerInfo = routerInfo;
-    }
-
-    /**
-     * Create databaseStore message with RouterInfo
-     * @param key SHA256 hash as key
-     * @param leaseSet leaseSet  to store
-     * @apiNote must call setReply if reply needed
-     */
-    public DatabaseStore(byte[] key, LeaseSet leaseSet) {
-        this.storeType = 1;
-        this.key = key;
-        this.leaseSet = leaseSet;
+    public DatabaseStore(Record record) {
+        switch(record.getRecordType()) {
+            case ROUTERINFO -> this.storeType = 0;
+            case LEASESET -> this.storeType = 1;
+            default -> throw new IllegalArgumentException("bad type " + record.getRecordType()); //should never hit case
+        }
+        this.key = record.getHash();
+        this.record = record;
     }
 
     /**
@@ -91,7 +78,7 @@ public class DatabaseStore extends I2NPMessage{
         this.replyTunnelID = replyTunnelID;
         this.replyGateway = replyGateway;
     }
-    //default flag
+
     @Override
     public void deserialize(JSONType jsonType) throws InvalidObjectException {
         if (!(jsonType instanceof JSONObject))
@@ -114,14 +101,9 @@ public class DatabaseStore extends I2NPMessage{
 
         //switch based on type of database store to get proper date out
         switch(storeType) {
-            case 0:
-                routerInfo = new RouterInfo(json.getObject("data"));
-                break;
-            case 1:
-                leaseSet = new LeaseSet(json.getObject("data"));
-                break;
-            default:
-                throw new InvalidObjectException("Bad store type " + storeType);
+            case 0-> record = new RouterInfo(json.getObject("data"));
+            case 1 -> record = new LeaseSet(json.getObject("data"));
+            default -> throw new InvalidObjectException("Bad store type " + storeType);
         }
 
     }
@@ -140,18 +122,45 @@ public class DatabaseStore extends I2NPMessage{
             databaseStoreJSON.put("replyGateway", Base64.toBase64String(replyGateway));
         }
 
-        //put in data based on store type
-        switch(storeType) {
-            case 0:
-                databaseStoreJSON.put("data", routerInfo.toJSONType());
-                break;
-            case 1:
-                databaseStoreJSON.put("data", leaseSet.toJSONType());
-                break;
-            default:
-                throw new IllegalArgumentException("Bad store type " + storeType); //should not get here
-        }
+        //add record
+        databaseStoreJSON.put("data", record.toJSONType());
 
         return databaseStoreJSON;
+    }
+
+    public int getStoreType() {
+        return storeType;
+    }
+
+    public Record getRecord() {
+        return record;
+    }
+
+    public RouterInfo getRouterInfo() {
+        if (storeType != 0)
+            throw new IllegalArgumentException("Type must be 1 to get RouterInfo Type: " + storeType);
+        return (RouterInfo) record;
+    }
+
+    public LeaseSet getLeaseSet() {
+        if (storeType != 1)
+            throw new IllegalArgumentException("Type must be 0 to get leaseSet Type: " +storeType);
+        return (LeaseSet) record;
+    }
+
+    public int getReplyToken() {
+        return replyToken;
+    }
+
+    public int getReplyTunnelID() {
+        return replyTunnelID;
+    }
+
+    public byte[] getReplyGateway() {
+        return replyGateway;
+    }
+
+    public byte[] getKey() {
+        return key;
     }
 }

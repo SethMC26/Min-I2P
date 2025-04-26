@@ -118,6 +118,26 @@ public class RouterInfo extends Record implements JSONSerializable {
         return json;
     }
 
+    public RouterID getRouterID() {
+        return routerID;
+    }
+
+    public byte[] getSignature() {
+        return signature;
+    }
+
+    public long getDate() {
+        return date;
+    }
+
+    public int getPort() {
+        return routerAddress.port;
+    }
+
+    public String getHost() {
+        return routerAddress.host;
+    }
+
     /**
      * Address(s) used by router we just use a host and port
      */
