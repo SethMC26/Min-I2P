@@ -15,7 +15,6 @@ import java.util.ArrayList;
 
 public class RouterServiceThread implements Runnable{
     private NetDB netDB;
-    private I2NPSocket sock;
     private I2NPHeader messageHeader;
     private SecureRandom random;
 
@@ -40,7 +39,7 @@ public class RouterServiceThread implements Runnable{
             return;//corrupt message - may want to add response for reliable send in future
         }
 
-        if (messageHeader.getExpiration() > System.currentTimeMillis()) {
+        if (messageHeader.getExpiration() < System.currentTimeMillis()) {
             log.warn("Received expired message");
             return; //message has expired throw away
         }
@@ -48,17 +47,17 @@ public class RouterServiceThread implements Runnable{
         switch(messageHeader.getType()) {
             case DATABASELOOKUP:
                 DatabaseLookup lookup = (DatabaseLookup) messageHeader.getMessage();
-                log.trace("Handling lookup message " + lookup.toJSONType().getFormattedJSON());
+                log.trace("Handling lookup message ");
                 handleLookup(lookup);
                 break;
             case DATABASESEARCHREPLY:
                 DatabaseSearchReply searchReply = (DatabaseSearchReply) messageHeader.getMessage();
-                log.trace("Handling search reply " + searchReply.toJSONType().getFormattedJSON());
+                log.trace("Handling search reply ");
                 break;
             case DATABASESTORE:
                 DatabaseStore store = (DatabaseStore) messageHeader.getMessage();
                 //add Record to our netDB
-                log.trace("Handling store message " + store.toJSONType().getFormattedJSON());
+                log.trace("Handling store message ");
                 handleStore(store);
                 break;
             case DELIVERYSTATUS:
@@ -101,11 +100,51 @@ public class RouterServiceThread implements Runnable{
                 System.currentTimeMillis() + 1000, result);
 
         log.trace("Response message is " + response.toJSONType().getFormattedJSON());
+
         //send result to peer who requested it
         switch (lookup.getReplyFlag()) {
             case 0 -> {
+                Record requestRouter = netDB.lookup(lookup.getFromHash());
+                //check if we dont know where to send message to
+                if (requestRouter == null) {
+                    //we will ask two of our buddies to see if we could find info to send to information back to this router
+                    ArrayList<RouterInfo> closestPeers = netDB.getKClosestRouterInfos(lookup.getFromHash(), 2);
+                    try {
+                        I2NPSocket peerSock = new I2NPSocket();
+                        I2NPHeader peerLookup = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
+                                System.currentTimeMillis() + 100, new DatabaseLookup(lookup.getFromHash(), router.getHash()));
+                        for (RouterInfo peer : closestPeers) {
+                            peerSock.connect(new InetSocketAddress(peer.getHost(), peer.getPort()));
+                            peerSock.sendMessage(peerLookup);
+                            peerSock.disconnect();
+                        }
+
+                        Thread.sleep(1000); // lets wait one second for the results
+                    } catch (IOException e) {
+                        log.warn("Could not connect to peers" + e);
+                    } catch (InterruptedException e) {
+                        log.warn("Sleep was interrupted");
+                    }
+                    //try to get peer who requested lookup again
+                    requestRouter = netDB.lookup(lookup.getFromHash());
+                    //if we still do not know give up
+                    if (requestRouter == null) {
+                        log.warn("Could not find who sent lookup even after asking peers fromHash: " + lookup.getFromHash());
+                        return;
+                    }
+                }
+                if (record.getRecordType() == Record.RecordType.LEASESET) {
+                    //todo handle this case, question for sam can we use leaseSets to send a message
+                    return;
+                }
+
+                //lets send our lookup response back to peer who requested it
+                RouterInfo requestRouterInfo = (RouterInfo) requestRouter;
                 try {
-                    sock.sendMessage(response);
+                    I2NPSocket respondSock = new I2NPSocket();
+                    respondSock.connect(new InetSocketAddress(requestRouterInfo.getHost(), requestRouterInfo.getPort()));
+
+                    respondSock.sendMessage(response);
                 }
                 catch (IOException e) {
                     System.err.println("could not send message I/O error " + e.getMessage());
@@ -113,7 +152,6 @@ public class RouterServiceThread implements Runnable{
             }
             case 1 -> {
                 //todo send message on tunnel using tunnelID
-                int tunnelID = lookup.getReplyTunnelID();
             }
         }
 
