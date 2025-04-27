@@ -50,7 +50,7 @@ public class RouterServiceThread implements Runnable{
         this.router = router;
         this.recievedMessage = recievedMessage;
         this.random = new SecureRandom();
-        this.log= Logger.getInstance();
+        this.log = Logger.getInstance();
     }
 
     /**
