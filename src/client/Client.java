@@ -13,6 +13,9 @@ public class Client {
     private static String ipAddress;
     private static int port;
 
+    /**
+     * This tells the user how to use the program
+     */
     public static void usage() {
         System.out.println("Usage: ");
         System.out.println("  client --create --userName <username> --port <port> --ipAddress <ipAddress>");
@@ -33,6 +36,11 @@ public class Client {
         System.out.printf("  %-15s %-20s\n", "-h, --help", "Pulls up the help menus");
     }
 
+    /**
+     * Processes the arguments passed to the program
+     *
+     * @param args
+     */
     public static void processArgs(String[] args) {
         OptionParser parser;
 
@@ -102,11 +110,13 @@ public class Client {
             }
         }
 
+        // Check if help was requested
         if (doHelp) {
             usage();
             System.exit(0);
         }
 
+        // Check if create was requested
         if (doCreate) {
             if (userName == null || port <= 0 || port >= 65535 || ipAddress == null) {
                 System.out.println("Missing required arguments for create");
@@ -118,6 +128,7 @@ public class Client {
             System.out.println("Creating user...");
         }
 
+        // Check if add was requested
         if (doAdd) {
             if (userName == null || port <= 0 || port >= 65535 || ipAddress == null || songName == null || songPath == null) {
                 System.out.println("Missing required arguments for add");
@@ -129,6 +140,7 @@ public class Client {
             System.out.println("Adding song...");
         }
 
+        // Check if play was requested
         if (doPlay) {
             if (userName == null || port <= 0 || port >= 65535 || ipAddress == null || songName == null) {
                 System.out.println("Missing required arguments for play");
@@ -140,6 +152,7 @@ public class Client {
             System.out.println("Playing song...");
         }
 
+        // Check if list was requested
         if (doList) {
             if (userName == null || port <= 0 || port >= 65535 || ipAddress == null) {
                 System.out.println("Missing required arguments for list");
