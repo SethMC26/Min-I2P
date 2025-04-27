@@ -66,7 +66,7 @@ public class NetDB {
 
         //add record to bucket under its key(hash of record)
         bucket.put(Base64.toBase64String(record.getHash()), record);
-        log.trace("Put record into bucket " + distance);
+        log.debug("Put record into bucket " + distance + " hash " + Base64.toBase64String(record.getHash()));
         log.trace(logNetDB());
     }
 

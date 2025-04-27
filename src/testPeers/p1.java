@@ -20,7 +20,7 @@ public class p1 {
     public static void main(String[] args) {
         Security.addProvider(new BouncyCastleProvider());
         Logger log = Logger.getInstance();
-        log.setMinLevel(Logger.Level.TRACE);
+        log.setMinLevel(Logger.Level.DEBUG);
 
 
         try {
@@ -64,7 +64,7 @@ public class p1 {
             }
 
             DatabaseLookup databaseLookup = new DatabaseLookup(routerInfo.getHash(), routerInfo.getHash());
-            databaseStore.setReply(500, new byte[32]);
+            //databaseStore.setReply(500, new byte[32]);
             msg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000, databaseLookup);
             sock.sendMessage(msg, "127.0.0.1", 8080);
 
