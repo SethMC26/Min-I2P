@@ -12,6 +12,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InvalidObjectException;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -160,8 +162,13 @@ public class Server {
 
         try {
 
+            ServerSocket serverSocket = new ServerSocket(port);
+
             while(true) {
-                executor.execute(new ServerConnectionHandler(audioDatabase, usersDatabase));
+
+                Socket socket = serverSocket.accept();
+
+                executor.execute(new ServerConnectionHandler(socket, audioDatabase, usersDatabase));
             }
         } catch (Exception e) {
             System.err.println("Error starting server: " + e.getMessage());
