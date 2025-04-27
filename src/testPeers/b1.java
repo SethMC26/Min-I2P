@@ -45,7 +45,7 @@ public class b1 {
 
             //create information about this router
             RouterID routerID = new RouterID(pubKey, signingpubKey);
-            RouterInfo routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), "127.0.0.1", 6969, signingprivKey);
+            RouterInfo routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), "127.0.0.1", 8080, signingprivKey);
 
             NetDB netDB = new NetDB(routerInfo);
             I2NPSocket sock = new I2NPSocket( 8080, InetAddress.getByName("127.0.0.1"));

@@ -145,8 +145,6 @@ public class RouterServiceThread implements Runnable{
                         I2NPHeader storeMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, random.nextInt(),
                                 System.currentTimeMillis() + 100, new DatabaseStore(router));
                         sock.sendMessage(storeMsg, (RouterInfo) requestRouter);
-                        System.err.println("CCCC");
-
                         return;
                     } catch (SocketException e) {
                         log.warn("Could not connect to peer " + Base64.toBase64String(requestRouter.getHash()));
@@ -159,8 +157,9 @@ public class RouterServiceThread implements Runnable{
                 }
                 //check if we dont know where to send message to
                 if (requestRouter == null) {
+                    log.trace("Could not find peer: " + Base64.toBase64String(lookup.getFromHash()));
                     //attempt to find peer for reply we will wait 1 seconds
-                    findPeerRecordForReply(10, lookup.getFromHash());
+                    findPeerRecordForReply(50, lookup.getFromHash());
                     requestRouter = netDB.lookup(lookup.getFromHash());
                     //if we still do not know give up
                     if (requestRouter == null) {
@@ -305,11 +304,10 @@ public class RouterServiceThread implements Runnable{
                 if (peer.getPort() == router.getPort())
                     continue;
 
+                log.trace("Asking peer port: " + peer.getPort() + " to find: " + Base64.toBase64String(fromHash));
                 I2NPHeader peerLookup = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
                         System.currentTimeMillis() + 100, new DatabaseLookup(router.getHash(), fromHash));
                 peerSock.sendMessage(peerLookup, peer);
-                System.err.println("BBBB" + peer.getPort());
-
             }
 
             Thread.sleep(msToWait); // wait for results
