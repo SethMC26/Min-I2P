@@ -1,6 +1,8 @@
 package common.transport;
 
 import common.I2P.I2NP.I2NPHeader;
+import common.I2P.NetworkDB.RouterInfo;
+import common.I2P.router.Router;
 import merrimackutil.json.JsonIO;
 import merrimackutil.json.types.JSONObject;
 
@@ -42,17 +44,14 @@ public class I2NPSocket extends DatagramSocket {
      * @throws IOException  if an I/O error occurs.
      * @throws IllegalArgumentException if remoteSocketAddress is null
      */
-    public void sendMessage(I2NPHeader message) throws IOException {
+    public void sendMessage(I2NPHeader message, RouterInfo toSend) throws IOException {
         byte[] messageByte = message.serialize().getBytes(StandardCharsets.UTF_8);
         if (messageByte.length > MAX_SIZE)
             throw new RuntimeException("Bytes is over max size! We will need to increase max size");
 
-        SocketAddress remoteAddress = getRemoteSocketAddress();
+        InetSocketAddress toSendAddress = new InetSocketAddress(toSend.getHost(), toSend.getPort());
 
-        if (remoteAddress == null)
-            throw new IllegalArgumentException("Remote address is null!, must call .connect first before sending");
-
-        DatagramPacket pkt = new DatagramPacket(messageByte, messageByte.length, remoteAddress);
+        DatagramPacket pkt = new DatagramPacket(messageByte, messageByte.length, toSendAddress);
         send(pkt);
     }
 

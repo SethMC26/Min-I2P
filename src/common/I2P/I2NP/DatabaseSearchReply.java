@@ -80,4 +80,16 @@ public class DatabaseSearchReply extends I2NPMessage{
 
         return jsonObject;
     }
+
+    public byte[] getFromHash() {
+        return fromHash;
+    }
+
+    public byte[] getKey() {
+        return key;
+    }
+
+    public ArrayList<byte[]> getPeerHashes() {
+        return peerHashes;
+    }
 }
