@@ -1,25 +1,26 @@
 package common.I2P.router;
 
+import common.I2P.I2NP.DatabaseStore;
+import common.I2P.I2NP.I2NPHeader;
 import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.TunnelManager;
+import common.transport.I2NPSocket;
 
 import java.io.File;
 import java.io.IOException;
-
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.security.SecureRandom;
+import java.security.NoSuchProviderException;
+import java.security.Security;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 /**
  * Class represents Core Router module of I2P
  */
@@ -63,7 +64,7 @@ public class Router implements Runnable {
     /**
      * DSA-SHA1 key pair for this router
      */
-    KeyPair dsaKeyPair;
+    KeyPair edKeyPair;
 
     /**
      * Create router from specified config file
@@ -73,7 +74,9 @@ public class Router implements Runnable {
     Router(File configFile) throws IOException {
         // todo add config parsing
         int port = 7000; // hard coded for now we will fix later
-        setUp(port);
+        this.port = port;
+        int boot = 8080;
+        setUp(port, boot);
     }
 
     /**
@@ -82,73 +85,36 @@ public class Router implements Runnable {
     public Router(int port, int bootstrapPort) throws IOException {
         // todo add config parsing
         this.port = port;
-        setUp(port);
+        setUp(port, bootstrapPort);
     }
 
-    private void setUp(int port) throws IOException {
-        // todo set proper date from config
-        // todo add bootstrap peer
-        // setup server socket to communicate with client(application layer)
-        clientSock = new ServerSocket(port); // hard coded for now we will fix later
+    private void setUp(int port, int bootstrapPort) throws IOException {
+        Security.addProvider(new BouncyCastleProvider()); // Add BouncyCastle provider for cryptography
+    
+        // Bind the socket to the router's port
+        I2NPSocket socket = new I2NPSocket(port, InetAddress.getByName("127.0.0.1"));
+    
+        // Generate keys and create RouterInfo
+        elgamalKeyPair = generateKeyPairElGamal();
+        edKeyPair = generateKeyPairEd();
+        routerID = new RouterID(elgamalKeyPair.getPublic(), edKeyPair.getPublic());
+        routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), "127.0.0.1", port, edKeyPair.getPrivate());
+    
+        // Initialize NetDB
+        netDB = new NetDB(routerInfo);
+    
+        // Send a DatabaseStore message to the bootstrap peer
+        DatabaseStore databaseStore = new DatabaseStore(routerInfo);
+        I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, 1, System.currentTimeMillis() + 1000, databaseStore);
+    
+        socket.sendMessage(msg, "127.0.0.1", bootstrapPort);
 
-        // create a router ID for this router and add self to network database
-        // generate elgamal keypair for this router
-        elgamalKeyPair = generateKeyPairElGamal(); // generate a random keypair
-        PublicKey elgamalPublicKey = elgamalKeyPair.getPublic(); // get the public key
-
-        // generate DSA-SHA1 keypair for this router
-        dsaKeyPair = generateKeyPairDSASHA1(); // generate a random keypair
-        PublicKey dsaPublicKey = dsaKeyPair.getPublic(); // get the public key
-
-        routerID = new RouterID(elgamalPublicKey, dsaPublicKey); // generate a random router ID
-
-        // create router info for this router
-        routerInfo = new RouterInfo(routerID, (Long) null, "127.0.0.1", port, null);
-
-        // create network database for this router
-        netDB = new NetDB(routerInfo); // create a new network database for this router
-    }
-
-    private byte[] encryptWithElGamal(byte[] data, PublicKey publicKey) {
-        try {
-            Cipher cipher = Cipher.getInstance("ElGamal/None/PKCS1Padding", "BC");
-            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-            return cipher.doFinal(data);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to encrypt with ElGamal", e);
+        // Start the router service thread to handle incoming messages
+        ExecutorService threadpool = Executors.newFixedThreadPool(5);
+        while (true) {
+            I2NPHeader message = socket.getMessage();
+            threadpool.execute(new RouterServiceThread(netDB, routerInfo, message));
         }
-    }
-
-    private byte[] decryptWithElGamal(byte[] data, PrivateKey privateKey) {
-        try {
-            Cipher cipher = Cipher.getInstance("ElGamal/None/PKCS1Padding", "BC");
-            cipher.init(Cipher.DECRYPT_MODE, privateKey);
-            return cipher.doFinal(data);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to decrypt with ElGamal", e);
-        }
-    }
-
-    private int generateMessageID() {
-        // todo generate a random message ID for the message
-        // for now we will just return a random number
-        return (int) (Math.random() * Integer.MAX_VALUE);
-    }
-
-    private SecretKey generateAESKey() {
-        try {
-            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-            keyGen.init(256); // Use 256-bit AES keys
-            return keyGen.generateKey();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("AES algorithm not available", e);
-        }
-    }
-
-    private byte[] generateIV(int size) {
-        byte[] iv = new byte[size];
-        new SecureRandom().nextBytes(iv);
-        return iv;
     }
 
     private static KeyPair generateKeyPairElGamal() {
@@ -163,11 +129,17 @@ public class Router implements Runnable {
         return null;
     }
 
-    private static KeyPair generateKeyPairDSASHA1() {
+    // ed signing keypair generation
+    private static KeyPair generateKeyPairEd() {
         // Generate a key pair for the router
         try {
-            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("DSA");
-            keyGen.initialize(1024); // 1024 bits for DSA
+            KeyPairGenerator keyGen = null;
+            try {
+                keyGen = KeyPairGenerator.getInstance("Ed25519", "BC");
+            } catch (NoSuchProviderException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
             return keyGen.generateKeyPair();
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();

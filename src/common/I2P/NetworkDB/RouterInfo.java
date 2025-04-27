@@ -65,7 +65,7 @@ public class RouterInfo extends Record implements JSONSerializable {
         } catch (NoSuchAlgorithmException | SignatureException e) {
             throw new RuntimeException(e); //should never hit case
         } catch (InvalidKeyException e) {
-            throw new RuntimeException("Bad private key for SHA1withDSA" + e);
+            throw new RuntimeException("Bad private key for Ed25519 " + e);
         }
     }
 
