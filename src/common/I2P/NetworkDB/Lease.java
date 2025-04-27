@@ -68,4 +68,16 @@ public class Lease implements JSONSerializable {
 
         return json;
     }
+
+    public byte[] getTunnelGW() {
+        return tunnelGW;
+    }
+
+    public int getTunnelID() {
+        return tunnelID;
+    }
+
+    public long getExpiration() {
+        return expiration;
+    }
 }

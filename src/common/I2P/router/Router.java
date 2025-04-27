@@ -57,10 +57,5 @@ public class Router implements Runnable{
     @Override
     public void run() {
         //todo here we will manage tunnels and also client messages
-
-        //example I2NP message for Sam :3
-        DatabaseStore storemsg = new DatabaseStore((byte[]) null, (RouterInfo) null);
-        //header effectively will wrap an I2NPMessage
-        I2NPHeader I2NPmsg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, 1111, System.currentTimeMillis(), storemsg);
     }
 }

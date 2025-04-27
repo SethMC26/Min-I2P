@@ -37,7 +37,7 @@ public class DatabaseLookup extends I2NPMessage{
      * @param fromHash SHA256 hash of RouterInfo request use {@code RouterInfo.getHash()}
      * @apiNote Must call {@code setReply(replyTunnelID)} if reply is needed
      */
-    DatabaseLookup(byte[] key, byte[] fromHash) {
+    public DatabaseLookup(byte[] key, byte[] fromHash) {
         this.key = key;
         this.fromHash = fromHash;
         this.replyFlag = 0; //default sent reply directly
@@ -92,5 +92,21 @@ public class DatabaseLookup extends I2NPMessage{
             jsonObj.put("replyTunnelID", replyTunnelID);
 
         return jsonObj;
+    }
+
+    public byte[] getKey() {
+        return key;
+    }
+
+    public byte[] getFromHash() {
+        return fromHash;
+    }
+
+    public int getReplyFlag() {
+        return replyFlag;
+    }
+
+    public int getReplyTunnelID() {
+        return replyTunnelID;
     }
 }
