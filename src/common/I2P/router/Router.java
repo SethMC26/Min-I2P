@@ -6,8 +6,11 @@ import common.I2P.I2NP.I2NPMessage;
 import common.I2P.I2NP.TunnelBuild;
 import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.RouterInfo;
+import common.I2P.tunnels.TunnelEndpoint;
 import common.I2P.tunnels.TunnelManager;
-
+import common.I2P.tunnels.TunnelParticipant;
+import merrimackutil.json.types.JSONArray;
+import merrimackutil.json.types.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
@@ -15,11 +18,15 @@ import java.net.ServerSocket;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 
+import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 
@@ -94,35 +101,76 @@ public class Router implements Runnable {
      * Create a tunnel build message for the given path and tunnel ID
      */
     public TunnelBuild createTunnelBuild(List<RouterID> path, int tunnelID) {
-        List<TunnelBuild.Record> records = new ArrayList<>(); // list of records to build tunnel]
+        List<TunnelBuild.Record> plaintextRecords = new ArrayList<>();
 
-        for (int i = 0; i < path.size(); i++) { // todo make this dynamic based on config
-            RouterID currentRouter = path.get(i); // get the router ID of the current router
-            RouterID nextRouter = (i + 1 < path.size()) ? path.get(i + 1) : null; // get the router ID of the next
-                                                                                  // router
+        for (int i = 0; i < path.size(); i++) {
+            RouterID currentRouter = path.get(i);
+            RouterID nextRouter = (i + 1 < path.size()) ? path.get(i + 1) : null;
 
-            // Generate keys for the tunnel
-            SecretKey layerKey = generateAESKey(); // todo generate a random key for the layer encryption
-            SecretKey ivKey = generateAESKey(); // todo generate a random key for the IV encryption
-            SecretKey replyKey = generateAESKey(); // todo generate a random key for the reply encryption
-            byte[] replyIv = generateIV(16); // todo generate a random IV for the reply messages
+            // generate layer keys
+            SecretKey layerKey = generateAESKey();
+            SecretKey ivKey = generateAESKey();
+            SecretKey replyKey = generateAESKey();
+            byte[] replyIv = generateIV(16);
 
-            // Create a new record for this hop
             TunnelBuild.Record record = new TunnelBuild.Record(
-                    currentRouter.getHash(), // toPeer
-                    tunnelID, // receiveTunnel
-                    routerID.getHash(), // ourIdent
-                    tunnelID + 1, // nextTunnel
-                    (nextRouter != null) ? nextRouter.getHash() : null, // nextIdent
+                    currentRouter.getHash(),
+                    tunnelID,
+                    routerID.getHash(),
+                    tunnelID + 1,
+                    (nextRouter != null) ? nextRouter.getHash() : null,
                     layerKey, ivKey, replyKey, replyIv,
-                    System.currentTimeMillis(), // requestTime
-                    generateMessageID() // sendMsgID
-            );
-
-            records.add(record); // add the record to the list of records
+                    System.currentTimeMillis(),
+                    generateMessageID());
+            plaintextRecords.add(record);
         }
 
-        return new TunnelBuild(records); // return a new tunnel with the records
+        byte[] nextLayer = null; // initially empty
+
+        List<TunnelBuild.Record> encryptedRecords = new ArrayList<>();
+        for (int i = path.size() - 1; i >= 0; i--) {
+            RouterID currentRouter = path.get(i);
+            TunnelBuild.Record currentRecord = plaintextRecords.get(i);
+
+            JSONObject json = (JSONObject) currentRecord.toJSONType();
+            if (nextLayer != null) {
+                // Insert the next layer into the current record
+                json.put("nextLayer", Base64.getEncoder().encodeToString(nextLayer));
+            }
+
+            // Encrypt full JSON for this hop
+            byte[] encryptedRecord = encryptWithElGamal(json.toString().getBytes(),
+                    currentRouter.getElgamalPublicKey());
+
+            // Save this as the nextLayer for the prior hop
+            nextLayer = encryptedRecord;
+
+            // Create final encrypted record
+            encryptedRecords.add(new TunnelBuild.Record(currentRouter.getHash(), encryptedRecord));
+        }
+
+        // aw yeah all layer encrypted :3 - COPILOT JUST AUTO ADDED THAT :3 FACE HAHAHAH
+        return new TunnelBuild(encryptedRecords);
+    }
+
+    private byte[] encryptWithElGamal(byte[] data, PublicKey publicKey) {
+        try {
+            Cipher cipher = Cipher.getInstance("ElGamal/None/PKCS1Padding", "BC");
+            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+            return cipher.doFinal(data);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to encrypt with ElGamal", e);
+        }
+    }
+
+    private byte[] decryptWithElGamal(byte[] data, PrivateKey privateKey) {
+        try {
+            Cipher cipher = Cipher.getInstance("ElGamal/None/PKCS1Padding", "BC");
+            cipher.init(Cipher.DECRYPT_MODE, privateKey);
+            return cipher.doFinal(data);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to decrypt with ElGamal", e);
+        }
     }
 
     private int generateMessageID() {
@@ -183,11 +231,15 @@ public class Router implements Runnable {
     }
 
     public void handleBuildRequest(TunnelBuild buildRequest) {
-        // todo handle tunnel build request
-        // this will be called when a tunnel build request is received from a peer
-        // we will need to check if the tunnel is valid and if so, add it to the tunnel
-        // manager
-        // read the info from the build request and 
+        for (TunnelBuild.Record record : buildRequest.getRecords()) {
+            byte[] toPeer = record.getToPeer();
+            if (Arrays.equals(toPeer, routerID.getHash())) {
+                System.out.println("Tunnel Build Request is addressed to us!");
+                byte[] decryptedBytes = decryptWithElGamal(record.getEncData(), elgamalKeyPair.getPrivate());
+                // uhhhh
+            }
+        }
+
     }
 
     @Override
@@ -198,5 +250,11 @@ public class Router implements Runnable {
         DatabaseStore storemsg = new DatabaseStore((byte[]) null, (RouterInfo) null);
         // header effectively will wrap an I2NPMessage
         I2NPHeader I2NPmsg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, 1111, System.currentTimeMillis(), storemsg);
+    }
+
+    public void handleMessage(byte[] encryptedMessage) {
+        // Decrypt the outermost layer of the message
+        byte[] decryptedMessage = decryptWithElGamal(encryptedMessage, elgamalKeyPair.getPrivate());
+
     }
 }

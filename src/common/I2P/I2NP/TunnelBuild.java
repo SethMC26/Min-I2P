@@ -9,16 +9,17 @@ import org.bouncycastle.util.encoders.Base64;
 
 import javax.crypto.SecretKey;
 import java.io.InvalidObjectException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class TunnelBuild implements JSONSerializable{
+public class TunnelBuild implements JSONSerializable {
     /**
      * Records key is toPeer 16 byte SHA256 hash of peerID with value being record
      */
     private HashMap<String, Record> records;
 
-    TunnelBuild(JSONObject json) throws InvalidObjectException{
+    TunnelBuild(JSONObject json) throws InvalidObjectException {
         deserialize(json);
     }
 
@@ -53,6 +54,11 @@ public class TunnelBuild implements JSONSerializable{
 
         return jsonArray;
     }
+
+    public List<Record> getRecords() {
+        return new ArrayList<>(records.values());
+    }
+    
 
     public static class Record implements JSONSerializable {
         /**
@@ -107,6 +113,7 @@ public class TunnelBuild implements JSONSerializable{
 
         /**
          * Construct a record from a json
+         * 
          * @param jsonObject JSON to deserialize
          * @throws InvalidObjectException throws if json is invalid
          */
@@ -117,19 +124,21 @@ public class TunnelBuild implements JSONSerializable{
         /**
          * Constructs a new {@code Record} instance with all required fields.
          *
-         * @param toPeer The first 16 bytes of the SHA-256 hash of the peer's RouterIdentity.
+         * @param toPeer        The first 16 bytes of the SHA-256 hash of the peer's
+         *                      RouterIdentity.
          * @param receiveTunnel The tunnel ID to receive messages on.
-         * @param ourIdent The 32-byte SHA-256 hash of our RouterIdentity.
-         * @param nextTunnel The next tunnel ID for forwarding the message.
-         * @param nextIdent The 32-byte SHA-256 hash of the next RouterIdentity.
-         * @param layerKey The 32-byte AES key used for layer encryption.
-         * @param ivKey The 32-byte AES key used for IV derivation.
-         * @param replyKey The 32-byte AES key used for reply encryption.
-         * @param replyIv The 16-byte IV used for reply messages.
-         * @param requestTime The epoch time (in seconds) when the request was made.
-         * @param sendMsgID The ID of the sent message.
+         * @param ourIdent      The 32-byte SHA-256 hash of our RouterIdentity.
+         * @param nextTunnel    The next tunnel ID for forwarding the message.
+         * @param nextIdent     The 32-byte SHA-256 hash of the next RouterIdentity.
+         * @param layerKey      The 32-byte AES key used for layer encryption.
+         * @param ivKey         The 32-byte AES key used for IV derivation.
+         * @param replyKey      The 32-byte AES key used for reply encryption.
+         * @param replyIv       The 16-byte IV used for reply messages.
+         * @param requestTime   The epoch time (in seconds) when the request was made.
+         * @param sendMsgID     The ID of the sent message.
          */
-        public Record(byte[] toPeer, int receiveTunnel, byte[] ourIdent, int nextTunnel, byte[] nextIdent, SecretKey layerKey,
+        public Record(byte[] toPeer, int receiveTunnel, byte[] ourIdent, int nextTunnel, byte[] nextIdent,
+                SecretKey layerKey,
                 SecretKey ivKey, SecretKey replyKey, byte[] replyIv, long requestTime, int sendMsgID) {
             this.toPeer = toPeer;
             this.receiveTunnel = receiveTunnel;
@@ -155,11 +164,12 @@ public class TunnelBuild implements JSONSerializable{
                 throw new InvalidObjectException("Must be JSONObject");
 
             JSONObject json = (JSONObject) jsonType;
-            json.checkValidity(new String[] {"toPeer", "encData"});
+            json.checkValidity(new String[] { "toPeer", "encData" });
 
             this.toPeer = Base64.decode(json.getString("toPeer"));
             this.encData = Base64.decode(json.getString("encData"));
-            //todo deal with deserializing encypted might want to add seperate method since only peer with elGamal private key can undo the encryption to get valid JSON
+            // todo deal with deserializing encypted might want to add seperate method since
+            // only peer with elGamal private key can undo the encryption to get valid JSON
         }
 
         @Override
@@ -170,7 +180,7 @@ public class TunnelBuild implements JSONSerializable{
             if (encData == null) {
                 JSONObject encDataJSON = new JSONObject();
 
-                //not sure if we should handle this like this or turn Tunnels into serializable
+                // not sure if we should handle this like this or turn Tunnels into serializable
                 encDataJSON.put("receiveTunnel", receiveTunnel);
                 encDataJSON.put("ourIdent", Base64.toBase64String(ourIdent));
                 encDataJSON.put("nextTunnel", nextTunnel);
@@ -182,11 +192,10 @@ public class TunnelBuild implements JSONSerializable{
                 encDataJSON.put("requestTime", requestTime);
                 encDataJSON.put("sendMsgID", sendMsgID);
 
-                //todo encrypt this data with correct peer's elgamal public key
+                // todo encrypt this data with correct peer's elgamal public key
                 jsonObject.put("encData", encDataJSON.toJSON());
-            }
-            else {
-                //todo this might be easier
+            } else {
+                // todo this might be easier
                 jsonObject.put("encData", Base64.toBase64String(encData));
             }
 
@@ -200,5 +209,6 @@ public class TunnelBuild implements JSONSerializable{
         public byte[] getToPeer() {
             return toPeer;
         }
+
     }
 }
