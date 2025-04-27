@@ -2,6 +2,10 @@ package common.I2P.tunnels;
 
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.crypto.SecretKey;
+
+import common.I2P.IDs.RouterID;
+
 public class TunnelManager {
     private ConcurrentHashMap<Integer, Tunnel> inboundTunnels = new ConcurrentHashMap<>();
     private ConcurrentHashMap<Integer, Tunnel> outboundTunnels = new ConcurrentHashMap<>();

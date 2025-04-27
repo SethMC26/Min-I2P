@@ -58,7 +58,6 @@ public class TunnelBuild implements JSONSerializable {
     public List<Record> getRecords() {
         return new ArrayList<>(records.values());
     }
-    
 
     public static class Record implements JSONSerializable {
         /**
@@ -208,6 +207,46 @@ public class TunnelBuild implements JSONSerializable {
 
         public byte[] getToPeer() {
             return toPeer;
+        }
+
+        public int getReceiveTunnel() {
+            return receiveTunnel;
+        }
+
+        public byte[] getOurIdent() {
+            return ourIdent;
+        }
+
+        public int getNextTunnel() {
+            return nextTunnel;
+        }
+
+        public byte[] getNextIdent() {
+            return nextIdent;
+        }
+
+        public SecretKey getLayerKey() {
+            return layerKey;
+        }
+
+        public SecretKey getIvKey() {
+            return ivKey;
+        }
+
+        public SecretKey getReplyKey() {
+            return replyKey;
+        }
+
+        public byte[] getReplyIv() {
+            return replyIv;
+        }
+
+        public long getRequestTime() {
+            return requestTime;
+        }
+
+        public int getSendMsgID() {
+            return sendMsgID;
         }
 
     }

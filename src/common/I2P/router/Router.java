@@ -101,7 +101,7 @@ public class Router implements Runnable {
      * Create a tunnel build message for the given path and tunnel ID
      */
     public TunnelBuild createTunnelBuild(List<RouterID> path, int tunnelID) {
-        List<TunnelBuild.Record> plaintextRecords = new ArrayList<>();
+        List<TunnelBuild.Record> records = new ArrayList<>();
 
         for (int i = 0; i < path.size(); i++) {
             RouterID currentRouter = path.get(i);
@@ -114,7 +114,7 @@ public class Router implements Runnable {
             byte[] replyIv = generateIV(16);
 
             TunnelBuild.Record record = new TunnelBuild.Record(
-                    currentRouter.getHash(),
+                    currentRouter.getHash(), // who this record is addressed to
                     tunnelID,
                     routerID.getHash(),
                     tunnelID + 1,
@@ -122,35 +122,11 @@ public class Router implements Runnable {
                     layerKey, ivKey, replyKey, replyIv,
                     System.currentTimeMillis(),
                     generateMessageID());
-            plaintextRecords.add(record);
+
+            records.add(record);
         }
 
-        byte[] nextLayer = null; // initially empty
-
-        List<TunnelBuild.Record> encryptedRecords = new ArrayList<>();
-        for (int i = path.size() - 1; i >= 0; i--) {
-            RouterID currentRouter = path.get(i);
-            TunnelBuild.Record currentRecord = plaintextRecords.get(i);
-
-            JSONObject json = (JSONObject) currentRecord.toJSONType();
-            if (nextLayer != null) {
-                // Insert the next layer into the current record
-                json.put("nextLayer", Base64.getEncoder().encodeToString(nextLayer));
-            }
-
-            // Encrypt full JSON for this hop
-            byte[] encryptedRecord = encryptWithElGamal(json.toString().getBytes(),
-                    currentRouter.getElgamalPublicKey());
-
-            // Save this as the nextLayer for the prior hop
-            nextLayer = encryptedRecord;
-
-            // Create final encrypted record
-            encryptedRecords.add(new TunnelBuild.Record(currentRouter.getHash(), encryptedRecord));
-        }
-
-        // aw yeah all layer encrypted :3 - COPILOT JUST AUTO ADDED THAT :3 FACE HAHAHAH
-        return new TunnelBuild(encryptedRecords);
+        return new TunnelBuild(records);
     }
 
     private byte[] encryptWithElGamal(byte[] data, PublicKey publicKey) {
@@ -231,15 +207,7 @@ public class Router implements Runnable {
     }
 
     public void handleBuildRequest(TunnelBuild buildRequest) {
-        for (TunnelBuild.Record record : buildRequest.getRecords()) {
-            byte[] toPeer = record.getToPeer();
-            if (Arrays.equals(toPeer, routerID.getHash())) {
-                System.out.println("Tunnel Build Request is addressed to us!");
-                byte[] decryptedBytes = decryptWithElGamal(record.getEncData(), elgamalKeyPair.getPrivate());
-                // uhhhh
-            }
-        }
-
+        
     }
 
     @Override
