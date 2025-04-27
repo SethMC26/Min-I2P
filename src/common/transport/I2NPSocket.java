@@ -2,6 +2,7 @@ package common.transport;
 
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.NetworkDB.RouterInfo;
+import common.Logger;
 import merrimackutil.json.JsonIO;
 import merrimackutil.json.types.JSONObject;
 
@@ -49,6 +50,7 @@ public class I2NPSocket extends DatagramSocket {
             throw new RuntimeException("Bytes is over max size! We will need to increase max size");
 
         InetSocketAddress toSendAddress = new InetSocketAddress(toSend.getHost(), toSend.getPort());
+        Logger.getInstance().debug("Sending message " + message.getType() + " to " + toSend.getPort());
 
         DatagramPacket pkt = new DatagramPacket(messageByte, messageByte.length, toSendAddress);
         send(pkt);

@@ -135,24 +135,26 @@ public class RouterServiceThread implements Runnable{
             case 0 -> {
                 Record requestRouter = netDB.lookup(lookup.getFromHash());
                 //this means node is bootstrapping or verifying store
-                if (Arrays.equals(lookup.getFromHash(), lookup.getKey())) {
+                if (Arrays.equals(lookup.getFromHash(), lookup.getKey()) &&
+                        (requestRouter != null && (requestRouter.getRecordType() == Record.RecordType.ROUTERINFO))) {
+                    log.trace("Bootstrapping verification");
                     //if successfully(stored in db) and is info(bootstrapping)
-                    if (requestRouter != null && (requestRouter.getRecordType() == Record.RecordType.ROUTERINFO)) {
-                        try {
-                            //send our info to bootstrap peer
-                            I2NPSocket sock = new I2NPSocket();
-                            I2NPHeader storeMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, random.nextInt(),
-                                    System.currentTimeMillis() + 100, new DatabaseStore(router));
-                            sock.sendMessage(storeMsg, router);
-                            return;
-                        } catch (SocketException e) {
-                            log.warn("Could not connect to peer " + Base64.toBase64String(requestRouter.getHash()));
-                            log.warn(e.getMessage());
-                            return;
-                        }
-                        catch (IOException e) {
-                            log.warn("error sending to bootstrap peer" + e.getMessage());
-                        }
+                    try {
+                        //send our info to bootstrap peer
+                        I2NPSocket sock = new I2NPSocket();
+                        I2NPHeader storeMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, random.nextInt(),
+                                System.currentTimeMillis() + 100, new DatabaseStore(router));
+                        sock.sendMessage(storeMsg, (RouterInfo) requestRouter);
+                        System.err.println("CCCC");
+
+                        return;
+                    } catch (SocketException e) {
+                        log.warn("Could not connect to peer " + Base64.toBase64String(requestRouter.getHash()));
+                        log.warn(e.getMessage());
+                        return;
+                    }
+                    catch (IOException e) {
+                        log.warn("error sending to bootstrap peer" + e.getMessage());
                     }
                 }
                 //check if we dont know where to send message to
@@ -240,7 +242,7 @@ public class RouterServiceThread implements Runnable{
     private void handleStore(DatabaseStore store) {
         //if we do not have record we use floodfill record by sending it to 2 friends(routers)
         //lets send store to 2 nearest neighbors
-
+        /*
         if (netDB.lookup(store.getRecord().getHash()) == null) {
             ArrayList<RouterInfo> closestPeers= netDB.getKClosestRouterInfos(store.getKey(), 2);
             I2NPSocket floodSock = null;
@@ -270,7 +272,7 @@ public class RouterServiceThread implements Runnable{
             if (floodSock != null )
                 floodSock.close();
         }
-
+        */
         //add Record to our netDB
         netDB.store(store.getRecord());
 
@@ -299,9 +301,15 @@ public class RouterServiceThread implements Runnable{
             peerSock = new I2NPSocket();
 
             for (RouterInfo peer : closestPeers) {
+                //avoid recursively sending messages to ourself
+                if (peer.getPort() == router.getPort())
+                    continue;
+
                 I2NPHeader peerLookup = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
-                        System.currentTimeMillis() + 100, new DatabaseLookup(fromHash, router.getHash()));
+                        System.currentTimeMillis() + 100, new DatabaseLookup(router.getHash(), fromHash));
                 peerSock.sendMessage(peerLookup, peer);
+                System.err.println("BBBB" + peer.getPort());
+
             }
 
             Thread.sleep(msToWait); // wait for results
