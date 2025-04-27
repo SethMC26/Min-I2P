@@ -107,12 +107,28 @@ public class RouterServiceThread implements Runnable{
         //try to find record
         Record record = netDB.lookup(lookup.getKey());
 
-        if (record != null) {
+        if (record != null) { //we have record in database
+
             log.trace("Found Record in NetDB");
-            //create store message to send to requesting router
+            //store record
+            DatabaseStore storeData;
+
+            //we will check for a special bootstrap/verification lookup, where a peer is trying to lookup themeself if so
+            // we will send back our info instead of requested info
+            if (Arrays.equals(lookup.getKey(), lookup.getFromHash())) {
+                log.trace("Bootstrapping/verification sending store as response");
+                //we will send back our own info in this case
+                storeData = new DatabaseStore(router);
+            }
+            else {
+                //normal store request so we will just add record we found
+                storeData = new DatabaseStore(record);
+            }
+
             result = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, recievedMessage.getMsgID(),
                     System.currentTimeMillis() + 1010,
-                    new DatabaseStore(record)); //create store message if we found record
+                    storeData); //create store message if we found record
+
         }
         //if no record found send search reply with closest peers
         else {
@@ -129,67 +145,45 @@ public class RouterServiceThread implements Runnable{
         }
 
         log.trace("Response message is " + result.toJSONType().getFormattedJSON());
+        //send reply directly to router requesting it
+        if ( lookup.getReplyFlag() == 0 ) {
+            Record requestRouter = netDB.lookup(lookup.getFromHash());
 
-        //send result to peer who requested it
-        switch (lookup.getReplyFlag()) {
-            case 0 -> {
-                Record requestRouter = netDB.lookup(lookup.getFromHash());
-                //this means node is bootstrapping or verifying store
-                if (Arrays.equals(lookup.getFromHash(), lookup.getKey()) &&
-                        (requestRouter != null && (requestRouter.getRecordType() == Record.RecordType.ROUTERINFO))) {
-                    log.trace("Bootstrapping verification");
-                    //if successfully(stored in db) and is info(bootstrapping)
-                    try {
-                        //send our info to bootstrap peer
-                        I2NPSocket sock = new I2NPSocket();
-                        I2NPHeader storeMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, random.nextInt(),
-                                System.currentTimeMillis() + 100, new DatabaseStore(router));
-                        sock.sendMessage(storeMsg, (RouterInfo) requestRouter);
-                        return;
-                    } catch (SocketException e) {
-                        log.warn("Could not connect to peer " + Base64.toBase64String(requestRouter.getHash()));
-                        log.warn(e.getMessage());
-                        return;
-                    }
-                    catch (IOException e) {
-                        log.warn("error sending to bootstrap peer" + e.getMessage());
-                    }
-                }
-                //check if we dont know where to send message to
+            //check if we dont know where to send message to
+            if (requestRouter == null) {
+                log.trace("Could not find peer: " + Base64.toBase64String(lookup.getFromHash()));
+                //attempt to find peer for reply we will wait 10 milli seconds
+                findPeerRecordForReply(10, lookup.getFromHash());
+                requestRouter = netDB.lookup(lookup.getFromHash());
+                //if we still do not know give up
                 if (requestRouter == null) {
-                    log.trace("Could not find peer: " + Base64.toBase64String(lookup.getFromHash()));
-                    //attempt to find peer for reply we will wait 1 seconds
-                    findPeerRecordForReply(50, lookup.getFromHash());
-                    requestRouter = netDB.lookup(lookup.getFromHash());
-                    //if we still do not know give up
-                    if (requestRouter == null) {
-                        log.warn("Could not find who sent lookup even after asking peers fromHash: " + Base64.toBase64String(lookup.getFromHash()));
-                        return;
-                    }
-                }
-                if (requestRouter.getRecordType() == Record.RecordType.LEASESET) {
-                    //todo handle this case, question for sam can we use leaseSets to send a message
+                    log.warn("Could not find who sent lookup even after asking peers fromHash: " + Base64.toBase64String(lookup.getFromHash()));
                     return;
                 }
+            }
+            if (requestRouter.getRecordType() == Record.RecordType.LEASESET) {
+                //todo handle this case, question for sam can we use leaseSets to send a message
+                return;
+            }
 
-                //lets send our lookup response back to peer who requested it
-                //assuming here it is RouterInfo might need to change later once leaseSets are implemented
-                RouterInfo requestRouterInfo = (RouterInfo) requestRouter;
-                I2NPSocket respondSock = null;
-                try {
-                    respondSock = new I2NPSocket();
-                    respondSock.sendMessage(result, requestRouterInfo);
+            //lets send our lookup response back to peer who requested it
+            //assuming here it is RouterInfo might need to change later once leaseSets are implemented
+            RouterInfo requestRouterInfo = (RouterInfo) requestRouter;
+            I2NPSocket respondSock = null;
+            try {
+                respondSock = new I2NPSocket();
+                respondSock.sendMessage(result, requestRouterInfo);
+                respondSock.close();
+            }
+            catch (IOException e) {
+                if (respondSock != null)
                     respondSock.close();
-                }
-                catch (IOException e) {
-                    if (respondSock != null)
-                        respondSock.close();
-                    System.err.println("could not send message I/O error " + e.getMessage());
-                }
+                System.err.println("could not send message I/O error " + e.getMessage());
             }
-            case 1 -> {
-                //todo send message on tunnel using tunnelID
-            }
+            return;
+        }
+        if (lookup.getReplyFlag() == 1) {
+            //todo add sending reply down some tunnel
         }
     }
 
@@ -204,14 +198,15 @@ public class RouterServiceThread implements Runnable{
             return;
         }
         //send message to each hash
+        long expiration = System.currentTimeMillis() + 10;
         for (byte[] hash : peerHash) {
             I2NPHeader lookupMessage = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
-                    System.currentTimeMillis() + 60, new DatabaseLookup(searchReply.getKey(), router.getHash()));
+                    expiration, new DatabaseLookup(searchReply.getKey(), router.getHash()));
             Record peerRecord = netDB.lookup(hash);
 
             if (peerRecord == null) {
-                //attempt to find peer lets wait 100 ms for each  reply
-                findPeerRecordForReply(10, hash);
+                //attempt to find peer lets wait 5 ms for each  reply
+                findPeerRecordForReply(50, hash);
             }
 
             //check if we found peer if so send lookup message
@@ -241,6 +236,7 @@ public class RouterServiceThread implements Runnable{
     private void handleStore(DatabaseStore store) {
         //if we do not have record we use floodfill record by sending it to 2 friends(routers)
         //lets send store to 2 nearest neighbors
+        //turn off flood fill for now to test netDB(network is so small that everyone would store everything)
         /*
         if (netDB.lookup(store.getRecord().getHash()) == null) {
             ArrayList<RouterInfo> closestPeers= netDB.getKClosestRouterInfos(store.getKey(), 2);
@@ -298,15 +294,15 @@ public class RouterServiceThread implements Runnable{
 
         try {
             peerSock = new I2NPSocket();
-
+            long expiration = System.currentTimeMillis() + 10;
             for (RouterInfo peer : closestPeers) {
-                //avoid recursively sending messages to ourself
+                //avoid recursively sending messages to ourself could happen if someone sends us
                 if (peer.getPort() == router.getPort())
                     continue;
 
                 log.trace("Asking peer port: " + peer.getPort() + " to find: " + Base64.toBase64String(fromHash));
                 I2NPHeader peerLookup = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
-                        System.currentTimeMillis() + 100, new DatabaseLookup(router.getHash(), fromHash));
+                        expiration, new DatabaseLookup(fromHash, router.getHash()));
                 peerSock.sendMessage(peerLookup, peer);
             }
 

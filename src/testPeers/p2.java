@@ -55,7 +55,7 @@ public class p2 {
             DatabaseStore databaseStore = new DatabaseStore(routerInfo);
             I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, 1, System.currentTimeMillis() + 1000, databaseStore);
 
-            sock.sendMessage(msg, "127.0.0.1", 8080);
+            sock.sendMessage(msg, "127.0.0.1", 6969);
 
             try {
                 Thread.sleep(1_000);                 // wait 1000 ms
@@ -71,6 +71,10 @@ public class p2 {
             //databaseStore.setReply(500, new byte[32]);
 
             msg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000, databaseLookup);
+            sock.sendMessage(msg, "127.0.0.1", 6969);
+
+            DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], routerInfo.getHash());
+            msg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000, databaseLookup2);
             sock.sendMessage(msg, "127.0.0.1", 6969);
 
             ExecutorService threadPool = Executors.newFixedThreadPool(5);
