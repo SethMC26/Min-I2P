@@ -21,10 +21,10 @@ public class Destination implements JSONSerializable {
 
     /**
      * Create destination with DSA_SHA1_Public_key
-     * @param DSASHA1PublicKey 128 byte DSA_SHA1_Public_Key
+     * @param edSignPublicKey 32-byte Ed25519 public key for EdDSA signatures
      */
-    Destination(PublicKey DSASHA1PublicKey) {
-        keys = new KeysAndCerts(null, DSASHA1PublicKey);
+    Destination(PublicKey edSignPublicKey) {
+        keys = new KeysAndCerts(null, edSignPublicKey);
     }
 
     /**

@@ -58,10 +58,11 @@ public class KeysAndCerts implements JSONSerializable {
             throw new InvalidObjectException("Must be JSONObject");
 
         JSONObject keysAndCertsJSON = (JSONObject) jsonType;
+
         if (!keysAndCertsJSON.containsKey("publicKey"))
             throw new InvalidObjectException("Missing key - publicKey");
 
-        byte[] publicKeyBytes = Base64.decode(keysAndCertsJSON.getString("publickey"));
+        byte[] publicKeyBytes = Base64.decode(keysAndCertsJSON.getString("publicKey"));
         try {
             publicKey = KeyFactory.getInstance("ElGamal").generatePublic(new X509EncodedKeySpec(publicKeyBytes));
         }
@@ -72,7 +73,7 @@ public class KeysAndCerts implements JSONSerializable {
         if (keysAndCertsJSON.containsKey("signingPublicKey")) {
             byte[] signingKeyBytes = Base64.decode(keysAndCertsJSON.getString("signingPublicKey"));
             try {
-                signingPublicKey = KeyFactory.getInstance("DSA").generatePublic(
+                signingPublicKey = KeyFactory.getInstance("Ed25519").generatePublic(
                         new X509EncodedKeySpec(signingKeyBytes));
             }
             catch (InvalidKeySpecException e) {throw new InvalidObjectException("Signing Key is not valid");}

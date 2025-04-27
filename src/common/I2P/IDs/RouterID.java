@@ -22,11 +22,11 @@ public class RouterID implements JSONSerializable {
 
     /**
      * Create new RouterID with proper keys
-     * @param elgamalPublicKey 256 byte elgamal public key
-     * @param DSASHA1PublicKey 128 byte DSA-SHA1 public key
+     * @param elgamalPublicKey 512 byte elgamal public key
+     * @param edSignPublicKey 32-byte Ed25519 public key for EdDSA signatures
      */
-    public RouterID(PublicKey elgamalPublicKey, PublicKey DSASHA1PublicKey) {
-        keys = new KeysAndCerts(elgamalPublicKey, DSASHA1PublicKey);
+    public RouterID(PublicKey elgamalPublicKey, PublicKey edSignPublicKey) {
+        keys = new KeysAndCerts(elgamalPublicKey, edSignPublicKey);
     }
 
     /**
@@ -42,7 +42,7 @@ public class RouterID implements JSONSerializable {
         return keys.getPublicKey();
     }
 
-    public PublicKey getDSASHA1PublicKey() {
+    public PublicKey getSigningPublicKey() {
         return keys.getSigningPublicKey();
     }
 

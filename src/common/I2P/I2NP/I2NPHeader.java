@@ -81,24 +81,10 @@ public class I2NPHeader implements JSONSerializable {
 
         this.message = message;
 
-        try
-        {
-            //hash payload of message
-            MessageDigest md = MessageDigest.getInstance("SHA256");
-            md.update(message.serialize().getBytes(StandardCharsets.UTF_8));
-            //take only first 3 bytes of hash(I2P spec uses 1 but we are using base64 encoding is 6 bit aligned
-            // So 3 bytes is the smallest we can have without padding bytes (24 bits divides evenly into 6)
-            chks = Arrays.copyOfRange(md.digest(), 0, 3);
-
-        }
-        catch (NoSuchAlgorithmException ex)
-        {
-            //should not hit this case
-           throw new RuntimeException(ex);
-        }
+        this.chks = createCheckSum();
     }
 
-    I2NPHeader(JSONObject json) throws InvalidObjectException {
+    public I2NPHeader(JSONObject json) throws InvalidObjectException {
         deserialize(json);
     }
 
@@ -145,9 +131,44 @@ public class I2NPHeader implements JSONSerializable {
             case TYPE.DELIVERYSTATUS:
                 message = new DeliveryStatus(messageObj);
                 break;
+            case TYPE.TUNNELBUILD:
+                message = new TunnelBuild(messageObj);
+                break;
             default:
                 throw new InvalidObjectException("Bad type: " + type);
         }
+    }
+
+    /**
+     * Returns 3 byte checksum from trucncated SHA256 hash
+     * @return 3 byte checksum
+     */
+    private byte[] createCheckSum() {
+        try
+        {
+            //hash payload of message
+            MessageDigest md = MessageDigest.getInstance("SHA256");
+            md.update(message.serialize().getBytes(StandardCharsets.UTF_8));
+            //take only first 3 bytes of hash(I2P spec uses 1 but we are using base64 encoding is 6 bit aligned
+            // So 3 bytes is the smallest we can have without padding bytes (24 bits divides evenly into 6)
+            return  Arrays.copyOfRange(md.digest(), 0, 3);
+        }
+        catch (NoSuchAlgorithmException ex)
+        {
+            //should not hit this case
+            throw new RuntimeException(ex);
+        }
+    }
+
+    /**
+     * Check if payload is valid using the checksum
+     * @return True if payload is valid false otherwise
+     */
+    public boolean isPayloadValid() {
+        //calculate checksum
+        byte[] currChks = createCheckSum();
+        //compare to checksum on payload
+        return Arrays.equals(currChks, chks);
     }
 
     public TYPE getType() {
