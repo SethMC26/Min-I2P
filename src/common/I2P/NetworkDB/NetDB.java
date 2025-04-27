@@ -1,12 +1,10 @@
 package common.I2P.NetworkDB;
 
-import common.I2P.I2NP.I2NPMessage;
 import common.Logger;
 import org.bouncycastle.util.encoders.Base64;
 
 import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.Collections;
 import java.util.HashMap;
 
 /**
@@ -47,6 +45,9 @@ public class NetDB {
             log.warn("NetDB: Record has Invalid signature disregarding");
             return;
         }
+
+        //if (Arrays.equals(record.getHash(),routerInfo.getHash()))
+            //return;
 
         //calculate distance between hash and record hash
         int distance = calculateXORMetric(routerInfo.getHash(), record.getHash());
@@ -169,7 +170,7 @@ public class NetDB {
 
         //not sure which we should use - in my previous project we used commented out version
         //return 256 - bits1.length();
-        return bits1.length(); //take length to find leading zeros after xor
+        return 256 - bits1.length(); //take length to find leading zeros after xor
     }
 
     /**

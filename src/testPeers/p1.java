@@ -12,7 +12,6 @@ import common.transport.I2NPSocket;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.security.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -21,7 +20,7 @@ public class p1 {
     public static void main(String[] args) {
         Security.addProvider(new BouncyCastleProvider());
         Logger log = Logger.getInstance();
-        log.setMinLevel(Logger.Level.DEBUG);
+        log.setMinLevel(Logger.Level.TRACE);
 
 
         try {
@@ -48,17 +47,15 @@ public class p1 {
 
             //create information about this router
             RouterID routerID = new RouterID(pubKey, signingpubKey);
-            RouterInfo routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), "127.0.0.1", 8080, signingprivKey);
+            RouterInfo routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), "127.0.0.1", 6969, signingprivKey);
 
             NetDB netDB = new NetDB(routerInfo);
             I2NPSocket sock = new I2NPSocket();
 
-            sock.connect(new InetSocketAddress("127.0.0.1", 8080));
-
             DatabaseStore databaseStore = new DatabaseStore(routerInfo);
             I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, 1, System.currentTimeMillis() + 1000, databaseStore);
 
-            sock.sendMessage(msg);
+            sock.sendMessage(msg, "127.0.0.1", 8080);
 
             try {
                 Thread.sleep(1_000);                 // wait 1000 ms
@@ -69,7 +66,14 @@ public class p1 {
             DatabaseLookup databaseLookup = new DatabaseLookup(routerInfo.getHash(), routerInfo.getHash());
             databaseStore.setReply(500, new byte[32]);
             msg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000, databaseLookup);
-            sock.sendMessage(msg);
+            sock.sendMessage(msg, "127.0.0.1", 8080);
+
+            ExecutorService threadPool = Executors.newFixedThreadPool(5);
+            sock = new I2NPSocket(6969, InetAddress.getByName("127.0.0.1"));
+            while(true) {
+                I2NPHeader recvMessage = sock.getMessage();
+                threadPool.execute(new RouterServiceThread(netDB, routerInfo, recvMessage));
+            }
         }
         catch(Exception e) {
             e.printStackTrace();

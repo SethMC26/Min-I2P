@@ -6,14 +6,13 @@ import common.I2P.NetworkDB.Record;
 import common.I2P.NetworkDB.RouterInfo;
 import common.Logger;
 import common.transport.I2NPSocket;
-import merrimackutil.util.NonceCache;
+import org.bouncycastle.util.encoders.Base64;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.net.SocketException;
-import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * Handle incoming I2NP messages
@@ -135,14 +134,35 @@ public class RouterServiceThread implements Runnable{
         switch (lookup.getReplyFlag()) {
             case 0 -> {
                 Record requestRouter = netDB.lookup(lookup.getFromHash());
+                //this means node is bootstrapping or verifying store
+                if (Arrays.equals(lookup.getFromHash(), lookup.getKey())) {
+                    //if successfully(stored in db) and is info(bootstrapping)
+                    if (requestRouter != null && (requestRouter.getRecordType() == Record.RecordType.ROUTERINFO)) {
+                        try {
+                            //send our info to bootstrap peer
+                            I2NPSocket sock = new I2NPSocket();
+                            I2NPHeader storeMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, random.nextInt(),
+                                    System.currentTimeMillis() + 100, new DatabaseStore(router));
+                            sock.sendMessage(storeMsg, router);
+                            return;
+                        } catch (SocketException e) {
+                            log.warn("Could not connect to peer " + Base64.toBase64String(requestRouter.getHash()));
+                            log.warn(e.getMessage());
+                            return;
+                        }
+                        catch (IOException e) {
+                            log.warn("error sending to bootstrap peer" + e.getMessage());
+                        }
+                    }
+                }
                 //check if we dont know where to send message to
                 if (requestRouter == null) {
                     //attempt to find peer for reply we will wait 1 seconds
-                    findPeerRecordForReply(1000, lookup.getFromHash());
+                    findPeerRecordForReply(10, lookup.getFromHash());
                     requestRouter = netDB.lookup(lookup.getFromHash());
                     //if we still do not know give up
                     if (requestRouter == null) {
-                        log.warn("Could not find who sent lookup even after asking peers fromHash: " + lookup.getFromHash());
+                        log.warn("Could not find who sent lookup even after asking peers fromHash: " + Base64.toBase64String(lookup.getFromHash()));
                         return;
                     }
                 }
@@ -190,7 +210,7 @@ public class RouterServiceThread implements Runnable{
 
             if (peerRecord == null) {
                 //attempt to find peer lets wait 100 ms for each  reply
-                findPeerRecordForReply(50, hash);
+                findPeerRecordForReply(10, hash);
             }
 
             //check if we found peer if so send lookup message
@@ -220,6 +240,7 @@ public class RouterServiceThread implements Runnable{
     private void handleStore(DatabaseStore store) {
         //if we do not have record we use floodfill record by sending it to 2 friends(routers)
         //lets send store to 2 nearest neighbors
+
         if (netDB.lookup(store.getRecord().getHash()) == null) {
             ArrayList<RouterInfo> closestPeers= netDB.getKClosestRouterInfos(store.getKey(), 2);
             I2NPSocket floodSock = null;
@@ -233,6 +254,7 @@ public class RouterServiceThread implements Runnable{
 
             //send store request to nearest peers
             for (RouterInfo peer : closestPeers) {
+                log.trace("Sending flood store to peer: " + Base64.toBase64String(peer.getHash()));
                 //create send store request, we will say store request valid for 3 seconds
                 I2NPHeader peerMSG = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, random.nextInt(),
                         System.currentTimeMillis() + 100, new DatabaseStore(store.getRecord()));
@@ -247,8 +269,8 @@ public class RouterServiceThread implements Runnable{
             //close socket if created
             if (floodSock != null )
                 floodSock.close();
-
         }
+
         //add Record to our netDB
         netDB.store(store.getRecord());
 
@@ -259,6 +281,7 @@ public class RouterServiceThread implements Runnable{
             //todo send response on tunnelD
 
         }
+
     }
 
     /**
@@ -271,6 +294,7 @@ public class RouterServiceThread implements Runnable{
         //we will ask two of our buddies to see if we could find info to send to information back to this router
         ArrayList<RouterInfo> closestPeers = netDB.getKClosestRouterInfos(fromHash, 2);
         I2NPSocket peerSock = null;
+
         try {
             peerSock = new I2NPSocket();
 
