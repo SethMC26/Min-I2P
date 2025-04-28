@@ -10,11 +10,22 @@ public class ByteMessage extends Message {
 
     private byte[] data;
 
+    /**
+     * Constructor for the user to send a byte message
+     *
+     * @param type - String type of message
+     * @param data - byte[] data of the message
+     */
     public ByteMessage(String type, byte[] data) {
         super(type);
         this.data = data;
     }
 
+    /**
+     * Constructor for the user to send a byte message
+     *
+     * @param jsonMessage - JSONObject to deserialize
+     */
     public ByteMessage(JSONObject jsonMessage) {
         super(jsonMessage);
         if (!super.type.equals("Byte")) {

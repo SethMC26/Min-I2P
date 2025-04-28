@@ -17,6 +17,12 @@ public class MessageSocket extends Socket {
     private Scanner recv;
     private PrintWriter send;
 
+    /**
+     * Creates Message Socket from a socket
+     *
+     * @param socket - Socket to use
+     * @throws IOException - Throws if IOStreams cannot be established
+     */
     public MessageSocket(Socket socket) throws IOException {
         super(); //call parent class(socket)
 
@@ -32,6 +38,13 @@ public class MessageSocket extends Socket {
         }
     }
 
+    /**
+     * Creates Message Socket from an address and port
+     *
+     * @param addr - String - Hostname(IP address) for socket
+     * @param port - int - Port number for socket
+     * @throws IOException - Throws if IOStreams cannot be established
+     */
     public MessageSocket(String addr, int port) throws IOException {
         super(addr,port); //call parent class(socket)
 

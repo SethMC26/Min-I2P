@@ -12,6 +12,14 @@ public class Request extends Message {
     private String songname;
     private Integer otp;
 
+    /**
+     * Constructor for the user to request authentication with the server
+     *
+     * @param type - String type of message
+     * @param username - String username of the user
+     * @param password - String password of the user
+     * @param otp - Integer otp of the user
+     */
     public Request(String type, String username, String password, Integer otp) {
         super(type);
         this.username = username;
@@ -19,6 +27,13 @@ public class Request extends Message {
         this.otp = otp;
     }
 
+    /**
+     * Constructor for the user to request create user, or play, add, or list songs from the database
+     *
+     * @param type - String type of message
+     * @param username - String username of the user
+     * @param passOrSong - String password or song name of the user
+     */
     public Request(String type, String username, String passOrSong) {
         super(type);
         this.username = username;
@@ -29,6 +44,11 @@ public class Request extends Message {
         }
     }
 
+    /**
+     * Constructor for the user to request something with the server
+     *
+     * @param jsonMessage - JSONObject to deserialize
+     */
     public Request(JSONObject jsonMessage) {
         super(jsonMessage);
         if (!(super.type.equals("Create") || super.type.equals("Authenticate") ||

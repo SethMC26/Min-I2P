@@ -7,15 +7,28 @@ import java.io.InvalidObjectException;
 
 public class Response extends Message {
 
+    // -------- Private Variables -------- //
     private boolean status;
     private String payload;
 
+    /**
+     * This is the constuctor for the server sending a response to the user
+     *
+     * @param type - String type of message
+     * @param status - boolean status of the message
+     * @param payload - String payload of the message
+     */
     public Response(String type, boolean status, String payload) {
         super(type);
         this.status = status;
         this.payload = payload;
     }
 
+    /**
+     * This is the constructor for the server sending a response to the user
+     *
+     * @param JSONMessage - JSONObject to deserialize
+     */
     public Response(JSONObject JSONMessage) {
         super(JSONMessage);
         if (!super.type.equals("Status")) {
@@ -23,6 +36,7 @@ public class Response extends Message {
         }
     }
 
+    @Override
     public void deserialize(JSONType jsonType) throws InvalidObjectException {
         if (!(jsonType instanceof JSONObject)) {
             throw new InvalidObjectException("jsonType must be a JSONObject");
