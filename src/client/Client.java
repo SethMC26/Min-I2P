@@ -178,4 +178,8 @@ public class Client {
         }
         processArgs(args);
     }
+
+    // ---------- Private Methods ---------- //
+
+    // Add any private methods here if needed
 }
