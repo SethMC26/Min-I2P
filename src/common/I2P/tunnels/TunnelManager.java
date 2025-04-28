@@ -7,30 +7,21 @@ import javax.crypto.SecretKey;
 import common.I2P.IDs.RouterID;
 
 public class TunnelManager {
-    private ConcurrentHashMap<Integer, Tunnel> inboundTunnels = new ConcurrentHashMap<>();
-    private ConcurrentHashMap<Integer, Tunnel> outboundTunnels = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<Integer, TunnelObject> tunnelObjects;
 
-    public void addInboundTunnel(Integer tunnelID, Tunnel tunnel) {
-        inboundTunnels.put(tunnelID, tunnel);
+    public TunnelManager() {
+        tunnelObjects = new ConcurrentHashMap<>();
     }
 
-    public void addOutboundTunnel(Integer tunnelID, Tunnel tunnel) {
-        outboundTunnels.put(tunnelID, tunnel);
+    public void addTunnelObject(Integer tunnelID, TunnelObject tunnelObject) {
+        tunnelObjects.put(tunnelID, tunnelObject);
     }
 
-    public Tunnel getInboundTunnel(Integer tunnelID) {
-        return inboundTunnels.get(tunnelID);
+    public TunnelObject getTunnelObject(Integer tunnelID) {
+        return tunnelObjects.get(tunnelID);
     }
 
-    public Tunnel getOutboundTunnel(Integer tunnelID) {
-        return outboundTunnels.get(tunnelID);
-    }
-
-    public void removeInboundTunnel(Integer tunnelID) {
-        inboundTunnels.remove(tunnelID);
-    }
-
-    public void removeOutboundTunnel(Integer tunnelID) {
-        outboundTunnels.remove(tunnelID);
+    public void removeTunnelObject(Integer tunnelID) {
+        tunnelObjects.remove(tunnelID);
     }
 }

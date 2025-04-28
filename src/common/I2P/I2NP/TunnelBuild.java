@@ -111,6 +111,20 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
         private byte[] encData;
 
         /**
+         * Type of tunnel object requested constructor
+         */
+        public enum TYPE {
+            GATEWAY, 
+            PARTICIPANT,
+            ENDPOINT
+        };
+
+        /**
+         * Type of tunnel object requested
+         */
+        private TYPE type;
+
+        /**
          * Construct a record from a json
          * 
          * @param jsonObject JSON to deserialize
@@ -138,7 +152,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
          */
         public Record(byte[] toPeer, int receiveTunnel, byte[] ourIdent, int nextTunnel, byte[] nextIdent,
                 SecretKey layerKey,
-                SecretKey ivKey, SecretKey replyKey, byte[] replyIv, long requestTime, int sendMsgID) {
+                SecretKey ivKey, SecretKey replyKey, byte[] replyIv, long requestTime, int sendMsgID, TYPE type) {
             this.toPeer = toPeer;
             this.receiveTunnel = receiveTunnel;
             this.ourIdent = ourIdent;
@@ -150,6 +164,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
             this.replyIv = replyIv;
             this.requestTime = requestTime;
             this.sendMsgID = sendMsgID;
+            this.type = type;
         }
 
         public Record(byte[] toPeer, byte[] encData) {
@@ -247,6 +262,10 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
 
         public int getSendMsgID() {
             return sendMsgID;
+        }
+
+        public TYPE getPosition() {
+            return type;
         }
 
     }

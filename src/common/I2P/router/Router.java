@@ -3,10 +3,12 @@ package common.I2P.router;
 import common.I2P.I2NP.DatabaseStore;
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.TunnelBuild;
+import common.I2P.I2NP.TunnelBuild.Record.TYPE;
 import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.TunnelManager;
+import common.I2P.NetworkDB.Record;
 import common.transport.I2NPSocket;
 
 import java.io.File;
@@ -38,7 +40,7 @@ public class Router implements Runnable {
     /**
      * TunnelManager is responsible for managing tunnels
      */
-    TunnelManager tunnelManager = new TunnelManager();
+    TunnelManager tunnelManager;
 
     /**
      * Socket is for connecting to client using I2CP protocol
@@ -95,6 +97,7 @@ public class Router implements Runnable {
     public Router(int port, int bootstrapPort) throws IOException {
         // todo add config parsing
         this.port = port;
+        this.tunnelManager = new TunnelManager();
         setUp(port, bootstrapPort);
     }
 
@@ -124,7 +127,7 @@ public class Router implements Runnable {
         ExecutorService threadpool = Executors.newFixedThreadPool(5);
         while (true) {
             I2NPHeader message = socket.getMessage();
-            threadpool.execute(new RouterServiceThread(netDB, routerInfo, message));
+            threadpool.execute(new RouterServiceThread(netDB, routerInfo, message, tunnelManager));
         }
     }
 
@@ -201,6 +204,15 @@ public class Router implements Runnable {
             byte[] replyIv = new byte[16];
             random.nextBytes(replyIv);
 
+            TYPE position = null;
+            if (i == 0) {
+                position = TYPE.GATEWAY;
+            } else if (i == tempPeers.size() - 1) {
+                position = TYPE.ENDPOINT;
+            } else {
+                position = TYPE.PARTICIPANT;
+            }
+
             TunnelBuild.Record record = new TunnelBuild.Record(
                     toPeer,
                     receiveTunnel,
@@ -212,7 +224,8 @@ public class Router implements Runnable {
                     replyKey,
                     replyIv,
                     requestTime,
-                    sendMsgID);
+                    sendMsgID,
+                    position);
 
             records.add(record);
             System.out.println("Added record for peer: " + Arrays.toString(toPeer));

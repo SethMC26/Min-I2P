@@ -4,6 +4,11 @@ import common.I2P.I2NP.*;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.Record;
 import common.I2P.NetworkDB.RouterInfo;
+import common.I2P.tunnels.TunnelEndpoint;
+import common.I2P.tunnels.TunnelGateway;
+import common.I2P.tunnels.TunnelManager;
+import common.I2P.tunnels.TunnelObject;
+import common.I2P.tunnels.TunnelParticipant;
 import common.Logger;
 import common.transport.I2NPSocket;
 import org.bouncycastle.util.encoders.Base64;
@@ -40,13 +45,18 @@ public class RouterServiceThread implements Runnable {
     private Logger log;
 
     /**
+     * TunnelManager for this router
+     */
+    private TunnelManager tunnelManager;
+
+    /**
      * Create thread to handle router I2NP message
      * 
      * @param networkDatabase Network database of router
      * @param router          RouterInfo of this router
      * @param recievedMessage I2NP message received
      */
-    public RouterServiceThread(NetDB networkDatabase, RouterInfo router, I2NPHeader recievedMessage) {
+    public RouterServiceThread(NetDB networkDatabase, RouterInfo router, I2NPHeader recievedMessage, TunnelManager tunnelManager) {
         this.netDB = networkDatabase;
         this.router = router;
         this.recievedMessage = recievedMessage;
@@ -106,6 +116,45 @@ public class RouterServiceThread implements Runnable {
 
     private void handleTunnelBuildMessage(TunnelBuild tunnelBuild) {
         System.out.println("TunnelBuild message received: " + tunnelBuild.toJSONType().getFormattedJSON());
+
+        // iterate through all the records and compare the first 16 bytes of the hash
+        // to the toPeer field of the record, if they match we have found the correct
+        // record for us
+
+        for (TunnelBuild.Record record : tunnelBuild.getRecords()) {
+            byte[] toPeer = Arrays.copyOf(record.getToPeer(), 16); // only first 16 bytes of the hash
+            // check if first 16 byte of hash matches our first 16 bytes of hash
+            if (Arrays.equals(toPeer, Arrays.copyOf(router.getHash(), 16))) {
+                // we have found the correct record for us, now we can send the reply back to
+                // the peer
+                if (record.getPosition() == TunnelBuild.Record.TYPE.GATEWAY) {
+                    // create new tunnel gateway object
+                    TunnelGateway tunnelGateway = new TunnelGateway(record.getReceiveTunnel(),
+                            record.getLayerKey(), record.getIvKey(), record.getReplyKey(),
+                            record.getReplyIv(), record.getNextIdent(), record.getNextTunnel());
+                    
+                    // add gateway to tunnel manager
+                    tunnelManager.addTunnelObject(record.getReceiveTunnel(), tunnelGateway);
+                } else if (record.getPosition() == TunnelBuild.Record.TYPE.ENDPOINT) {
+                    // create new tunnel endpoint object
+                    TunnelEndpoint tunnelEndpoint = new TunnelEndpoint(record.getReceiveTunnel(),
+                            record.getLayerKey(), record.getIvKey(), record.getReplyKey(),
+                            record.getReplyIv(), router.getHash(), router.getPort());
+                    // add endpoint to tunnel manager
+                    tunnelManager.addTunnelObject(record.getReceiveTunnel(), tunnelEndpoint);
+                } else if (record.getPosition() == TunnelBuild.Record.TYPE.PARTICIPANT) {
+                    // create new tunnel participant object
+                    TunnelParticipant tunnelParticipant = new TunnelParticipant(record.getReceiveTunnel(),
+                            record.getLayerKey(), record.getIvKey(), record.getReplyKey(),
+                            record.getReplyIv(), record.getNextIdent(), record.getNextTunnel());
+                    // add participant to tunnel manager
+                    tunnelManager.addTunnelObject(record.getReceiveTunnel(), tunnelParticipant);
+                
+                } else {
+                    
+                }
+            }
+        }
         return;
     }
 

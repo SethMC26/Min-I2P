@@ -10,7 +10,7 @@ import java.io.IOException;
  * This class represents a TunnelEndpoint
  */
 public class TunnelEndpoint extends TunnelObject{
-    private RouterID replyRouter;
+    private byte[] replyRouter;
     private Integer replyTunnelID;
     /**
      * Create Tunnel Endpoint
@@ -19,11 +19,11 @@ public class TunnelEndpoint extends TunnelObject{
      * @param tunnelIVKey AES key for IV encryption
      * @param replyKey AES key for encrypting reply
      * @param replyIV byte[] reply IV - could be bull if inbound
-     * @param replyRouter RouterID of the inbound gateway of the tunnel to send the reply through - could be null if inbound
+     * @param replyRouter RouterID hash of the inbound gateway of the tunnel to send the reply through
      * @param replyTunnelID Integer TunnelID on next hop
      */
     public TunnelEndpoint(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey, SecretKey replyKey,
-                          byte[] replyIV, RouterID replyRouter, Integer replyTunnelID) {
+                          byte[] replyIV, byte[] replyRouter, Integer replyTunnelID) {
         super(TYPE.ENDPOINT, tunnelID, tunnelEncryptionKey, tunnelIVKey, replyKey, replyIV);
         this.replyRouter = replyRouter;
         this.replyTunnelID = replyTunnelID;

@@ -13,7 +13,7 @@ public class TunnelGateway extends TunnelObject{
     /**
      * what router is the next one in the path
      */
-    private RouterID nextHop;
+    private byte[] nextHop;
     /**
      * The tunnel ID on the next hop
      */
@@ -26,11 +26,11 @@ public class TunnelGateway extends TunnelObject{
      * @param tunnelIVKey AES key for IV encryption
      * @param replyKey AES key for encrypting reply
      * @param replyIV byte[] reply IV
-     * @param nextHop RouterID for next Router in path
+     * @param nextHop RouterID hash for next Router in path
      * @param nextTunnelID Integer TunnelID on next hop
      */
     public TunnelGateway(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey, SecretKey replyKey,
-                            byte[] replyIV, RouterID nextHop, Integer nextTunnelID) {
+                            byte[] replyIV, byte[] nextHop, Integer nextTunnelID) {
         super(TYPE.GATEWAY, tunnelID, tunnelEncryptionKey, tunnelIVKey, replyKey, replyIV);
         this.nextHop = nextHop;
         this.nextTunnelID = nextTunnelID;

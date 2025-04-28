@@ -13,7 +13,7 @@ public class TunnelParticipant extends TunnelObject{
     /**
      * what router is the next one in the path
      */
-    private RouterID nextHop;
+    private byte[] nextHop;
     /**
      * The tunnel ID on the next hop
      */
@@ -30,7 +30,7 @@ public class TunnelParticipant extends TunnelObject{
      * @param nextTunnelID Integer TunnelID on next hop
      */
     public TunnelParticipant(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey,
-                                SecretKey replyKey, byte[] replyIV, RouterID nextHop, Integer nextTunnelID) {
+                                SecretKey replyKey, byte[] replyIV, byte[] nextHop, Integer nextTunnelID) {
         super(TYPE.PARTICIPANT, tunnelID, tunnelEncryptionKey, tunnelIVKey, replyKey, replyIV);
         this.nextHop = nextHop;
         this.nextTunnelID = nextTunnelID;
