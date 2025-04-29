@@ -1,5 +1,6 @@
 package common.message;
 
+import merrimackutil.json.types.JSONArray;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
 
@@ -53,8 +54,19 @@ public class Response extends Message {
     public JSONObject toJSONType() {
         JSONObject obj = super.toJSONType();
 
-        obj.put("status", status);
-        obj.put("payload", payload);
+        if (!super.type.equals("List")) {
+            obj.put("status", status);
+            obj.put("payload", payload);
+        } else {
+            obj.put("status", status);
+            JSONArray array = new JSONArray();
+            for (String key : payload.split(",")) {
+                JSONObject audio = new JSONObject();
+                audio.put("audioName", key);
+                array.add(audio);
+            }
+            obj.put("payload", array);
+        }
 
         return obj;
     }

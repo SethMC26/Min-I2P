@@ -71,6 +71,19 @@ public class AudioDatabase implements JSONSerializable {
     }
 
     /**
+     * Lists all the audio in the database
+     *
+     * @return - String of all the audio names
+     */
+    public String listAudio() {
+        StringBuilder audioListString = new StringBuilder();
+        for (String key : audioList.keySet()) {
+            audioListString.append(key).append(",");
+        }
+        return audioListString.toString();
+    }
+
+    /**
      * Adds the audio to the database
      *
      * @param audioName - String the name of the audio

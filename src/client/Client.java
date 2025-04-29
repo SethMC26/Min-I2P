@@ -245,6 +245,30 @@ public class Client {
             }
 
             authenticate(socket);
+            System.out.println("Authenticated");
+
+            // --------- Send the Play Request --------- //
+            Request addRequest = new Request("Play", userName, songName);
+
+            socket.sendMessage(addRequest);
+
+            Message recvMsg = socket.getMessage();
+
+            if (!recvMsg.getType().equals("Status")) {
+                System.err.println("Error: Invalid response type: " + recvMsg.getType());
+                socket.close();
+                System.exit(1);
+            }
+
+            Response response = (Response) recvMsg;
+
+            boolean status = response.getStatus();
+
+            if(!status) {
+                System.err.println("Error: " + response.getPayload());
+                socket.close();
+                System.exit(1);
+            }
         }
 
         // Check if list was requested
@@ -267,6 +291,41 @@ public class Client {
             }
 
             authenticate(socket);
+            System.out.println("Authenticated");
+
+            // --------- Send the List Request --------- //
+            Request addRequest = new Request("List", userName, songName);
+
+            socket.sendMessage(addRequest);
+
+            Message recvMsg = socket.getMessage();
+
+            if (!recvMsg.getType().equals("Status")) {
+                System.err.println("Error: Invalid response type: " + recvMsg.getType());
+                socket.close();
+                System.exit(1);
+            }
+
+            Response response = (Response) recvMsg;
+
+            boolean status = response.getStatus();
+
+            if(!status) {
+                System.err.println("Error: " + response.getPayload());
+                socket.close();
+                System.exit(1);
+            }
+
+            // --------- Print the List of Songs --------- //
+
+            String payload = response.getPayload();
+
+            System.out.println("Songs in database:");
+            String[] songs = payload.split(",");
+            int i = 1;
+            for (String song : songs) {
+                System.out.println("\t" + i + ": " + song);
+            }
 
         }
     }

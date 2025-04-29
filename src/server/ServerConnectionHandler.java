@@ -115,6 +115,27 @@ public class ServerConnectionHandler implements Runnable {
                     socket.sendMessage(addErrorResponse);
                 }
                 break;
+            case "Play":
+                Request playRequest = (Request) recvMsg;
+                // Play a song from the database
+                String playSongName = playRequest.getSongname();
+
+                // check if song exists
+                if (audioDatabase.checkIfAudioExists(playSongName)) {
+                    Response playResponse = new Response("Status", true, "Song can be played.");
+                    socket.sendMessage(playResponse);
+                } else {
+                    Response playErrorResponse = new Response("Status", false, "Song does not exist.");
+                    socket.sendMessage(playErrorResponse);
+                }
+                break;
+            case "List":
+                Request listRequest = (Request) recvMsg;
+                // List all songs in the database
+                Response listResponse = new Response("Status", true, audioDatabase.listAudio());
+                socket.sendMessage(listResponse);
+                break;
+
         }
 
 
