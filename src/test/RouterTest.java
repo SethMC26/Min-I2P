@@ -2,6 +2,7 @@ package test;
 
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.TunnelBuild;
+import common.I2P.I2NP.TunnelBuildReplyMessage;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.router.Router;
@@ -19,7 +20,7 @@ import java.util.Random;
 public class RouterTest {
 
     public static void main(String[] args) throws Exception {
-        // Create a mock Router instance
+        // Step 1: Create a mock Router instance
         Router mockRouter = new Router(7000, 8080) {
             @Override
             public List<RouterInfo> queryNetDBForRouters(int k) {
@@ -36,21 +37,21 @@ public class RouterTest {
             }
         };
 
-        // Create a mock NetDB
+        // Step 2: Create a mock NetDB
         NetDB mockNetDB = new NetDB(mockRouter.routerInfo);
 
-        // Create a TunnelBuild object
+        // Step 3: Create a TunnelBuild object
         int numHops = 3; // Number of hops in the tunnel
-        TunnelBuild tunnelBuild = mockRouter.createTunnelBuild(numHops);
+        TunnelBuild tunnelBuild = mockRouter.createTunnelBuild(numHops, 123);
 
-        // Create a mock I2NPHeader containing the TunnelBuild
+        // Step 4: Create a mock I2NPHeader containing the TunnelBuild
         I2NPHeader mockHeader = new I2NPHeader(
                 I2NPHeader.TYPE.TUNNELBUILD,
                 new Random().nextInt(), // Unique message ID
                 System.currentTimeMillis() + 1000, // Expiration time
                 tunnelBuild);
 
-        // Create a mock RouterServiceThread
+        // Step 5: Create a mock RouterServiceThread
         RouterServiceThread mockServiceThread = new RouterServiceThread(mockNetDB, mockRouter.routerInfo, null,
                 mockRouter.tunnelManager) {
             protected void handleTunnelBuildMessage(TunnelBuild tunnelBuild) {
@@ -59,19 +60,44 @@ public class RouterTest {
                     System.out.println(
                             "Forwarding to next hop: " + Base64.getEncoder().encodeToString(record.getNextIdent()));
                 }
+
+                // Simulate endpoint behavior
+                for (TunnelBuild.Record record : tunnelBuild.getRecords()) {
+                    if (record.getPosition() == TunnelBuild.Record.TYPE.ENDPOINT) {
+                        try {
+                            handleEndpointBehavior(tunnelBuild, record);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
             }
 
             @Override
             public void run() {
                 super.run();
-                // Explicitly call handleTunnelBuildMessage with the TunnelBuild from the mockHeader
+                // Explicitly call handleTunnelBuildMessage with the TunnelBuild from the
+                // mockHeader
                 handleTunnelBuildMessage((TunnelBuild) mockHeader.getMessage());
             }
         };
 
-        // Set the receivedMessage and run the service thread
-        mockServiceThread.setReceivedMessage(mockHeader); // Assuming setReceivedMessage is a method to set the message
+        // Step 6: Set the receivedMessage and run the service thread
+        mockServiceThread.setReceivedMessage(mockHeader);
         mockServiceThread.run();
+
+        // Step 7: Simulate a TunnelBuildReplyMessage
+        TunnelBuildReplyMessage replyMessage = new TunnelBuildReplyMessage(tunnelBuild.getRecords());
+        System.out.println("Simulated TunnelBuildReplyMessage: " + replyMessage.toJSONType().getFormattedJSON());
+
+        // Step 8: Verify tunnels were added to the TunnelManager
+        for (TunnelBuild.Record record : tunnelBuild.getRecords()) {
+            if (mockRouter.tunnelManager.getTunnelObject(record.getReceiveTunnel()) != null) {
+                System.out.println("Tunnel added for ID: " + record.getReceiveTunnel());
+            } else {
+                System.out.println("Tunnel not found for ID: " + record.getReceiveTunnel());
+            }
+        }
     }
 
     // Helper method to create a mock RouterInfo object

@@ -126,11 +126,11 @@ public class Router implements Runnable {
 
         // Start the router service thread to handle incoming messages
         ExecutorService threadpool = Executors.newFixedThreadPool(5);
-        // while (true) {
-        // I2NPHeader message = socket.getMessage();
-        // threadpool.execute(new RouterServiceThread(netDB, routerInfo, message,
-        // tunnelManager));
-        // }
+        while (true) {
+            I2NPHeader message = socket.getMessage();
+            threadpool.execute(new RouterServiceThread(netDB, routerInfo, message,
+                    tunnelManager));
+        }
     }
 
     /**
@@ -178,7 +178,7 @@ public class Router implements Runnable {
     }
 
     // this is for building the tunnels
-    public TunnelBuild createTunnelBuild(int numHops) throws NoSuchAlgorithmException {
+    public TunnelBuild createTunnelBuild(int numHops, int tunnelD) throws NoSuchAlgorithmException {
         Random random = new Random();
         List<TunnelBuild.Record> records = new ArrayList<>();
 
@@ -193,7 +193,7 @@ public class Router implements Runnable {
             RouterInfo next = (i + 1 < tempPeers.size()) ? tempPeers.get(i + 1) : null;
 
             byte[] toPeer = Arrays.copyOf(current.getRouterID().getHash(), 16); // only first 16 bytes of the hash
-            int receiveTunnel = random.nextInt();
+            int receiveTunnel = tunnelD; // tunnel id for the tunnel
             byte[] ourIdent = routerID.getHash(); // its okay for each hop to see this cause they have the tunnel id
 
             int nextTunnel = (next != null) ? random.nextInt() : 0;

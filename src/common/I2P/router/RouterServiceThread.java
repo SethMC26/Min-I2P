@@ -154,6 +154,14 @@ public class RouterServiceThread implements Runnable {
                     // Handle endpoint behavior
                     if (record.getPosition() == TunnelBuild.Record.TYPE.ENDPOINT) {
                         handleEndpointBehavior(tunnelBuild, record);
+                    } else {
+                        // forward build request to next hop
+                        I2NPSocket nextHopSocket = new I2NPSocket();
+                        I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, random.nextInt(),
+                                System.currentTimeMillis() + 100, tunnelBuild);
+                        RouterInfo nextRouter = (RouterInfo) netDB.lookup(record.getNextIdent());
+                        nextHopSocket.sendMessage(header, nextRouter);
+                        nextHopSocket.close();
                     }
 
                 } catch (Exception e) {
@@ -169,7 +177,22 @@ public class RouterServiceThread implements Runnable {
         TunnelBuildReplyMessage replyMessage = new TunnelBuildReplyMessage(tunnelBuild.getRecords());
 
         System.out.println("TunnelBuildReply message created: " + replyMessage.toJSONType().getFormattedJSON());
-        System.out.println("UHHHHHHHHH.....");
+        // query netdb for router info of next hop
+        RouterInfo nextRouter = (RouterInfo) netDB.lookup(record.getOurIdent()); // gets router info record right?
+        // forward message to next hop
+        I2NPSocket nextHopSocket = null;
+        try {
+            nextHopSocket = new I2NPSocket();
+            // create new header
+            I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILDREPLY, random.nextInt(),
+                    System.currentTimeMillis() + 100, replyMessage);
+            nextHopSocket.sendMessage(header, nextRouter);
+            nextHopSocket.close();
+        } catch (IOException e) {
+            if (nextHopSocket != null)
+                nextHopSocket.close();
+            log.error("Error sending TunnelBuildReply message: " + e.getMessage());
+        }
     }
 
     private byte[] createReplyBlock(common.I2P.I2NP.TunnelBuild.Record record) {
