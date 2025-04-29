@@ -102,6 +102,7 @@ public class ServerConnectionHandler implements Runnable {
 
         switch (recvMsg.getType()) {
             case "Add":
+                // ----- Checking if the Song is in the Database ----- //
                 Request addRequest = (Request) recvMsg;
                 // Add a new song to the database
                 String songName = addRequest.getSongname();
@@ -114,6 +115,10 @@ public class ServerConnectionHandler implements Runnable {
                     Response addErrorResponse = new Response("Status", false, "Song already exists.");
                     socket.sendMessage(addErrorResponse);
                 }
+
+                // ------- Adding the Song to the Database ------ //
+                recvMsg = socket.getMessage();
+
                 break;
             case "Play":
                 Request playRequest = (Request) recvMsg;
@@ -128,9 +133,10 @@ public class ServerConnectionHandler implements Runnable {
                     Response playErrorResponse = new Response("Status", false, "Song does not exist.");
                     socket.sendMessage(playErrorResponse);
                 }
+
+
                 break;
             case "List":
-                Request listRequest = (Request) recvMsg;
                 // List all songs in the database
                 Response listResponse = new Response("Status", true, audioDatabase.listAudio());
                 socket.sendMessage(listResponse);

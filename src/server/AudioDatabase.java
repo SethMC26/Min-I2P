@@ -5,6 +5,7 @@ import merrimackutil.json.JsonIO;
 import merrimackutil.json.types.JSONArray;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
+import org.bouncycastle.util.encoders.Base64;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -89,12 +90,13 @@ public class AudioDatabase implements JSONSerializable {
      * @param audioName - String the name of the audio
      * @param audio - String of the audio
      */
-    public boolean addAudio(String audioName, String audio) {
+    public boolean addAudio(String audioName, byte[] audio) {
         if (checkIfAudioExists(audioName)) {
             System.err.println("Audio already exists in the database");
             return false;
         }
-        Audio newAudio = new Audio(audioName, audio);
+        String audioBase64 = Base64.toBase64String(audio);
+        Audio newAudio = new Audio(audioName, audioBase64);
         audioList.put(audioName, newAudio);
         saveUsers();
         return true;

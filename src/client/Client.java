@@ -320,11 +320,12 @@ public class Client {
 
             String payload = response.getPayload();
 
-            System.out.println("Songs in database:");
+            System.out.println("\nSongs in database:");
             String[] songs = payload.split(",");
             int i = 1;
             for (String song : songs) {
-                System.out.println("\t" + i + ": " + song);
+                System.out.println("   " + i + ": " + song);
+                i++;
             }
 
         }
