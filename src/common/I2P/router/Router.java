@@ -7,6 +7,7 @@ import common.I2P.I2NP.TunnelBuild.Record.TYPE;
 import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
+import common.I2P.tunnels.Tunnel;
 import common.I2P.tunnels.TunnelManager;
 import common.I2P.NetworkDB.Record;
 import common.transport.I2NPSocket;
@@ -139,10 +140,10 @@ public class Router implements Runnable {
      * @param k The number of closest routers to retrieve.
      * @return A list of RouterInfo objects for the closest routers.
      */
-    public List<RouterInfo> queryNetDBForRouters(int k) {
+    public ArrayList<RouterInfo> queryNetDBForRouters(int k) {
         // Use the router's own hash as the key to find closest routers
         byte[] routerHash = routerID.getHash();
-        List<RouterInfo> closestRouters = netDB.getKClosestRouterInfos(routerHash, k);
+        ArrayList<RouterInfo> closestRouters = netDB.getKClosestRouterInfos(routerHash, k);
         System.out.println("QueryNetDBForRouters returned " + closestRouters.size() + " routers.");
         return closestRouters;
     }
@@ -178,12 +179,20 @@ public class Router implements Runnable {
     }
 
     // this is for building the tunnels
-    public TunnelBuild createTunnelBuild(int numHops, int tunnelD) throws NoSuchAlgorithmException {
+    public TunnelBuild createTunnelBuild(int numHops, int tunnelD, boolean isInbound) throws NoSuchAlgorithmException {
         Random random = new Random();
         List<TunnelBuild.Record> records = new ArrayList<>();
 
         // actually get list of peers from netdb
-        List<RouterInfo> tempPeers = queryNetDBForRouters(numHops);
+        ArrayList<RouterInfo> tempPeers = queryNetDBForRouters(numHops);
+        Tunnel potentialTunnel = new Tunnel(tempPeers);
+
+        // add to tunnel manager
+        if (isInbound) {
+            tunnelManager.addInboundTunnel(tunnelD, potentialTunnel);
+        } else {
+            tunnelManager.addOutboundTunnel(tunnelD, potentialTunnel);
+        }
 
         int sendMsgID = random.nextInt();
         long requestTime = System.currentTimeMillis() / 1000;

@@ -18,14 +18,14 @@ import java.util.List;
 import java.util.Random;
 
 public class RouterTest {
-
+// THIS IS OLD DO NOT USE!!!
     public static void main(String[] args) throws Exception {
         // Step 1: Create a mock Router instance
         Router mockRouter = new Router(7000, 8080) {
             @Override
-            public List<RouterInfo> queryNetDBForRouters(int k) {
+            public ArrayList<RouterInfo> queryNetDBForRouters(int k) {
                 // Return a mocked list of RouterInfo objects
-                List<RouterInfo> mockPeers = new ArrayList<>();
+                ArrayList<RouterInfo> mockPeers = new ArrayList<>();
                 for (int i = 0; i < k; i++) {
                     try {
                         mockPeers.add(createMockRouterInfo(i));

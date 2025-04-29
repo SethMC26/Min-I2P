@@ -4,6 +4,7 @@ import java.io.InvalidObjectException;
 import java.util.Base64;
 import java.util.List;
 
+import common.I2P.I2NP.TunnelBuild.Record;
 import merrimackutil.json.types.JSONArray;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
@@ -52,6 +53,10 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("records", jsonArray);
         return jsonObject;
+    }
+
+    public List<TunnelBuild.Record> getRecords() {
+        return records;
     }
 
 }

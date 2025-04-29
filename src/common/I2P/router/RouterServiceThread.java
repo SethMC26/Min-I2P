@@ -114,12 +114,38 @@ public class RouterServiceThread implements Runnable {
                 handleTunnelBuildMessage(tunnelBuild);
                 break;
             case TUNNELBUILDREPLY:
-                // todo implement tunnels 1
+                TunnelBuildReplyMessage tunnelBuildReply = (TunnelBuildReplyMessage) recievedMessage.getMessage();
+                if (handleTunnelBuildReplyMessage(tunnelBuildReply)) {
+                    log.debug("TunnelBuildReply message is valid, tunnel manager preserved");
+                } else {
+                    log.debug("Bad reply message, removing from TunnelManager");
+                }
                 break;
             default:
                 throw new RuntimeException("Bad message type " + recievedMessage.getType()); // should never hit case in
                                                                                              // prod
         }
+    }
+
+    private boolean handleTunnelBuildReplyMessage(TunnelBuildReplyMessage tunnelBuildReply) {
+        // logically know which ones are dummy data and skip over them implement later
+        // as this does not exist
+        // for now we just iterate through all the records
+        // check if each record has 0x0 at the end of the bytes
+        // we do not need to decrypt the data as i havent implemented this
+
+        for (TunnelBuild.Record record : tunnelBuildReply.getRecords()) {
+            byte[] encData = record.getEncData();
+            if (encData[encData.length - 1] == 0x0) {
+                log.info("Record ends with 0x0, processing further...");
+            } else {
+                log.debug("Record does not end with 0x0, bad reply...");
+                // tunnelManager.removeInboundTunnel(tunnelID); or something ahhhHHHHH!!!
+                // we need inbound outbound specificication
+                return false;
+            }
+        }
+        return true;
     }
 
     private void handleTunnelBuildMessage(TunnelBuild tunnelBuild) {
@@ -217,12 +243,13 @@ public class RouterServiceThread implements Runnable {
             System.arraycopy(hash, 0, replyData, 0, hash.length);
 
             // Encrypt the reply block with AES-256-CBC
-            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-            SecretKey aesKey = record.getReplyKey();
-            IvParameterSpec iv = new IvParameterSpec(record.getReplyIv());
-            cipher.init(Cipher.ENCRYPT_MODE, aesKey, iv);
+            // Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            // SecretKey aesKey = record.getReplyKey();
+            // IvParameterSpec iv = new IvParameterSpec(record.getReplyIv());
+            // cipher.init(Cipher.ENCRYPT_MODE, aesKey, iv);
 
-            return cipher.doFinal(replyData);
+            // return cipher.doFinal(replyData);
+            return replyData; // Placeholder for actual encryption
         } catch (Exception e) {
             log.error("Error creating reply block: " + e.getMessage());
             throw new RuntimeException("Failed to create reply block", e);
