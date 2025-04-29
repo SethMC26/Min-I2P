@@ -142,6 +142,7 @@ public class RouterServiceThread implements Runnable {
                             record.getReplyIv(), router.getHash(), router.getPort());
                     // add endpoint to tunnel manager
                     tunnelManager.addTunnelObject(record.getReceiveTunnel(), tunnelEndpoint);
+
                 } else if (record.getPosition() == TunnelBuild.Record.TYPE.PARTICIPANT) {
                     // create new tunnel participant object
                     TunnelParticipant tunnelParticipant = new TunnelParticipant(record.getReceiveTunnel(),

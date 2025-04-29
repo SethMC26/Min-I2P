@@ -8,12 +8,16 @@ import merrimackutil.json.types.JSONType;
 import org.bouncycastle.util.encoders.Base64;
 
 import javax.crypto.SecretKey;
+
+import java.io.ByteArrayOutputStream;
 import java.io.InvalidObjectException;
+import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import javax.crypto.Cipher;
 
-public class TunnelBuild extends I2NPMessage implements JSONSerializable{
+public class TunnelBuild extends I2NPMessage implements JSONSerializable {
     /**
      * Records key is toPeer 16 byte SHA256 hash of peerID with value being record
      */
@@ -114,7 +118,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
          * Type of tunnel object requested constructor
          */
         public enum TYPE {
-            GATEWAY, 
+            GATEWAY,
             PARTICIPANT,
             ENDPOINT
         };
@@ -205,8 +209,8 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
                 encDataJSON.put("replyIV", Base64.toBase64String(replyIv));
                 encDataJSON.put("requestTime", requestTime);
                 encDataJSON.put("sendMsgID", sendMsgID);
+                encDataJSON.put("type", type.toString());
 
-                // todo encrypt this data with correct peer's elgamal public key
                 jsonObject.put("encData", encDataJSON.toJSON());
             } else {
                 // todo this might be easier
@@ -268,5 +272,64 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
             return type;
         }
 
+        public Record encrypt(PublicKey publicKey) {
+            try {
+                System.out.println("Starting encryption for Record...");
+                System.out.println("Public Key Algorithm: " + publicKey.getAlgorithm());
+                System.out.println("Public Key Format: " + publicKey.getFormat());
+
+                // Encrypt each field individually with ElGamal
+                Cipher elgamalCipher = Cipher.getInstance("ElGamal/None/NoPadding", "BC");
+                elgamalCipher.init(Cipher.ENCRYPT_MODE, publicKey);
+
+                // Encrypt layerKey
+                byte[] encryptedLayerKey = elgamalCipher.doFinal(layerKey.getEncoded());
+                System.out.println("Encrypted Layer Key Length: " + encryptedLayerKey.length);
+
+                // Encrypt ivKey
+                byte[] encryptedIvKey = elgamalCipher.doFinal(ivKey.getEncoded());
+                System.out.println("Encrypted IV Key Length: " + encryptedIvKey.length);
+
+                // Encrypt replyKey
+                byte[] encryptedReplyKey = elgamalCipher.doFinal(replyKey.getEncoded());
+                System.out.println("Encrypted Reply Key Length: " + encryptedReplyKey.length);
+
+                // Encrypt replyIv
+                byte[] encryptedReplyIv = elgamalCipher.doFinal(replyIv);
+                System.out.println("Encrypted Reply IV Length: " + encryptedReplyIv.length);
+
+                // Encrypt nextIdent
+                byte[] encryptedNextIdent = elgamalCipher.doFinal(nextIdent);
+                System.out.println("Encrypted Next Ident Length: " + encryptedNextIdent.length);
+
+                // Encrypt ourIdent
+                byte[] encryptedOurIdent = elgamalCipher.doFinal(ourIdent);
+                System.out.println("Encrypted Our Ident Length: " + encryptedOurIdent.length);
+
+                // Serialize encrypted fields into encData using toJSONType()
+                JSONObject encDataJSON = new JSONObject();
+                encDataJSON.put("encryptedLayerKey", Base64.toBase64String(encryptedLayerKey));
+                encDataJSON.put("encryptedIvKey", Base64.toBase64String(encryptedIvKey));
+                encDataJSON.put("encryptedReplyKey", Base64.toBase64String(encryptedReplyKey));
+                encDataJSON.put("encryptedReplyIv", Base64.toBase64String(encryptedReplyIv));
+                encDataJSON.put("encryptedNextIdent", Base64.toBase64String(encryptedNextIdent));
+                encDataJSON.put("encryptedOurIdent", Base64.toBase64String(encryptedOurIdent));
+                encDataJSON.put("receiveTunnel", receiveTunnel);
+                encDataJSON.put("nextTunnel", nextTunnel);
+                encDataJSON.put("requestTime", requestTime);
+                encDataJSON.put("sendMsgID", sendMsgID);
+                encDataJSON.put("type", type.toString());
+
+                this.encData = encDataJSON.toJSON().getBytes();
+                System.out.println("Encryption successful. Serialized Encrypted Data Length: " + encData.length);
+
+                // Return a new Record with the encrypted data
+                return new Record(this.toPeer, this.encData);
+            } catch (Exception e) {
+                System.err.println("Encryption failed: " + e.getMessage());
+                e.printStackTrace();
+            }
+            return null;
+        }
     }
 }

@@ -19,6 +19,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+import java.security.PublicKey;
 import java.security.Security;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -125,10 +126,10 @@ public class Router implements Runnable {
 
         // Start the router service thread to handle incoming messages
         ExecutorService threadpool = Executors.newFixedThreadPool(5);
-        while (true) {
-            I2NPHeader message = socket.getMessage();
-            threadpool.execute(new RouterServiceThread(netDB, routerInfo, message, tunnelManager));
-        }
+        // while (true) {
+            //I2NPHeader message = socket.getMessage();
+            //threadpool.execute(new RouterServiceThread(netDB, routerInfo, message, tunnelManager));
+        // }
     }
 
     /**
@@ -175,7 +176,7 @@ public class Router implements Runnable {
         return null;
     }
 
-    // this is for building the tunnels tempPeer
+    // this is for building the tunnels 
     public TunnelBuild createTunnelBuild(int numHops) throws NoSuchAlgorithmException {
         Random random = new Random();
         List<TunnelBuild.Record> records = new ArrayList<>();
@@ -229,6 +230,14 @@ public class Router implements Runnable {
 
             records.add(record);
             System.out.println("Added record for peer: " + Arrays.toString(toPeer));
+
+            for (common.I2P.I2NP.TunnelBuild.Record recordItem : records) {
+                // encrypt the entire record with the public key of the peer
+                PublicKey peerPublicKey = current.getRouterID().getElgamalPublicKey(); // use full key
+                // iterate over each record and encrypt it with the public key
+                TunnelBuild.Record encryptedData = recordItem.encrypt(peerPublicKey);
+                recordItem = encryptedData; // oh yeah were overwriting baby
+            }
         }
         return new TunnelBuild(records);
     }
