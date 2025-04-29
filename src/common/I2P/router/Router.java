@@ -127,8 +127,9 @@ public class Router implements Runnable {
         // Start the router service thread to handle incoming messages
         ExecutorService threadpool = Executors.newFixedThreadPool(5);
         // while (true) {
-            //I2NPHeader message = socket.getMessage();
-            //threadpool.execute(new RouterServiceThread(netDB, routerInfo, message, tunnelManager));
+        // I2NPHeader message = socket.getMessage();
+        // threadpool.execute(new RouterServiceThread(netDB, routerInfo, message,
+        // tunnelManager));
         // }
     }
 
@@ -176,7 +177,7 @@ public class Router implements Runnable {
         return null;
     }
 
-    // this is for building the tunnels 
+    // this is for building the tunnels
     public TunnelBuild createTunnelBuild(int numHops) throws NoSuchAlgorithmException {
         Random random = new Random();
         List<TunnelBuild.Record> records = new ArrayList<>();
@@ -193,7 +194,7 @@ public class Router implements Runnable {
 
             byte[] toPeer = Arrays.copyOf(current.getRouterID().getHash(), 16); // only first 16 bytes of the hash
             int receiveTunnel = random.nextInt();
-            byte[] ourIdent = routerID.getHash(); // 32 byte ID hash
+            byte[] ourIdent = routerID.getHash(); // its okay for each hop to see this cause they have the tunnel id
 
             int nextTunnel = (next != null) ? random.nextInt() : 0;
             byte[] nextIdent = (next != null) ? next.getRouterID().getHash() : new byte[32]; // if no next, blank
@@ -233,11 +234,12 @@ public class Router implements Runnable {
 
             // temp disable encryption for testing
             // for (common.I2P.I2NP.TunnelBuild.Record recordItem : records) {
-            //     // encrypt the entire record with the public key of the peer
-            //     PublicKey peerPublicKey = current.getRouterID().getElgamalPublicKey(); // use full key
-            //     // iterate over each record and encrypt it with the public key
-            //     TunnelBuild.Record encryptedData = recordItem.encrypt(peerPublicKey);
-            //     recordItem = encryptedData; // oh yeah were overwriting baby
+            // // encrypt the entire record with the public key of the peer
+            // PublicKey peerPublicKey = current.getRouterID().getElgamalPublicKey(); // use
+            // full key
+            // // iterate over each record and encrypt it with the public key
+            // TunnelBuild.Record encryptedData = recordItem.encrypt(peerPublicKey);
+            // recordItem = encryptedData; // oh yeah were overwriting baby
             // }
         }
         return new TunnelBuild(records);

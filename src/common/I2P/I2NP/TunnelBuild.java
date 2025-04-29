@@ -356,5 +356,9 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             }
             return null;
         }
+
+        public void setEncData(byte[] replyBlock) {
+            this.encData = replyBlock;
+        }
     }
 }
