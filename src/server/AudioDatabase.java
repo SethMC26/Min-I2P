@@ -61,13 +61,23 @@ public class AudioDatabase implements JSONSerializable {
     }
 
     /**
+     * Checks if the song name exists in the database
+     *
+     * @param audioName - String the name of the audio
+     * @return - boolean true if the audio exists, false otherwise
+     */
+    public boolean checkIfAudioExists(String audioName) {
+        return audioList.containsKey(audioName);
+    }
+
+    /**
      * Adds the audio to the database
      *
      * @param audioName - String the name of the audio
      * @param audio - String of the audio
      */
     public boolean addAudio(String audioName, String audio) {
-        if (audioList.containsKey(audioName)) {
+        if (checkIfAudioExists(audioName)) {
             System.err.println("Audio already exists in the database");
             return false;
         }

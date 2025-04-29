@@ -196,6 +196,33 @@ public class Client {
 
             authenticate(socket);
 
+            System.out.println("Authenticated");
+
+            // --------- Send the Add Request --------- //
+            Request addRequest = new Request("Add", userName, songName);
+
+            socket.sendMessage(addRequest);
+
+            Message recvMsg = socket.getMessage();
+
+            if (!recvMsg.getType().equals("Status")) {
+                System.err.println("Error: Invalid response type: " + recvMsg.getType());
+                socket.close();
+                System.exit(1);
+            }
+
+            Response response = (Response) recvMsg;
+
+            boolean status = response.getStatus();
+
+            if(!status) {
+                System.err.println("Error: " + response.getPayload());
+                socket.close();
+                System.exit(1);
+            }
+
+            // --------- Send the Song Data --------- //
+
         }
 
         // Check if play was requested

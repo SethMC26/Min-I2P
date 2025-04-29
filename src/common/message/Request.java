@@ -10,6 +10,7 @@ public class Request extends Message {
     private String username;
     private String password;
     private String songname;
+    private String songPath;
     private Integer otp;
 
     /**
@@ -28,7 +29,7 @@ public class Request extends Message {
     }
 
     /**
-     * Constructor for the user to request create user, or play, add, or list songs from the database
+     * Constructor for the user to request create user, or play, or list songs from the database
      *
      * @param type - String type of message
      * @param username - String username of the user
