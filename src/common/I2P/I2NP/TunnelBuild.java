@@ -8,14 +8,17 @@ import merrimackutil.json.types.JSONType;
 import org.bouncycastle.util.encoders.Base64;
 
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InvalidObjectException;
+import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
 
 public class TunnelBuild extends I2NPMessage implements JSONSerializable {
     /**
@@ -274,46 +277,38 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
 
         public Record encrypt(PublicKey publicKey) {
             try {
-                System.out.println("Starting encryption for Record...");
-                System.out.println("Public Key Algorithm: " + publicKey.getAlgorithm());
-                System.out.println("Public Key Format: " + publicKey.getFormat());
+                // Generate AES session key
+                KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+                keyGen.init(256); // 256-bit AES key
+                SecretKey sessionKey = keyGen.generateKey();
 
-                // Encrypt each field individually with ElGamal
+                // Encrypt fields using sessionKey (AES)
+                Cipher aesCipher = Cipher.getInstance("AES/ECB/PKCS5Padding"); // ECB OK for single blocks
+                aesCipher.init(Cipher.ENCRYPT_MODE, sessionKey);
+
+                // Encrypt each field
+                byte[] encryptedLayerKey = aesCipher.doFinal(layerKey.getEncoded());
+                byte[] encryptedIvKey = aesCipher.doFinal(ivKey.getEncoded());
+                byte[] encryptedReplyKey = aesCipher.doFinal(replyKey.getEncoded());
+                byte[] encryptedReplyIv = aesCipher.doFinal(replyIv);
+                byte[] encryptedNextIdent = aesCipher.doFinal(nextIdent);
+                byte[] encryptedOurIdent = aesCipher.doFinal(ourIdent);
+
+                // Encrypt session key using ElGamal
                 Cipher elgamalCipher = Cipher.getInstance("ElGamal/None/NoPadding", "BC");
                 elgamalCipher.init(Cipher.ENCRYPT_MODE, publicKey);
+                byte[] encryptedSessionKey = elgamalCipher.doFinal(sessionKey.getEncoded());
 
-                // Encrypt layerKey
-                byte[] encryptedLayerKey = elgamalCipher.doFinal(layerKey.getEncoded());
-                System.out.println("Encrypted Layer Key Length: " + encryptedLayerKey.length);
-
-                // Encrypt ivKey
-                byte[] encryptedIvKey = elgamalCipher.doFinal(ivKey.getEncoded());
-                System.out.println("Encrypted IV Key Length: " + encryptedIvKey.length);
-
-                // Encrypt replyKey
-                byte[] encryptedReplyKey = elgamalCipher.doFinal(replyKey.getEncoded());
-                System.out.println("Encrypted Reply Key Length: " + encryptedReplyKey.length);
-
-                // Encrypt replyIv
-                byte[] encryptedReplyIv = elgamalCipher.doFinal(replyIv);
-                System.out.println("Encrypted Reply IV Length: " + encryptedReplyIv.length);
-
-                // Encrypt nextIdent
-                byte[] encryptedNextIdent = elgamalCipher.doFinal(nextIdent);
-                System.out.println("Encrypted Next Ident Length: " + encryptedNextIdent.length);
-
-                // Encrypt ourIdent
-                byte[] encryptedOurIdent = elgamalCipher.doFinal(ourIdent);
-                System.out.println("Encrypted Our Ident Length: " + encryptedOurIdent.length);
-
-                // Serialize encrypted fields into encData using toJSONType()
+                // Package everything
                 JSONObject encDataJSON = new JSONObject();
+                encDataJSON.put("encryptedSessionKey", Base64.toBase64String(encryptedSessionKey));
                 encDataJSON.put("encryptedLayerKey", Base64.toBase64String(encryptedLayerKey));
                 encDataJSON.put("encryptedIvKey", Base64.toBase64String(encryptedIvKey));
                 encDataJSON.put("encryptedReplyKey", Base64.toBase64String(encryptedReplyKey));
                 encDataJSON.put("encryptedReplyIv", Base64.toBase64String(encryptedReplyIv));
                 encDataJSON.put("encryptedNextIdent", Base64.toBase64String(encryptedNextIdent));
                 encDataJSON.put("encryptedOurIdent", Base64.toBase64String(encryptedOurIdent));
+                // Also store plaintext ints
                 encDataJSON.put("receiveTunnel", receiveTunnel);
                 encDataJSON.put("nextTunnel", nextTunnel);
                 encDataJSON.put("requestTime", requestTime);
@@ -321,9 +316,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 encDataJSON.put("type", type.toString());
 
                 this.encData = encDataJSON.toJSON().getBytes();
-                System.out.println("Encryption successful. Serialized Encrypted Data Length: " + encData.length);
 
-                // Return a new Record with the encrypted data
                 return new Record(this.toPeer, this.encData);
             } catch (Exception e) {
                 System.err.println("Encryption failed: " + e.getMessage());
