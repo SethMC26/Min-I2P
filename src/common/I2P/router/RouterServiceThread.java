@@ -18,6 +18,7 @@ import java.net.SocketException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Random;
 
 /**
  * Handle incoming I2NP messages
@@ -56,7 +57,8 @@ public class RouterServiceThread implements Runnable {
      * @param router          RouterInfo of this router
      * @param recievedMessage I2NP message received
      */
-    public RouterServiceThread(NetDB networkDatabase, RouterInfo router, I2NPHeader recievedMessage, TunnelManager tunnelManager) {
+    public RouterServiceThread(NetDB networkDatabase, RouterInfo router, I2NPHeader recievedMessage,
+            TunnelManager tunnelManager) {
         this.netDB = networkDatabase;
         this.router = router;
         this.recievedMessage = recievedMessage;
@@ -132,7 +134,7 @@ public class RouterServiceThread implements Runnable {
                     TunnelGateway tunnelGateway = new TunnelGateway(record.getReceiveTunnel(),
                             record.getLayerKey(), record.getIvKey(), record.getReplyKey(),
                             record.getReplyIv(), record.getNextIdent(), record.getNextTunnel());
-                    
+
                     // add gateway to tunnel manager
                     tunnelManager.addTunnelObject(record.getReceiveTunnel(), tunnelGateway);
                 } else if (record.getPosition() == TunnelBuild.Record.TYPE.ENDPOINT) {
@@ -150,9 +152,44 @@ public class RouterServiceThread implements Runnable {
                             record.getReplyIv(), record.getNextIdent(), record.getNextTunnel());
                     // add participant to tunnel manager
                     tunnelManager.addTunnelObject(record.getReceiveTunnel(), tunnelParticipant);
-                
+
+                    // in final practice we decrypt here but im stupid
+
+                    // forward to next hop
+                    // Wrap the TunnelBuild in an I2NPHeader
+                    I2NPHeader tunnelBuildHeader = new I2NPHeader(
+                            I2NPHeader.TYPE.TUNNELBUILD,
+                            new Random().nextInt(), // Unique message ID
+                            System.currentTimeMillis() + 1000, // Expiration time
+                            tunnelBuild);
+
+                    // Create a socket and send the message
+                    I2NPSocket socket = null;
+                    try {
+                        socket = new I2NPSocket();
+                        // Define and assign targetRouter before using it
+                        RouterInfo targetRouter = netDB.lookup(record.getNextIdent())
+                                .getRecordType() == Record.RecordType.ROUTERINFO
+                                        ? (RouterInfo) netDB.lookup(record.getNextIdent())
+                                        : null;
+                        if (targetRouter == null) {
+                            log.warn("Target router not found for next hop: "
+                                    + Base64.toBase64String(record.getNextIdent()));
+                            return;
+                        }
+                        socket.sendMessage(tunnelBuildHeader, targetRouter);
+                    } catch (SocketException e) {
+                        log.error("SocketException occurred: " + e.getMessage());
+                    } catch (IOException e) {
+                        log.error("IOException occurred while sending message: " + e.getMessage());
+                    } finally {
+                        if (socket != null) {
+                            socket.close();
+                        }
+                    }
+
                 } else {
-                    
+
                 }
             }
         }
@@ -388,5 +425,14 @@ public class RouterServiceThread implements Runnable {
             log.warn("Sleep was interrupted");
             peerSock.close();
         }
+    }
+
+    /**
+     * Get the received message - temp method for testing
+     * 
+     * @return I2NPHeader message received
+     */
+    public void setReceivedMessage(I2NPHeader mockHeader) {
+        this.recievedMessage = mockHeader;
     }
 }

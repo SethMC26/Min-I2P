@@ -324,5 +324,37 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             }
             return null;
         }
+
+        public Record decrypt(SecretKey secretKey) {
+            try {
+                // Decrypt the session key using ElGamal
+                Cipher elgamalCipher = Cipher.getInstance("ElGamal/None/NoPadding", "BC");
+                elgamalCipher.init(Cipher.DECRYPT_MODE, secretKey);
+                byte[] decryptedSessionKey = elgamalCipher.doFinal(encData);
+
+                // Decrypt the fields using the session key (AES)
+                Cipher aesCipher = Cipher.getInstance("AES/ECB/PKCS5Padding"); // ECB OK for single blocks
+                aesCipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(decryptedSessionKey, "AES"));
+
+                // Decrypt each field
+                byte[] decryptedLayerKey = aesCipher.doFinal(Base64.decode(encData));
+                byte[] decryptedIvKey = aesCipher.doFinal(Base64.decode(encData));
+                byte[] decryptedReplyKey = aesCipher.doFinal(Base64.decode(encData));
+                byte[] decryptedReplyIv = aesCipher.doFinal(Base64.decode(encData));
+                byte[] decryptedNextIdent = aesCipher.doFinal(Base64.decode(encData));
+                byte[] decryptedOurIdent = aesCipher.doFinal(Base64.decode(encData));
+
+                // Create a new Record with the decrypted values
+                return new Record(toPeer, receiveTunnel, decryptedOurIdent, nextTunnel, decryptedNextIdent,
+                        new SecretKeySpec(decryptedLayerKey, "AES"),
+                        new SecretKeySpec(decryptedIvKey, "AES"),
+                        new SecretKeySpec(decryptedReplyKey, "AES"),
+                        decryptedReplyIv, requestTime, sendMsgID, type);
+            } catch (Exception e) {
+                System.err.println("Decryption failed: " + e.getMessage());
+                e.printStackTrace();
+            }
+            return null;
+        }
     }
 }

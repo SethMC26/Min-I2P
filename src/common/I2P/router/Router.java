@@ -41,7 +41,7 @@ public class Router implements Runnable {
     /**
      * TunnelManager is responsible for managing tunnels
      */
-    TunnelManager tunnelManager;
+    public TunnelManager tunnelManager;
 
     /**
      * Socket is for connecting to client using I2CP protocol
@@ -231,13 +231,14 @@ public class Router implements Runnable {
             records.add(record);
             System.out.println("Added record for peer: " + Arrays.toString(toPeer));
 
-            for (common.I2P.I2NP.TunnelBuild.Record recordItem : records) {
-                // encrypt the entire record with the public key of the peer
-                PublicKey peerPublicKey = current.getRouterID().getElgamalPublicKey(); // use full key
-                // iterate over each record and encrypt it with the public key
-                TunnelBuild.Record encryptedData = recordItem.encrypt(peerPublicKey);
-                recordItem = encryptedData; // oh yeah were overwriting baby
-            }
+            // temp disable encryption for testing
+            // for (common.I2P.I2NP.TunnelBuild.Record recordItem : records) {
+            //     // encrypt the entire record with the public key of the peer
+            //     PublicKey peerPublicKey = current.getRouterID().getElgamalPublicKey(); // use full key
+            //     // iterate over each record and encrypt it with the public key
+            //     TunnelBuild.Record encryptedData = recordItem.encrypt(peerPublicKey);
+            //     recordItem = encryptedData; // oh yeah were overwriting baby
+            // }
         }
         return new TunnelBuild(records);
     }
