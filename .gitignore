@@ -29,3 +29,5 @@ lib
 dist
 build
 test-data/database/*.json
+
+*.wav

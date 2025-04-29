@@ -90,13 +90,12 @@ public class AudioDatabase implements JSONSerializable {
      * @param audioName - String the name of the audio
      * @param audio - String of the audio
      */
-    public boolean addAudio(String audioName, byte[] audio) {
+    public boolean addAudio(String audioName, String audio) {
         if (checkIfAudioExists(audioName)) {
             System.err.println("Audio already exists in the database");
             return false;
         }
-        String audioBase64 = Base64.toBase64String(audio);
-        Audio newAudio = new Audio(audioName, audioBase64);
+        Audio newAudio = new Audio(audioName, audio);
         audioList.put(audioName, newAudio);
         saveUsers();
         return true;

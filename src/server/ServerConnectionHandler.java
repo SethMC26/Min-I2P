@@ -1,6 +1,7 @@
 package server;
 
 import common.MessageSocket;
+import common.message.ByteMessage;
 import common.message.Message;
 import common.message.Request;
 import common.message.Response;
@@ -118,6 +119,33 @@ public class ServerConnectionHandler implements Runnable {
 
                 // ------- Adding the Song to the Database ------ //
                 recvMsg = socket.getMessage();
+
+                StringBuilder audioData = new StringBuilder();
+
+                while(!recvMsg.getType().equals("End")) {
+
+                    // check if message is a byte message
+                    if (!(recvMsg.getType().equals("Byte"))) {
+                        Response error = new Response("Status", false, "Message type not Byte");
+                        socket.sendMessage(error);
+                        System.err.println("Unknown message type: " + recvMsg.getType());
+                        // close connection and return
+                        socket.close();
+                        return;
+                    }
+
+                    // Cast the message to a ByteMessage
+                    ByteMessage byteMessage = (ByteMessage) recvMsg;
+
+                    // Append the byte data to the StringBuilder as a Base64 string
+                    byte[] data = byteMessage.getData();
+                    String base64String = Base64.toBase64String(data);
+                    audioData.append(base64String);
+
+                    recvMsg = socket.getMessage();
+                }
+
+                System.out.println("Audio data received: " + audioData);
 
                 break;
             case "Play":

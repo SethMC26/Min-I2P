@@ -1,6 +1,7 @@
 package client;
 
 import common.MessageSocket;
+import common.message.ByteMessage;
 import common.message.Message;
 import common.message.Request;
 import common.message.Response;
@@ -11,7 +12,10 @@ import merrimackutil.util.Tuple;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.encoders.Base64;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Scanner;
 
 public class Client {
@@ -222,6 +226,36 @@ public class Client {
             }
 
             // --------- Send the Song Data --------- //
+
+            // Checks to see if the file path given is a wav file
+            String[] parts = songPath.split("\\.");
+            if (parts.length < 2 || !parts[parts.length - 1].equals("wav")) {
+                System.err.println("Error: Invalid file path or file type. Must be a .wav file");
+                socket.close();
+                System.exit(1);
+            }
+
+            // Checks if the file exists and gets the bytes if it does
+            byte[] audioBytes;
+            try {
+                File file = new File(songPath);
+                if (!file.exists()) {
+                    System.err.println("Error: File does not exist");
+                    socket.close();
+                    System.exit(1);
+                }
+
+                Path path = file.toPath();
+                audioBytes = Files.readAllBytes(path);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
+            System.out.println("Audio data received: " + Base64.toBase64String(audioBytes));
+
+            // Send the song data to the server
+
+
 
         }
 
