@@ -1,5 +1,6 @@
 package server;
 
+import common.MessageSocket;
 import merrimackutil.cli.LongOption;
 import merrimackutil.cli.OptionParser;
 import merrimackutil.json.JsonIO;
@@ -114,10 +115,7 @@ public class Server {
         usersDatabase = new UsersDatabase(usersFile);
         audioDatabase = new AudioDatabase(databaseFile);
 
-        usersDatabase.addUser("test", "test", "test", "test");
-
-        audioDatabase.addAudio("test", "test");
-
+        serverStart();
     }
 
     /**
@@ -166,7 +164,7 @@ public class Server {
 
             while(true) {
 
-                Socket socket = serverSocket.accept();
+                MessageSocket socket = new MessageSocket(serverSocket.accept());
 
                 executor.execute(new ServerConnectionHandler(socket, audioDatabase, usersDatabase));
             }

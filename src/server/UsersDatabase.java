@@ -68,10 +68,9 @@ public class UsersDatabase implements JSONSerializable {
      *
      * @param userName The username of the new user.
      * @param password The password of the new user.
-     * @param pubKey   The public key of the new user.
      * @param totpKey  Base64 encoding of TOTP-key to use for HMAC in totp protocol
      */
-    public boolean addUser(String userName, String password, String pubKey, String totpKey) {
+    public boolean addUser(String userName, String password, String totpKey) {
 
         // Check if user already exists
         if (checkIfUserExists(userName)) {
@@ -86,7 +85,7 @@ public class UsersDatabase implements JSONSerializable {
         String hashedPassword = encryptPass(password, salt);
 
         // Add new user
-        users.put(userName, new User(userName, hashedPassword, pubKey, saltString, totpKey));
+        users.put(userName, new User(userName, hashedPassword, saltString, totpKey));
         saveUsers();
         return true;
     }

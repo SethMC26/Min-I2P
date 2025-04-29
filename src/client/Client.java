@@ -1,9 +1,18 @@
 package client;
 
+import common.MessageSocket;
+import common.message.Message;
+import common.message.Request;
+import common.message.Response;
 import merrimackutil.cli.LongOption;
 import merrimackutil.cli.OptionParser;
+import merrimackutil.codec.Base32;
 import merrimackutil.util.Tuple;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.util.encoders.Base64;
+
+import java.io.IOException;
+import java.util.Scanner;
 
 public class Client {
 
@@ -126,6 +135,44 @@ public class Client {
 
             // Create the user in the database if the user does not already exist
             System.out.println("Creating user...");
+
+            MessageSocket socket = null;
+            try {
+                socket = new MessageSocket(ipAddress, port);
+            } catch (Exception e) {
+                System.out.println("Error creating user: " + e.getMessage());
+                System.exit(1);
+            }
+
+            String password = new String(System.console().readPassword("Enter password: "));
+
+            Request createRequest = new Request("Create", userName, password);
+
+            socket.sendMessage(createRequest);
+
+            Message recvMsg = socket.getMessage();
+
+            if (!recvMsg.getType().equals("Status")) {
+                System.err.println("Error: Invalid response type: " + recvMsg.getType());
+                socket.close();
+                System.exit(1);
+            }
+
+            Response response = (Response) recvMsg;
+
+            boolean status = response.getStatus();
+            String payload = response.getPayload();
+
+            if (status) {
+                // spec says we should send key totp as base64 but display it as base 32
+                String totp = Base32.encodeToString(Base64.decode(payload), true);
+                System.out.println("Base 32 Key: " + totp);
+            } else {
+                System.err.println("\u001B[31mUser creation failed. Reason:\u001B[0m");
+                System.out.println(payload);
+            }
+
+            socket.close();
         }
 
         // Check if add was requested
@@ -138,6 +185,17 @@ public class Client {
 
             // Add the song to the database if the user exists and if the song does not already exist in the database
             System.out.println("Adding song...");
+
+            MessageSocket socket = null;
+            try {
+                socket = new MessageSocket(ipAddress, port);
+            } catch (IOException e) {
+                System.err.println("Could not set up connection: " + e.getMessage());
+                System.exit(1);
+            }
+
+            authenticate(socket);
+
         }
 
         // Check if play was requested
@@ -150,6 +208,16 @@ public class Client {
 
             // Play the song if the user exists and the song is in the database
             System.out.println("Playing song...");
+
+            MessageSocket socket = null;
+            try {
+                socket = new MessageSocket(ipAddress, port);
+            } catch (IOException e) {
+                System.err.println("Could not set up connection: " + e.getMessage());
+                System.exit(1);
+            }
+
+            authenticate(socket);
         }
 
         // Check if list was requested
@@ -162,6 +230,17 @@ public class Client {
 
             // List all the songs in the database if the user exists
             System.out.println("Listing songs...");
+
+            MessageSocket socket = null;
+            try {
+                socket = new MessageSocket(ipAddress, port);
+            } catch (IOException e) {
+                System.err.println("Could not set up connection: " + e.getMessage());
+                System.exit(1);
+            }
+
+            authenticate(socket);
+
         }
     }
 
@@ -182,4 +261,30 @@ public class Client {
     // ---------- Private Methods ---------- //
 
     // Add any private methods here if needed
+    private static void authenticate(MessageSocket sock) {
+        // We might want to move this password string if post/get needs it as well -Seth
+        String password = new String(System.console().readPassword("Enter Password: "));
+        Scanner in = new Scanner(System.in);
+        System.out.print("Enter OTP: ");
+        Integer otp = in.nextInt();
+
+        Request request = new Request("Authenticate", userName, password, otp);
+
+        sock.sendMessage(request);
+
+        Message response = sock.getMessage();
+        if (!response.getType().equals("Status")) {
+            sock.close();
+            System.err.println("Got bad message type from server: " + response.getType());
+            System.exit(1);
+        }
+
+        Response status = (Response) response;
+        // if we get a bad status let's exit
+        if (!status.getStatus()) {
+            System.err.println(status.getPayload());
+            sock.close();
+            System.exit(1);
+        }
+    }
 }

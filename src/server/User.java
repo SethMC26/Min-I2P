@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 public class User implements JSONSerializable {
     private String userName;
     private String password;
-    private String pubKey;
     private String salt;
     private String totpKey;
 
@@ -19,14 +18,12 @@ public class User implements JSONSerializable {
      * Create a new User
      * @param userName String User name
      * @param password String User's password
-     * @param pubKey String base64 elgamal public key
      * @param salt String base64 encoded salt
      * @param totpKey String Base32 encoded totp key
      */
-    public User(String userName, String password, String pubKey, String salt, String totpKey) {
+    public User(String userName, String password, String salt, String totpKey) {
         this.userName = userName;
         this.password = password;
-        this.pubKey = pubKey;
         this.salt = salt;
         this.totpKey = totpKey;
     }
@@ -66,11 +63,10 @@ public class User implements JSONSerializable {
 
         JSONObject userJSON = (JSONObject) jsonType;
 
-        userJSON.checkValidity(new String[]{"user", "pass", "pubkey", "salt", "totp-key"});
+        userJSON.checkValidity(new String[]{"user", "pass", "salt", "totp-key"});
 
         userName = userJSON.getString("user");
         password = userJSON.getString("pass");
-        pubKey = userJSON.getString("pubkey");
         salt = userJSON.getString("salt");
         totpKey = userJSON.getString("totp-key");
     }
@@ -84,7 +80,6 @@ public class User implements JSONSerializable {
         user.put("user", userName);
         user.put("pass", password);
         user.put("salt", salt);
-        user.put("pubkey", pubKey);
         user.put("totp-key", totpKey);
         return user;
     }
@@ -95,14 +90,6 @@ public class User implements JSONSerializable {
      */
     public String getUserName() {
         return userName;
-    }
-
-    /**
-     * Get Public key of user
-     * @return String base64 of users Elgamal Public Key
-     */
-    public String getPublicKey() {
-        return pubKey;
     }
 
     /**

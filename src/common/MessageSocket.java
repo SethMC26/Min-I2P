@@ -92,5 +92,16 @@ public class MessageSocket extends Socket {
         }
     }
 
+    /**
+     * Closes the socket connection
+     */
+    public void close() {
+        try {
+            super.close();
+        } catch (IOException e) {
+            System.err.println("Error closing TLSConnection: " + e.getMessage());
+        }
+    }
+
 
 }
