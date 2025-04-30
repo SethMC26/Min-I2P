@@ -256,7 +256,7 @@ public class Client {
 
             // Send the song data to the server
 
-            List<byte[]> chunks = chunkAudioData(audioBytes, 2 * 1024); // 2KB chunks
+            List<byte[]> chunks = chunkAudioData(audioBytes, 256); // Chunk size of 512 bytes
 
             System.out.println("Size of audio data: " + chunks.size());
 
@@ -268,13 +268,24 @@ public class Client {
 
             socket.sendMessage(new Message("End")); // Send end message to indicate end of audio data
 
-            StringBuilder temp = new StringBuilder();
-            for (byte[] chunk : chunks) {
-                String base64String = Base64.toBase64String(chunk);
-                temp.append(base64String);
+            recvMsg = socket.getMessage();
+
+            if (!recvMsg.getType().equals("Status")) {
+                System.err.println("Error: Invalid response type: " + recvMsg.getType());
+                socket.close();
+                System.exit(1);
             }
-            System.out.println("Audio data received: " + temp.substring(0,50) + "...");
-            System.out.println("Audio data length: " + temp.length());
+
+            response = (Response) recvMsg;
+
+            status = response.getStatus();
+            String payload = response.getPayload();
+
+            if (status) {
+                System.out.println("Song added successfully");
+            } else {
+                System.err.println("Error: " + payload);
+            }
 
         }
 
@@ -307,21 +318,39 @@ public class Client {
 
             Message recvMsg = socket.getMessage();
 
-            if (!recvMsg.getType().equals("Status")) {
-                System.err.println("Error: Invalid response type: " + recvMsg.getType());
-                socket.close();
-                System.exit(1);
-            }
-
-            Response response = (Response) recvMsg;
-
-            boolean status = response.getStatus();
-
-            if(!status) {
+            if (recvMsg.getType().equals("Status")) {
+                Response response = (Response) recvMsg;
                 System.err.println("Error: " + response.getPayload());
                 socket.close();
                 System.exit(1);
             }
+
+            List<String> audioData = new ArrayList<>();
+
+            while (recvMsg.getType().equals("Byte")) {
+                // check if message is a byte message
+                if (!(recvMsg.getType().equals("Byte"))) {
+                    Response error = new Response("Status", false, "Message type not Byte");
+                    socket.sendMessage(error);
+                    System.err.println("Unknown message type: " + recvMsg.getType());
+                    // close connection and return
+                    socket.close();
+                    return;
+                }
+
+                // Cast the message to a ByteMessage
+                ByteMessage byteMessage = (ByteMessage) recvMsg;
+
+                // Append the byte data to the StringBuilder as a Base64 string
+                byte[] data = byteMessage.getData();
+                String base64String = Base64.toBase64String(data);
+                audioData.add(base64String);
+
+                recvMsg = socket.getMessage();
+            }
+
+            System.out.println("Received audio data: " + audioData.size() + " chunks");
+            System.out.println("Data: " + audioData.getLast().substring(audioData.size() - 21));
         }
 
         // Check if list was requested

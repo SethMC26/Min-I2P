@@ -117,12 +117,14 @@ public class ServerConnectionHandler implements Runnable {
                 } else {
                     Response addErrorResponse = new Response("Status", false, "Song already exists.");
                     socket.sendMessage(addErrorResponse);
+                    socket.close();
+                    return;
                 }
 
                 // ------- Adding the Song to the Database ------ //
                 recvMsg = socket.getMessage();
 
-                StringBuilder audioData = new StringBuilder();
+                List<String> audioData = new ArrayList<>();
 
                 while(recvMsg.getType().equals("Byte")) {
 
@@ -142,16 +144,17 @@ public class ServerConnectionHandler implements Runnable {
                     // Append the byte data to the StringBuilder as a Base64 string
                     byte[] data = byteMessage.getData();
                     String base64String = Base64.toBase64String(data);
-                    audioData.append(base64String);
+                    audioData.add(base64String);
 
                     recvMsg = socket.getMessage();
                 }
-
-                System.out.println("Audio data received: " + audioData.substring(0,50) + "...");
-                System.out.println("Audio data length: " + audioData.length());
-
                 // Add the audio to the database
-                audioDatabase.addAudio(songName, String.valueOf(audioData));
+                audioDatabase.addAudio(songName, audioData);
+
+                // Send a success message back to the client
+                Response addSuccessResponse = new Response("Status", true, "Song added successfully.");
+
+                socket.sendMessage(addSuccessResponse);
 
                 break;
             case "Play":
@@ -160,13 +163,32 @@ public class ServerConnectionHandler implements Runnable {
                 String playSongName = playRequest.getSongname();
 
                 // check if song exists
-                if (audioDatabase.checkIfAudioExists(playSongName)) {
-                    Response playResponse = new Response("Status", true, "Song can be played.");
-                    socket.sendMessage(playResponse);
-                } else {
+                if (!audioDatabase.checkIfAudioExists(playSongName)) {
                     Response playErrorResponse = new Response("Status", false, "Song does not exist.");
                     socket.sendMessage(playErrorResponse);
+                    socket.close();
+                    return;
                 }
+
+                // ------- Sending the Song from the Database ------ //
+
+                List<byte[]> audio = audioDatabase.getAudio(playSongName);
+
+                // Send the audio data to the client
+
+                for (byte[] audioBytes : audio) {
+                    // Create a ByteMessage to send
+                    ByteMessage byteMessage = new ByteMessage("Byte", audioBytes);
+                    socket.sendMessage(byteMessage);
+                }
+
+                System.out.println("Received audio data: " + audio.size() + " chunks");
+                System.out.println("Data: " + Base64.toBase64String(audio.getLast()).substring(audio.size() - 21));
+
+
+                // Send an End message to indicate the end of the audio stream
+                Message endMessage = new Message("End");
+                socket.sendMessage(endMessage);
 
 
                 break;

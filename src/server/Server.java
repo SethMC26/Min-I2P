@@ -26,6 +26,7 @@ public class Server {
     private static int port;
     private static String databaseFile;
     private static String usersFile;
+    private static String audioFile;
     private static AudioDatabase audioDatabase;
     private static UsersDatabase usersDatabase;
 
@@ -103,6 +104,7 @@ public class Server {
         log("Port: " + port);
         log("Database File: " + databaseFile);
         log("Users File: " + usersFile);
+        log("Audio File: " + audioFile);
 
     }
 
@@ -114,10 +116,8 @@ public class Server {
         }
         processArgs(args);
 
-        System.out.println("Does this work?");
         usersDatabase = new UsersDatabase(usersFile);
-        audioDatabase = new AudioDatabase(databaseFile);
-        System.out.println("Does this work?");
+        audioDatabase = new AudioDatabase(databaseFile, audioFile);
 
         serverStart();
     }
@@ -137,7 +137,7 @@ public class Server {
         JSONObject obj = (JSONObject) jsonType;
 
         // Check if the JSON object has the needed keys
-        obj.checkValidity(new String[]{"port", "database-file", "users-file"});
+        obj.checkValidity(new String[]{"port", "database-file", "users-file", "audio-file"});
 
         if (obj.containsKey("debug"))
             debug = obj.getBoolean("debug");
@@ -146,6 +146,7 @@ public class Server {
         port = obj.getInt("port");
         databaseFile = obj.getString("database-file");
         usersFile = obj.getString("users-file");
+        audioFile = obj.getString("audio-file");
     }
 
     /**

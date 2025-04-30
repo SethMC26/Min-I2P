@@ -15,7 +15,7 @@ public class Audio implements JSONSerializable {
      * This is the constructor for one audio of the bulletin board database
      *
      * @param audioName - String the name of the audio
-     * @param audio     - String of the audio
+     * @param audio     - String of the audio's path location
      */
     Audio(String audioName, String audio) {
         this.audioName = audioName;
@@ -44,7 +44,7 @@ public class Audio implements JSONSerializable {
     /**
      * Gets the audio of this audio
      *
-     * @return - String audio
+     * @return - String audio path location
      */
     public String getAudio() {
         return audio;
