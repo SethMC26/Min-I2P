@@ -102,6 +102,7 @@ public class Server {
         // Check to see if the database file exists
         log("Port: " + port);
         log("Database File: " + databaseFile);
+        log("Users File: " + usersFile);
 
     }
 
@@ -112,8 +113,11 @@ public class Server {
             usage();
         }
         processArgs(args);
+
+        System.out.println("Does this work?");
         usersDatabase = new UsersDatabase(usersFile);
         audioDatabase = new AudioDatabase(databaseFile);
+        System.out.println("Does this work?");
 
         serverStart();
     }

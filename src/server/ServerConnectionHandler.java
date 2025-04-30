@@ -16,6 +16,8 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ServerConnectionHandler implements Runnable {
 
@@ -122,7 +124,7 @@ public class ServerConnectionHandler implements Runnable {
 
                 StringBuilder audioData = new StringBuilder();
 
-                while(!recvMsg.getType().equals("End")) {
+                while(recvMsg.getType().equals("Byte")) {
 
                     // check if message is a byte message
                     if (!(recvMsg.getType().equals("Byte"))) {
@@ -145,7 +147,11 @@ public class ServerConnectionHandler implements Runnable {
                     recvMsg = socket.getMessage();
                 }
 
-                System.out.println("Audio data received: " + audioData);
+                System.out.println("Audio data received: " + audioData.substring(0,50) + "...");
+                System.out.println("Audio data length: " + audioData.length());
+
+                // Add the audio to the database
+                audioDatabase.addAudio(songName, String.valueOf(audioData));
 
                 break;
             case "Play":

@@ -87,6 +87,8 @@ public class MessageSocket extends Socket {
                 return new Request(obj);
             case "Byte":
                 return new ByteMessage(obj);
+            case "End":
+                return new Message(obj);
             default:
                 throw new RuntimeException("Message does not fit known type, got type: " + message.getType());
         }

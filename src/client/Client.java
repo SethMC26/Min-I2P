@@ -16,6 +16,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Scanner;
 
 public class Client {
@@ -251,11 +254,27 @@ public class Client {
                 throw new RuntimeException(e);
             }
 
-            System.out.println("Audio data received: " + Base64.toBase64String(audioBytes));
-
             // Send the song data to the server
 
+            List<byte[]> chunks = chunkAudioData(audioBytes, 2 * 1024); // 2KB chunks
 
+            System.out.println("Size of audio data: " + chunks.size());
+
+            for (int i = 0; i < chunks.size(); i++) {
+                byte[] chunk = chunks.get(i);
+                ByteMessage byteMessage = new ByteMessage("Byte", chunk);
+                socket.sendMessage(byteMessage);
+            }
+
+            socket.sendMessage(new Message("End")); // Send end message to indicate end of audio data
+
+            StringBuilder temp = new StringBuilder();
+            for (byte[] chunk : chunks) {
+                String base64String = Base64.toBase64String(chunk);
+                temp.append(base64String);
+            }
+            System.out.println("Audio data received: " + temp.substring(0,50) + "...");
+            System.out.println("Audio data length: " + temp.length());
 
         }
 
@@ -407,5 +426,28 @@ public class Client {
             sock.close();
             System.exit(1);
         }
+    }
+
+    /**
+     * Splits the audio data into chunks of the specified size
+     *
+     * @param source - byte[] the audio data to be split
+     * @param chunkSize - int the size of each chunk
+     * @return - A list of byte arrays
+     */
+    private static List<byte[]> chunkAudioData(byte[] source, int chunkSize) {
+        if (chunkSize <= 0) {
+            throw new IllegalArgumentException("Chunk size must be positive");
+        }
+
+        List<byte[]> result = new ArrayList<>();
+        int sourceLength = source.length;
+
+        for (int startIndex = 0; startIndex < sourceLength; startIndex += chunkSize) {
+            int endIndex = Math.min(sourceLength, startIndex + chunkSize);
+            result.add(Arrays.copyOfRange(source, startIndex, endIndex));
+        }
+
+        return result;
     }
 }
