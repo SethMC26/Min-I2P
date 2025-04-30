@@ -73,9 +73,9 @@ public class p2 {
             msg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000, databaseLookup);
             sock.sendMessage(msg, "127.0.0.1", 6969);
 
-            DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], routerInfo.getHash());
+            DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], new byte[32]);
             msg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000, databaseLookup2);
-            sock.sendMessage(msg, "127.0.0.1", 6969);
+            sock.sendMessage(msg, "127.0.0.1", 8080);
 
             ExecutorService threadPool = Executors.newFixedThreadPool(5);
             sock = new I2NPSocket(7000, InetAddress.getByName("127.0.0.1"));
