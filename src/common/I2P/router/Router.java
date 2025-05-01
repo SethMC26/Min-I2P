@@ -1,5 +1,6 @@
 package common.I2P.router;
 
+import common.I2P.I2NP.DatabaseLookup;
 import common.I2P.I2NP.DatabaseStore;
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.TunnelBuild;
@@ -90,7 +91,7 @@ public class Router implements Runnable {
         int port = 7000; // hard coded for now we will fix later
         this.port = port;
         int boot = 8080;
-        setUp(port, boot);
+        setUp(port, boot); // change later
     }
 
     /**
@@ -124,6 +125,39 @@ public class Router implements Runnable {
                 databaseStore);
 
         socket.sendMessage(msg, "127.0.0.1", bootstrapPort);
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } // wait for the message to be sent
+
+        // send of self from self - get bootstrap info (if same get boostrap info)
+        DatabaseLookup databaseLookup = new DatabaseLookup(routerID.getHash(), routerID.getHash());
+        I2NPHeader lookupMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000,
+                databaseLookup);
+        socket.sendMessage(lookupMsg, routerInfo);
+        
+        // give enough time for all the routers to send their messages/turn on
+        Thread t1 = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    Thread.sleep(20000); // 20 seconds to wait for the message to be sent while we turn them all on
+                    DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], routerID.getHash());
+                    I2NPHeader lookupMsg2 = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000,
+                            databaseLookup2);
+                    socket.sendMessage(lookupMsg2, routerInfo);
+                    //netDB.getKClosestRouterInfos(routerID.getHash(), 10);
+                } catch (InterruptedException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+        });
+        t1.start(); // will go to routerservicethread after (pray)
 
         // Start the router service thread to handle incoming messages
         ExecutorService threadpool = Executors.newFixedThreadPool(5);
