@@ -59,24 +59,24 @@ public class KeysAndCerts implements JSONSerializable {
 
         JSONObject keysAndCertsJSON = (JSONObject) jsonType;
 
-        if (!keysAndCertsJSON.containsKey("publicKey"))
-            throw new InvalidObjectException("Missing key - publicKey");
+        if (!keysAndCertsJSON.containsKey("signingPublicKey"))
+            throw new InvalidObjectException("Missing key - signingPublicKey");
 
-        byte[] publicKeyBytes = Base64.decode(keysAndCertsJSON.getString("publicKey"));
+        byte[] signingKeyBytes = Base64.decode(keysAndCertsJSON.getString("signingPublicKey"));
         try {
-            publicKey = KeyFactory.getInstance("ElGamal").generatePublic(new X509EncodedKeySpec(publicKeyBytes));
+            signingPublicKey = KeyFactory.getInstance("Ed25519").generatePublic(
+                    new X509EncodedKeySpec(signingKeyBytes));
         }
-        catch (InvalidKeySpecException e) {throw new InvalidObjectException("Public Key is not valid");}
+        catch (InvalidKeySpecException e) {throw new InvalidObjectException("Signing Key is not valid");}
         catch (NoSuchAlgorithmException e) {throw new RuntimeException(e);} //should never hit case
 
         //this could be null for destination
-        if (keysAndCertsJSON.containsKey("signingPublicKey")) {
-            byte[] signingKeyBytes = Base64.decode(keysAndCertsJSON.getString("signingPublicKey"));
+        if (keysAndCertsJSON.containsKey("publicKey")) {
+            byte[] publicKeyBytes = Base64.decode(keysAndCertsJSON.getString("publicKey"));
             try {
-                signingPublicKey = KeyFactory.getInstance("Ed25519").generatePublic(
-                        new X509EncodedKeySpec(signingKeyBytes));
+                publicKey = KeyFactory.getInstance("ElGamal").generatePublic(new X509EncodedKeySpec(publicKeyBytes));
             }
-            catch (InvalidKeySpecException e) {throw new InvalidObjectException("Signing Key is not valid");}
+            catch (InvalidKeySpecException e) {throw new InvalidObjectException("Public Key is not valid");}
             catch (NoSuchAlgorithmException e) {throw new RuntimeException(e);} //should never hit case
         }
     }
@@ -84,11 +84,12 @@ public class KeysAndCerts implements JSONSerializable {
     @Override
     public JSONObject toJSONType() {
         JSONObject json = new JSONObject();
-        json.put("publicKey", Base64.toBase64String(publicKey.getEncoded()));
+
+        json.put("signingPublicKey", Base64.toBase64String(signingPublicKey.getEncoded()));
 
         //could be null if used for destination
-        if (signingPublicKey != null) {
-            json.put("signingPublicKey", Base64.toBase64String(signingPublicKey.getEncoded()));
+        if (publicKey != null) {
+            json.put("publicKey", Base64.toBase64String(publicKey.getEncoded()));
         }
 
         return json;
