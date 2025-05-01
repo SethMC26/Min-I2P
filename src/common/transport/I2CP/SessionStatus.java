@@ -1,5 +1,10 @@
 package common.transport.I2CP;
 
+import merrimackutil.json.types.JSONObject;
+import merrimackutil.json.types.JSONType;
+
+import java.io.InvalidObjectException;
+
 import static common.transport.I2CP.I2CPMessageTypes.SESSIONSTATUS;
 
 public class SessionStatus extends I2CPMessage{
@@ -20,9 +25,23 @@ public class SessionStatus extends I2CPMessage{
     }
     private Status status;
 
-    public SessionStatus(int sessionID, Status status) {
-        super(1, sessionID, SESSIONSTATUS);
+    public SessionStatus(int messageID, int sessionID, Status status) {
+        super(messageID, sessionID, SESSIONSTATUS);
         this.status = status;
     }
 
+    @Override
+    public void deserialize(JSONType jsonType) throws InvalidObjectException {
+        super.deserialize(jsonType); //check handled by super class
+        JSONObject json = (JSONObject) jsonType;
+        json.checkValidity(new String[] {"status"});
+        status = Status.values()[json.getInt("status")];
+    }
+
+    @Override
+    public JSONObject toJSONType() {
+        JSONObject json = (JSONObject) super.toJSONType();
+        json.put("status", status.ordinal());
+        return json;
+    }
 }
