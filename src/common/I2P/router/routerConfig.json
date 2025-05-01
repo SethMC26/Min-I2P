@@ -1,7 +1,14 @@
 {
   "bootstrap-peer" : {
     "host" : "127.0.0.1",
-    "port" : 8080
+    "port" : 10000
   },
-  "port": 7000
+  "I2NP-addr": {
+    "host" : "127.0.0.1",
+    "port" : 10001
+  },
+  "I2CP-addr" : {
+    "host" : "127.0.0.1",
+    "port" : 20001
+  }
 }

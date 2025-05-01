@@ -27,15 +27,14 @@ public class SendMessage extends I2CPMessage{
     private byte[] nonce;
     /**
      * Message to send to destination C->D
-     * @param messageID ID of this message
      * @param sessionID Session this message belongs to
      * @param destination Destination to send message to
      * @param nonce Nonce of message - used for later MessageStatus updates
      * @param payload Payload of message
      * @implNote Nonce is NOT used to prevent message replay/MITM attacks so we will use nonce
      */
-    public SendMessage(int messageID, int sessionID, Destination destination, byte[] nonce, JSONObject payload) {
-        super(messageID, sessionID, SENDMESSAGE);
+    public SendMessage(int sessionID, Destination destination, byte[] nonce, JSONObject payload) {
+        super(sessionID, SENDMESSAGE);
         this.destination = destination;
         this.nonce = nonce;
         this.payload = payload;
@@ -61,7 +60,7 @@ public class SendMessage extends I2CPMessage{
     public JSONObject toJSONType() {
         JSONObject json = super.toJSONType();
         json.put("destination", destination.toJSONType());
-        json.put("payload", payload.toJSON());
+        json.put("payload", payload);
         json.put("nonce", Base64.toBase64String(nonce));
         return json;
     }

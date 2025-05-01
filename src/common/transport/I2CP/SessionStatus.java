@@ -23,11 +23,25 @@ public class SessionStatus extends I2CPMessage{
         INVALID,
         REFUSED
     }
+
+    /**
+     * Status of session
+     */
     private Status status;
 
-    public SessionStatus(int messageID, int sessionID, Status status) {
-        super(messageID, sessionID, SESSIONSTATUS);
+    /**
+     * Construct a new SessionStatus message
+     * @param sessionID Session this message belongs to
+     * @param status Status of this message
+     */
+    public SessionStatus(int sessionID, Status status) {
+        super(sessionID, SESSIONSTATUS);
         this.status = status;
+    }
+
+    public SessionStatus(JSONObject json) throws InvalidObjectException{
+        super(json);
+        deserialize(json);
     }
 
     @Override
@@ -40,7 +54,7 @@ public class SessionStatus extends I2CPMessage{
 
     @Override
     public JSONObject toJSONType() {
-        JSONObject json = (JSONObject) super.toJSONType();
+        JSONObject json = super.toJSONType();
         json.put("status", status.ordinal());
         return json;
     }

@@ -20,11 +20,11 @@ public class CreateSession extends I2CPMessage{
 
     /**
      * Message to create session
-     * @param messageID ID of message - unique
      * @param destination Destination to setup session for
      */
-    CreateSession(int messageID, Destination destination) {
-        super(messageID, 0, CREATESESSION); //sessionID is set later on by the router
+    public CreateSession(Destination destination) {
+        super(0, CREATESESSION); //sessionID is set later on by the router
+        this.destination = destination;
     }
 
     CreateSession(JSONObject json) throws InvalidObjectException {
