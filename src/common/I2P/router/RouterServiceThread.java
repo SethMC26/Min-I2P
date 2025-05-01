@@ -170,9 +170,13 @@ public class RouterServiceThread implements Runnable {
                         log.warn("Invalid timestamp in tunnel request. Dropping record.");
                         continue;
                     }
+                    
+                    // byte[] replyBlock = createReplyBlock(record);
+                    // record.setEncData(replyBlock);
 
-                    byte[] replyBlock = createReplyBlock(record);
-                    record.setEncData(replyBlock);
+                    // temp before enc
+                    common.I2P.I2NP.TunnelBuild.Record replyRecord = createReplyBlock(record);
+                    record = replyRecord; // replace the record with the reply block
 
                     // Add the tunnel to the TunnelManager
                     addTunnelToManager(record);
@@ -221,39 +225,62 @@ public class RouterServiceThread implements Runnable {
         }
     }
 
-    private byte[] createReplyBlock(common.I2P.I2NP.TunnelBuild.Record record) {
-        try {
-            // Generate random padding
-            byte[] padding = new byte[495];
-            random.nextBytes(padding);
+    // switch thsi from bytes to record and have sendmsgid be the reply bit yyyyyasudyasukdghasjhdgashjdgha
+    private common.I2P.I2NP.TunnelBuild.Record createReplyBlock(common.I2P.I2NP.TunnelBuild.Record record) {
+        // go through the record and replace everything with a random value
+        // however, make sendmsgid be 0
 
-            // Set the reply status byte
-            byte replyStatus = 0x0; // 0x0 means agree to participate
+        // to peer bytes
+        Random random = new Random();
+        byte[] toPeer = new byte[16];
+        random.nextBytes(toPeer);
 
-            // Combine padding and status byte
-            byte[] replyData = new byte[528];
-            System.arraycopy(padding, 0, replyData, 32, padding.length);
-            replyData[527] = replyStatus;
+        // receive tunnel id int
+        int receiveTunnel = random.nextInt(1000);
 
-            // Compute SHA-256 hash of bytes 32-527
-            byte[] hash = java.security.MessageDigest.getInstance("SHA-256")
-                    .digest(Arrays.copyOfRange(replyData, 32, 528));
+        // our ident bytes
+        byte[] ourIdent = new byte[32];
+        random.nextBytes(ourIdent);
 
-            // Place the hash in bytes 0-31
-            System.arraycopy(hash, 0, replyData, 0, hash.length);
+        // next tunnel id int
+        int nextTunnel = random.nextInt(1000);
 
-            // Encrypt the reply block with AES-256-CBC
-            // Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-            // SecretKey aesKey = record.getReplyKey();
-            // IvParameterSpec iv = new IvParameterSpec(record.getReplyIv());
-            // cipher.init(Cipher.ENCRYPT_MODE, aesKey, iv);
+        // next ident byte
+        byte[] nextIdent = new byte[32];
+        random.nextBytes(nextIdent);
+        
+        // layer key secret
+        SecretKey layerKey = new SecretKeySpec(new byte[32], "AES");
+        random.nextBytes(layerKey.getEncoded());
 
-            // return cipher.doFinal(replyData);
-            return replyData; // Placeholder for actual encryption
-        } catch (Exception e) {
-            log.error("Error creating reply block: " + e.getMessage());
-            throw new RuntimeException("Failed to create reply block", e);
-        }
+        // iv key secret
+        SecretKey ivKey = new SecretKeySpec(new byte[32], "AES");
+        random.nextBytes(ivKey.getEncoded());
+
+        // reply key secret
+        SecretKey replyKey = new SecretKeySpec(new byte[32], "AES");
+        random.nextBytes(replyKey.getEncoded());
+       
+        // reply iv bytes
+        byte[] replyIv = new byte[16];
+        random.nextBytes(replyIv);
+
+        // request time long
+        long requestTime = System.currentTimeMillis() / 1000; // epoch time in seconds
+        // send msg id int
+        int sendMsgID = 0; // set to 0 for successful reply
+
+        // pick random type
+        TunnelBuild.Record.TYPE type = TunnelBuild.Record.TYPE.PARTICIPANT; // this is general enough
+
+        TunnelBuild.Record replyRecord = new TunnelBuild.Record(toPeer, receiveTunnel, ourIdent, nextTunnel,
+                nextIdent, layerKey, ivKey, replyKey, replyIv, requestTime, sendMsgID, type);
+
+        // we need to encrypt this but for now return the record
+        // like this should return bytes in the future
+        // new Record(toPeer, encData);
+
+        return replyRecord;
     }
 
     private boolean isTimestampValid(long requestTime) {
@@ -264,11 +291,6 @@ public class RouterServiceThread implements Runnable {
         // Allow for clock skew (5 minutes ahead, 65 minutes behind)
         return requestHour == currentHour || requestHour == currentHour - 1;
     }
-
-    // in reality encrypt it here and spit out bytes for encdata
-    // private byte[] createReplyBlock(TunnelBuild.Record record) throws Exception {
-    // return record.;
-    // }
 
     private void addTunnelToManager(TunnelBuild.Record record) {
         if (record.getPosition() == TunnelBuild.Record.TYPE.GATEWAY) {
