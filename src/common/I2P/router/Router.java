@@ -181,7 +181,7 @@ public class Router implements Runnable {
     // this is for building the tunnels
     public TunnelBuild createTunnelBuild(int numHops, int tunnelD, boolean isInbound) throws NoSuchAlgorithmException {
         Random random = new Random();
-        List<TunnelBuild.Record> records = new ArrayList<>();
+        ArrayList<TunnelBuild.Record> records = new ArrayList<>();
 
         // actually get list of peers from netdb
         ArrayList<RouterInfo> tempPeers = queryNetDBForRouters(numHops);

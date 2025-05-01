@@ -16,6 +16,7 @@ import java.util.Base64;
 import java.io.IOException;
 import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -512,7 +513,19 @@ public class RouterServiceThread implements Runnable {
             DeliveryStatus deliveryStatus = new DeliveryStatus(recievedMessage.getMsgID(), System.currentTimeMillis());
             int tunnelID = store.getReplyTunnelID();
             byte[] replyGatewayHash = store.getReplyGateway();
-            // todo send response on tunnelD
+            try {
+                I2NPSocket replySock = new I2NPSocket();
+                I2NPHeader replyMessage = new I2NPHeader(I2NPHeader.TYPE.DELIVERYSTATUS, random.nextInt(),
+                        System.currentTimeMillis() + 100, deliveryStatus);
+                // send delivery status directly to the router, no tunnels (chicken and egg?)
+                // uhhhhh i think i can make tunnels before this? maybe? idk
+                // well actually were doing a direct query to this router anyways so a direct reply is fine
+
+                
+            } catch (SocketException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
 
         }
 

@@ -1,5 +1,6 @@
 package common.I2P.I2NP;
 
+import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.TunnelManager;
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.types.JSONArray;
@@ -30,7 +31,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
         deserialize(json);
     }
 
-    public TunnelBuild(List<Record> records) {
+    public TunnelBuild(ArrayList<Record> records) {
         this.records = new HashMap<>();
 
         for (Record record : records) {
