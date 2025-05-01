@@ -5,7 +5,6 @@ import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
 
 import java.io.InvalidObjectException;
-import java.security.Key;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
@@ -23,7 +22,7 @@ public class Destination implements JSONSerializable {
      * Create destination with DSA_SHA1_Public_key
      * @param edSignPublicKey 32-byte Ed25519 public key for EdDSA signatures
      */
-    Destination(PublicKey edSignPublicKey) {
+    public Destination(PublicKey edSignPublicKey) {
         keys = new KeysAndCerts(null, edSignPublicKey);
     }
 
