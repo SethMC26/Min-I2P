@@ -20,6 +20,7 @@ public class MessageStatus extends I2CPMessage{
      * <p>{@code ROUTERFAILURE} Router failed fatal could not send message</p>
      * <p>{@code BADDESTINATION} Destination was bad/invalid</p>
      * <p>{@code BADLEASESET} Leaseset was bad/invalid</p>
+     * <p>{@code BADMESSAGE} Bad message from client</p>
      */
     public enum Status {
         ACCEPTED,
@@ -28,6 +29,7 @@ public class MessageStatus extends I2CPMessage{
         ROUTERFAILURE,
         BADDESTINATION,
         BADLEASESET,
+        BADMESSAGE
     }
 
     /**
@@ -52,7 +54,7 @@ public class MessageStatus extends I2CPMessage{
      * @implSpec Nonce here is NOT used to prevent replay attacks, it is used as a number once to help identify messages
      *           use of this nonce comes purely from the spec
      */
-    MessageStatus(int sessionID, int messageID, byte[] nonce, Status status) {
+    public MessageStatus(int sessionID, int messageID, byte[] nonce, Status status) {
         super(sessionID, MESSAGESTATUS);
         this.messageID = messageID;
         this.nonce = nonce;

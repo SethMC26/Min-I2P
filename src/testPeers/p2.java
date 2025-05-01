@@ -15,6 +15,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.security.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -26,7 +27,7 @@ public class p2 {
 
         Thread Router = new Thread(new Router());
         Router.start();
-        Thread cst = new Thread(new ClientServiceThread(routerInfo, 20002));
+        Thread cst = new Thread(new ClientServiceThread(routerInfo, 20002, new ConcurrentLinkedQueue<>()));
         cst.start();
 
     }

@@ -8,6 +8,7 @@ package common.transport.I2CP;
  * <p>{@code CREATELEASESET} - not implemented</p>
  * <p>{@code SENDMESSAGE} - Send data message to destination</p>
  * <p>{@code MESSAGESTATUS} - Status of sent message </p>
+ * <p>{@code DESTROYSESSION} - Destroy session</p>
  */
 public enum I2CPMessageTypes {
     CREATESESSION,
@@ -15,5 +16,6 @@ public enum I2CPMessageTypes {
     REQUESTLEASESET, //not implemented
     CREATELEASESET, //not implemented
     SENDMESSAGE,
-    MESSAGESTATUS
+    MESSAGESTATUS,
+    DESTROYSESSION
 }

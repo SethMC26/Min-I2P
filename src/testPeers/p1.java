@@ -10,16 +10,14 @@ import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.router.ClientServiceThread;
 import common.I2P.router.RouterServiceThread;
 import common.Logger;
-import common.transport.I2CP.CreateSession;
-import common.transport.I2CP.I2CPSocket;
-import common.transport.I2CP.SendMessage;
-import common.transport.I2CP.SessionStatus;
+import common.transport.I2CP.*;
 import common.transport.I2NPSocket;
 import merrimackutil.json.types.JSONObject;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import java.net.InetAddress;
 import java.security.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -35,7 +33,7 @@ public class p1 {
             router.start();
 
             //this will emulate our client service thread which technically is part of the router
-            Thread cst = new Thread(new ClientServiceThread(routerInfo, 20000));
+            Thread cst = new Thread(new ClientServiceThread(routerInfo, 20000, new ConcurrentLinkedQueue<>()));
             cst.start();
 
             //this will be our client stuff following
@@ -62,7 +60,9 @@ public class p1 {
             sock.sendMessage(new SendMessage(connectionID, destination, new byte[4], test));
 
             SendMessage send = (SendMessage) sock.getMessage();
-            System.out.println("got message ");
+            System.out.println("service echoed message back");
+            sock.sendMessage(new DestroySession(connectionID));
+            sock.close();
         }
         catch(Exception e) {
             e.printStackTrace();

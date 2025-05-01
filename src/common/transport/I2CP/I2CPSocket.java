@@ -76,6 +76,9 @@ public class I2CPSocket extends Socket {
                 case MESSAGESTATUS -> {
                     return new MessageStatus(json);
                 }
+                case DESTROYSESSION -> {
+                    return new DestroySession(json);
+                }
                 //lease set messages not implemeneted im not sure if we will need them
                 case CREATELEASESET -> {
                     throw new UnsupportedOperationException("Createlease set not implemented");
@@ -83,6 +86,7 @@ public class I2CPSocket extends Socket {
                 case REQUESTLEASESET -> {
                     throw new UnsupportedOperationException("Request Leaseset not implemented");
                 }
+
                 default -> {
                     throw new InvalidObjectException("Bad type: " + message.getType());
                 }
@@ -92,5 +96,9 @@ public class I2CPSocket extends Socket {
         } catch (ClassCastException e) {
             throw new InvalidObjectException("Could not cast to JSONObject: " + e.getMessage());
         }
+    }
+
+    public boolean hasMessage() {
+        return this.recv.hasNextLine();
     }
 }
