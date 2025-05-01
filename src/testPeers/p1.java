@@ -33,7 +33,7 @@ public class p1 {
             router.start();
 
             //this will emulate our client service thread which technically is part of the router
-            Thread cst = new Thread(new ClientServiceThread(routerInfo, 20000, new ConcurrentLinkedQueue<>()));
+            Thread cst = new Thread(new ClientServiceThread(routerInfo, netDB,20000, new ConcurrentLinkedQueue<>()));
             cst.start();
 
             //this will be our client stuff following
@@ -70,6 +70,7 @@ public class p1 {
     }
 
     static RouterInfo routerInfo;
+    static NetDB netDB;
 
     private static class Router implements Runnable{
         @Override
@@ -100,7 +101,7 @@ public class p1 {
                 RouterID routerID = new RouterID(pubKey, signingpubKey);
                 routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), "127.0.0.1", 10001, signingprivKey);
 
-                NetDB netDB = new NetDB(routerInfo);
+                netDB = new NetDB(routerInfo);
                 I2NPSocket sock = new I2NPSocket();
 
                 DatabaseStore databaseStore = new DatabaseStore(routerInfo);

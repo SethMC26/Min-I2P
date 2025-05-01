@@ -27,12 +27,12 @@ public class p2 {
 
         Thread Router = new Thread(new Router());
         Router.start();
-        Thread cst = new Thread(new ClientServiceThread(routerInfo, 20002, new ConcurrentLinkedQueue<>()));
+        Thread cst = new Thread(new ClientServiceThread(routerInfo, netDB, 20002, new ConcurrentLinkedQueue<>()));
         cst.start();
 
     }
     private static RouterInfo routerInfo;
-
+    private static NetDB netDB;
     private static class Router implements Runnable {
         @Override
         public void run() {
@@ -62,7 +62,7 @@ public class p2 {
                 RouterID routerID = new RouterID(pubKey, signingpubKey);
                 routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), "127.0.0.1", 10002, signingprivKey);
 
-                NetDB netDB = new NetDB(routerInfo);
+                netDB = new NetDB(routerInfo);
                 I2NPSocket sock = new I2NPSocket();
 
                 DatabaseStore databaseStore = new DatabaseStore(routerInfo);

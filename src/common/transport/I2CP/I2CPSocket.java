@@ -79,6 +79,12 @@ public class I2CPSocket extends Socket {
                 case DESTROYSESSION -> {
                     return new DestroySession(json);
                 }
+                case DESTLOOKUP -> {
+                    return new DestinationLookup(json);
+                }
+                case DESTREPLY -> {
+                    return new DestinationReply(json);
+                }
                 //lease set messages not implemeneted im not sure if we will need them
                 case CREATELEASESET -> {
                     throw new UnsupportedOperationException("Createlease set not implemented");

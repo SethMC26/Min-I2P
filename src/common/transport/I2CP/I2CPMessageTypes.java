@@ -6,6 +6,8 @@ package common.transport.I2CP;
  * <p>{@code SESSIONSTATUS} - Status of session </p>
  * <p>{@code REQUESTLEASESET} - not implemented </p>
  * <p>{@code CREATELEASESET} - not implemented</p>
+ * <p>{@code DESTLOOKUP} lookup a destination</p>
+ * <p>{@code DESTREPLY} get reply of lookup</p></p>
  * <p>{@code SENDMESSAGE} - Send data message to destination</p>
  * <p>{@code MESSAGESTATUS} - Status of sent message </p>
  * <p>{@code DESTROYSESSION} - Destroy session</p>
@@ -15,6 +17,8 @@ public enum I2CPMessageTypes {
     SESSIONSTATUS,
     REQUESTLEASESET, //not implemented
     CREATELEASESET, //not implemented
+    DESTLOOKUP,
+    DESTREPLY,
     SENDMESSAGE,
     MESSAGESTATUS,
     DESTROYSESSION
