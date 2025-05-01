@@ -65,6 +65,7 @@ public class NetDB {
         }
 
         //add record to bucket under its key(hash of record)
+        // could actually just get key of record isntead of record.getHash() but no diff
         bucket.put(Base64.toBase64String(record.getHash()), record);
         log.debug("Put record into bucket " + distance + " hash " + Base64.toBase64String(record.getHash()));
         log.trace(logNetDB());

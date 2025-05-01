@@ -119,7 +119,7 @@ public class Router implements Runnable {
         netDB = new NetDB(routerInfo);
 
         // Send a DatabaseStore message to the bootstrap peer
-        DatabaseStore databaseStore = new DatabaseStore(routerInfo);
+        DatabaseStore databaseStore = new DatabaseStore(routerInfo); // reply token set to 0 for now yay!
         I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, 1, System.currentTimeMillis() + 1000,
                 databaseStore);
 

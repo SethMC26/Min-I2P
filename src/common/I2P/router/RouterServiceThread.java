@@ -136,14 +136,13 @@ public class RouterServiceThread implements Runnable {
         // we do not need to decrypt the data as i havent implemented this
 
         for (TunnelBuild.Record record : tunnelBuildReply.getRecords()) {
-            byte[] encData = record.getEncData();
-            if (encData[encData.length - 1] == 0x0) {
-                log.info("Record ends with 0x0, processing further...");
+            int replyValue = record.getSendMsgID();
+            if (replyValue == 0) {
+                log.debug("Success!");
+                // keep tunnel in the TunnelManager
             } else {
-                log.debug("Record does not end with 0x0, bad reply...");
-                // tunnelManager.removeInboundTunnel(tunnelID); or something ahhhHHHHH!!!
-                // we need inbound outbound specificication
-                return false;
+                // remove the tunnel from the TunnelManager cause it was not successful
+                // impelmenet this later cause idk how to get tunnel id from the record
             }
         }
         return true;
@@ -194,6 +193,7 @@ public class RouterServiceThread implements Runnable {
                         nextHopSocket.sendMessage(header, nextRouter);
                         nextHopSocket.close();
                     }
+                    // note to self - how do we adjust for recursive decryption on reply records?
 
                 } catch (Exception e) {
                     log.error("Error processing TunnelBuild record: " + e.getMessage());
@@ -302,7 +302,8 @@ public class RouterServiceThread implements Runnable {
                     record.getReplyKey(),
                     record.getReplyIv(),
                     record.getNextIdent(),
-                    record.getNextTunnel());
+                    record.getNextTunnel(),
+                    router);
             tunnelManager.addTunnelObject(record.getReceiveTunnel(), tunnelGateway);
             log.info("Added tunnel gateway for tunnel ID: " + record.getReceiveTunnel());
         } else if (record.getPosition() == TunnelBuild.Record.TYPE.ENDPOINT) {
@@ -511,8 +512,8 @@ public class RouterServiceThread implements Runnable {
 
         if (store.getReplyToken() > 0) {
             DeliveryStatus deliveryStatus = new DeliveryStatus(recievedMessage.getMsgID(), System.currentTimeMillis());
-            int tunnelID = store.getReplyTunnelID();
-            byte[] replyGatewayHash = store.getReplyGateway();
+            int tunnelID = store.getReplyTunnelID(); // this is set in setReply but setReply is never called so this is null
+            byte[] replyGatewayHash = store.getReplyGateway(); // see prev comment
             try {
                 I2NPSocket replySock = new I2NPSocket();
                 I2NPHeader replyMessage = new I2NPHeader(I2NPHeader.TYPE.DELIVERYSTATUS, random.nextInt(),
