@@ -10,12 +10,12 @@ public class rt1 {
 
         for (int i = 0; i < numberOfRouters; i++) {
             int port1 = 10001 + i * 2;
-            int port2 = 20001;
+            int port2 = 8080;
 
             Thread routerThread = new Thread(() -> {
                 try {
-                    Router router = new Router(port1, port2, true);
                     System.out.println("Router started on ports: " + port1 + " and " + port2);
+                    Router router = new Router(port1, port2, true);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }

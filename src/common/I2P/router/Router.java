@@ -126,10 +126,14 @@ public class Router implements Runnable {
         netDB = new NetDB(routerInfo);
 
         // Send a DatabaseStore message to the bootstrap peer
+        System.out.println("Creating databsestore message to bootstrap peer: " + bootstrapPort);
         DatabaseStore databaseStore = new DatabaseStore(routerInfo); // reply token set to 0 for now yay!
-        I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, 1, System.currentTimeMillis() + 1000,
+        Random random = new Random();
+        int msgId = random.nextInt(); // random message id for now
+        I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, msgId, System.currentTimeMillis() + 1000,
                 databaseStore);
 
+                System.out.println("Sending DatabaseStore message to bootstrap peer: " + bootstrapPort);
         socket.sendMessage(msg, "127.0.0.1", bootstrapPort);
         try {
             Thread.sleep(1000);
@@ -139,9 +143,11 @@ public class Router implements Runnable {
         } // wait for the message to be sent
 
         // send of self from self - get bootstrap info (if same get boostrap info)
+        System.out.println("Creating databsestore message to self: " + port);
         DatabaseLookup databaseLookup = new DatabaseLookup(routerID.getHash(), routerID.getHash());
         I2NPHeader lookupMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000,
                 databaseLookup);
+                System.out.println("Sending DatabaseLookup message to self: " + port);
         socket.sendMessage(lookupMsg, routerInfo);
 
         // give enough time for all the routers to send their messages/turn on
