@@ -17,6 +17,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.net.SocketException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
@@ -144,9 +145,9 @@ public class Router implements Runnable {
             public void run() {
                 try {
                     Thread.sleep(20000); // 20 seconds to wait for the message to be sent while we turn them all on
-                    DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], routerID.getHash());
-                    I2NPHeader lookupMsg2 = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000,
-                            databaseLookup2);
+                    DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], routerID.getHash()); // come back to this
+                    I2NPHeader lookupMsg2 = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 10,
+                            databaseLookup2); // keep experiration REALLY SMALL FOR NULL LOOKUPS!!! if it breaks set experiration lower
                     socket.sendMessage(lookupMsg2, routerInfo);
                     //netDB.getKClosestRouterInfos(routerID.getHash(), 10);
                 } catch (InterruptedException e) {
@@ -159,6 +160,28 @@ public class Router implements Runnable {
             }
         });
         t1.start(); // will go to routerservicethread after (pray)
+
+        Thread t2 = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    Thread.sleep(25000);
+                    // create tunnel build for 3 hops
+                    Random random = new Random();
+                    int tunnelID = random.nextInt(1000); // random tunnel id for now
+                    createTunnelBuild(3, tunnelID, true); // make inbound
+                    createTunnelBuild(3, tunnelID, false); // make outbound
+                    // double check this later
+                } catch (InterruptedException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                } catch (NoSuchAlgorithmException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+                
+            }
+        });
+        t2.start();
 
         // Start the router service thread to handle incoming messages
         ExecutorService threadpool = Executors.newFixedThreadPool(5);
@@ -214,13 +237,21 @@ public class Router implements Runnable {
     }
 
     // this is for building the tunnels
-    public TunnelBuild createTunnelBuild(int numHops, int tunnelD, boolean isInbound) throws NoSuchAlgorithmException {
+    public void createTunnelBuild(int numHops, int tunnelD, boolean isInbound) throws NoSuchAlgorithmException {
         Random random = new Random();
         ArrayList<TunnelBuild.Record> records = new ArrayList<>();
 
         // actually get list of peers from netdb
         ArrayList<RouterInfo> tempPeers = queryNetDBForRouters(numHops);
-        Tunnel potentialTunnel = new Tunnel(tempPeers);
+        if (isInbound) {
+            // set last hop to be the router id of this router
+            tempPeers.set(tempPeers.size() - 1, routerInfo);
+        } else {
+            // set first hop to be the router id of this router
+            tempPeers.set(0, routerInfo);
+        }
+
+         Tunnel potentialTunnel = new Tunnel(tempPeers);
 
         // add to tunnel manager
         if (isInbound) {
@@ -241,7 +272,7 @@ public class Router implements Runnable {
             byte[] ourIdent = routerID.getHash(); // its okay for each hop to see this cause they have the tunnel id
 
             int nextTunnel = (next != null) ? random.nextInt() : 0;
-            byte[] nextIdent = (next != null) ? next.getRouterID().getHash() : new byte[32]; // if no next, blank
+            byte[] nextIdent = next.getRouterID().getHash();
 
             SecretKey layerKey = generateAESKey(256);
             SecretKey ivKey = generateAESKey(256);
@@ -286,7 +317,21 @@ public class Router implements Runnable {
             // recordItem = encryptedData; // oh yeah were overwriting baby
             // }
         }
-        return new TunnelBuild(records);
+
+        // send tunnel build message to the first peer in the list
+        RouterInfo firstPeer = tempPeers.get(0);
+        I2NPHeader tunnelBuildMessage = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, sendMsgID,
+                System.currentTimeMillis() + 1000, new TunnelBuild(records));
+        try {
+            I2NPSocket buildSocket = new I2NPSocket();
+            buildSocket.sendMessage(tunnelBuildMessage, firstPeer);
+        } catch (SocketException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 
     private SecretKey generateAESKey(int bits) {
