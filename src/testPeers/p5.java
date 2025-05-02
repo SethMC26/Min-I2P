@@ -41,7 +41,7 @@ public class p5 {
         DatabaseLookup databaseLookup = new DatabaseLookup(new byte[32], routerInfo.getHash());
         //databaseStore.setReply(500, new byte[32]);
         I2NPSocket sock = new I2NPSocket();
-        I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 10, databaseLookup);
+        I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 900, databaseLookup);
         sock.sendMessage(msg, "127.0.0.1", 8080);
 
         try {
@@ -111,7 +111,7 @@ public class p5 {
                 sock = new I2NPSocket(routerPort, InetAddress.getByName("127.0.0.1"));
                 while (true) {
                     I2NPHeader recvMessage = sock.getMessage();
-                    threadPool.execute(new RouterServiceThread(netDB, routerInfo, recvMessage, new TunnelManager(), false));
+                    threadPool.execute(new RouterServiceThread(netDB, routerInfo, recvMessage, new TunnelManager()));
                 }
             } catch (Exception e) {
                 e.printStackTrace();

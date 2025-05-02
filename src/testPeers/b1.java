@@ -19,7 +19,7 @@ public class b1 {
     public static void main(String[] args) {
         Security.addProvider(new BouncyCastleProvider());
         Logger log = Logger.getInstance();
-        log.setMinLevel(Logger.Level.DEBUG);
+        log.setMinLevel(Logger.Level.INFO);
 
 
         try {
@@ -54,7 +54,9 @@ public class b1 {
 
             while(true) {
                 I2NPHeader message = sock.getMessage();
-                threadpool.execute(new RouterServiceThread(netDB, routerInfo, message, new TunnelManager(), false));
+                RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, new TunnelManager());
+                rst.setFloodFill(false); //we can turn on if needed but it might be better to always send null key
+                threadpool.execute(rst);
             }
         }
         catch(Exception e) {
