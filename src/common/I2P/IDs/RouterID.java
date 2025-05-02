@@ -3,13 +3,11 @@ package common.I2P.IDs;
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
-import org.bouncycastle.util.encoders.Base64;
 
 import java.io.InvalidObjectException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
-import java.util.Arrays;
 
 /**
  * Class to uniquely identify router
@@ -57,8 +55,6 @@ public class RouterID implements JSONSerializable {
             md.update(keys.getPublicKey().getEncoded());
             md.update(keys.getSigningPublicKey().getEncoded());
 
-            //take only first 3 bytes of hash(I2P spec uses 1 but we are using base64 encoding is 6 bit aligned
-            // So 3 bytes is the smallest we can have without padding bytes (24 bits divides evenly into 6)
             return md.digest();
 
         }
