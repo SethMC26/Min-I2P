@@ -5,11 +5,12 @@ import common.message.ByteMessage;
 import common.message.Message;
 import common.message.Response;
 
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.nio.ByteBuffer;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class EnqueueThread implements Runnable {
 
-    private final ConcurrentLinkedQueue<byte[]> QUEUE;
+    private final LinkedBlockingQueue<byte[]> QUEUE;
     private final MessageSocket SOCKET;
 
     /**
@@ -18,7 +19,7 @@ public class EnqueueThread implements Runnable {
      * @param queue - ConcurrentLinkedQueue of byte arrays
      * @param socket - MessageSocket object to communicate with the server
      */
-    public EnqueueThread(ConcurrentLinkedQueue<byte[]> queue, MessageSocket socket) {
+    public EnqueueThread(LinkedBlockingQueue<byte[]> queue, MessageSocket socket) {
         this.QUEUE = queue;
         this.SOCKET = socket;
     }
@@ -42,26 +43,54 @@ public class EnqueueThread implements Runnable {
         // Check if the message is a byte message
         while (recvMsg.getType().equals("Byte")) {
 
-            ByteMessage message = (ByteMessage) recvMsg;
+            byte[] combinedAudio = new byte[0];
+            for (int i = 0; i < 64; i++) {
+                // Combine the byte arrays into one
+                if (!recvMsg.getType().equals("Byte")) {
+                    System.err.println("Error: Received message is not a byte message");
+                    SOCKET.close();
+                    System.exit(1);
+                }
 
-            byte[] audio = message.getData();
+                ByteMessage byteMessage = (ByteMessage) recvMsg;
+                byte[] audio = byteMessage.getData();
+                combinedAudio = combineByteArrays(combinedAudio, audio);
 
-            // Check if the audio is null or empty
-            if (audio == null || audio.length == 0) {
-                System.err.println("Error: Audio is null in EnqueueThread");
-                Response response = new Response("Status", false, "Audio is null");
-                SOCKET.sendMessage(response);
-                SOCKET.close();
-                System.exit(1);
+                recvMsg = SOCKET.getMessage();
+
+                if (recvMsg.getType().equals("End")) {
+                   break;
+                }
+            }
+            // Add the audio to the queue
+            QUEUE.add(combinedAudio);
+            // System.out.println("EnqueueThread: Added audio of size: " + combinedAudio.length + " bytes number: " + QUEUE.size());
+            // Receive the next message from the server
+
+            if (recvMsg.getType().equals("End")) {
+                byte[] endAudio = new byte[1];
+                endAudio[0] = (byte) 0xff;
+
+                QUEUE.add(endAudio);
+            } else {
+                recvMsg = SOCKET.getMessage();
             }
 
-            // Adds the audio to the queue
-            QUEUE.add(audio);
-
-            // Gets the next message from the server
-            recvMsg = SOCKET.getMessage();
-
         }
+    }
+
+    /**
+     * This method combines two byte arrays into one.
+     *
+     * @param first - byte[] first byte array
+     * @param second - byte[] second byte array
+     * @return - byte[] combined byte array
+     */
+    public byte[] combineByteArrays(byte[] first, byte[] second) {
+        ByteBuffer buffer = ByteBuffer.allocate(first.length + second.length);
+        buffer.put(first);
+        buffer.put(second);
+        return buffer.array();
     }
 
 }

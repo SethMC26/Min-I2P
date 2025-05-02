@@ -1,71 +1,66 @@
 package client;
 
-import common.MessageSocket;
-import common.message.Message;
-
 import javax.sound.sampled.*;
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.net.Socket;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class DequeueThread implements Runnable {
 
-    private final ConcurrentLinkedQueue<byte[]> QUEUE;
+    private final LinkedBlockingQueue<byte[]> QUEUE;
 
-    public DequeueThread(ConcurrentLinkedQueue<byte[]> queue) {
+    /**
+     * This constructor initializes the dequeue thread which makes sure that the queue is not empty.
+     *
+     * @param queue - LinkedBlockingQueue of byte arrays
+     */
+    public DequeueThread(LinkedBlockingQueue<byte[]> queue) {
         this.QUEUE = queue;
     }
 
     @Override
     public void run() {
+
+        // Wait for the first message from the queue
+        byte[] audio;
         try {
-            Thread.sleep(100);
+            audio = QUEUE.take();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
 
-        byte[] audio = QUEUE.poll();
+        // Sets the audio format
+        AudioFormat audioFormat = new AudioFormat(44100, 16, 2, true, false);
 
-        // Check if the audio is null or empty
-        while (audio == null || audio.length == 0) {
-            System.err.println("Error: Audio is null in DequeueThread");
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            audio = QUEUE.poll();
-        }
+        try {
+            DataLine.Info info = new DataLine.Info(SourceDataLine.class, audioFormat);
+            SourceDataLine line = (SourceDataLine) AudioSystem.getLine(info);
 
-        while (audio != null || audio.length != 0) {
-            // Process the audio data
+            // Starts the audio stream
+            line.open(audioFormat);
 
-            // Process the audio data
-            AudioFormat audioFormat = new AudioFormat(44100, 16, 2, true, false);
-
-            try {
-                AudioInputStream audioStream = new AudioInputStream(new ByteArrayInputStream(audio), audioFormat, audio.length / audioFormat.getFrameSize());
-                DataLine.Info info = new DataLine.Info(Clip.class, audioFormat);
-
-                Clip clip = (Clip) AudioSystem.getLine(info);
-
-                clip.open(audioStream);
-                clip.start();
-
-                // Wait for the clip to finish playing
-                while (clip.isRunning()) {
-                    Thread.sleep(100);
+            line.addLineListener(event -> {
+                if (event.getType() == LineEvent.Type.STOP) {
+                    System.out.println("Audio playback completed.");
+                    line.close();
                 }
-                clip.close();
+            });
 
-            } catch (LineUnavailableException | IOException | InterruptedException e) {
-                throw new RuntimeException(e);
+            line.start();
+
+            // Write the audio data to the line
+            while (!(audio[0] == (byte) 0xff && audio.length == 4)) {
+                line.write(audio, 0, audio.length);
+                audio = QUEUE.take();
             }
 
-            audio = QUEUE.poll();
-        }
+            // Stop the line when the audio is finished
+            line.drain();
+            line.stop();
+            line.close();
 
+        } catch (LineUnavailableException | InterruptedException e) {
+            System.err.println("Error: " + e.getMessage());
+        }
 
     }
 }

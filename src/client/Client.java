@@ -20,7 +20,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class Client {
 
@@ -319,7 +322,7 @@ public class Client {
 
             // TODO: Added the plaing music threads here
 
-            ConcurrentLinkedQueue<byte[]> queue = new ConcurrentLinkedQueue<>();
+            LinkedBlockingQueue<byte[]> queue = new LinkedBlockingQueue<>();
 
             EnqueueThread enqueueThread = new EnqueueThread(queue, socket);
             Thread enqueue = new Thread(enqueueThread);
@@ -328,42 +331,6 @@ public class Client {
             DequeueThread dequeueThread = new DequeueThread(queue);
             Thread dequeue = new Thread(dequeueThread);
             dequeue.start();
-
-
-
-//            Message recvMsg = socket.getMessage();
-//
-//            if (recvMsg.getType().equals("Status")) {
-//                Response response = (Response) recvMsg;
-//                System.err.println("Error: " + response.getPayload());
-//                socket.close();
-//                System.exit(1);
-//            }
-//
-//            List<byte[]> audioData = new ArrayList<>();
-//
-//            while (recvMsg.getType().equals("Byte")) {
-//                // check if message is a byte message
-//                if (!(recvMsg.getType().equals("Byte"))) {
-//                    Response error = new Response("Status", false, "Message type not Byte");
-//                    socket.sendMessage(error);
-//                    System.err.println("Unknown message type: " + recvMsg.getType());
-//                    // close connection and return
-//                    socket.close();
-//                    return;
-//                }
-//
-//                // Cast the message to a ByteMessage
-//                ByteMessage byteMessage = (ByteMessage) recvMsg;
-//
-//                // Append the byte data to the StringBuilder as a Base64 string
-//                byte[] data = byteMessage.getData();
-//                audioData.add(data);
-//
-//                recvMsg = socket.getMessage();
-//            }
-//
-//            System.out.println("Got all audio data: " + audioData.size() + " chunks");
         }
 
         // Check if list was requested
