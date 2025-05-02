@@ -1,61 +1,366 @@
 package common.I2P.router;
 
+import common.I2P.I2NP.DatabaseLookup;
 import common.I2P.I2NP.DatabaseStore;
 import common.I2P.I2NP.I2NPHeader;
-import common.I2P.I2NP.I2NPMessage;
+import common.I2P.I2NP.TunnelBuild;
+import common.I2P.I2NP.TunnelHopInfo;
+import common.I2P.I2NP.TunnelBuild.Record.TYPE;
+import common.I2P.IDs.RouterID;
+import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.Tunnel;
+import common.I2P.tunnels.TunnelManager;
+import common.I2P.NetworkDB.Record;
+import common.transport.I2NPSocket;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
-import java.util.concurrent.ConcurrentHashMap;
+import java.net.SocketException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.PublicKey;
+import java.security.Security;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 /**
  * Class represents Core Router module of I2P
  */
-public class Router implements Runnable{
+public class Router implements Runnable {
     /**
-     * Map of current inbound Tunnels, key is Tunnel ID and Value is appropriate Tunnel
+     * TunnelManager is responsible for managing tunnels
      */
-    ConcurrentHashMap<Integer, Tunnel> inboundTunnels = new ConcurrentHashMap<>();
-    /**
-     * Map of current outbound Tunnels, key is Tunnel ID and Value is appropriate Tunnel
-     */
-    ConcurrentHashMap<Integer, Tunnel> outboundTunnels = new ConcurrentHashMap<>();
+    public TunnelManager tunnelManager;
+
     /**
      * Socket is for connecting to client using I2CP protocol
      */
     ServerSocket clientSock;
 
     /**
+     * NetworkDB is the database of all routers in the network
+     */
+    NetDB netDB;;
+
+    /**
+     * RouterID is the ID of this router
+     */
+    public RouterID routerID;
+    // CHANGE THIS TO PRIVATE LATER!!!! I JUST NEEDED IT FOR A TEST
+
+    /**
+     * Port of the router
+     */
+    int port;
+
+    /**
+     * RouterInfo is the information about this router
+     */
+    public RouterInfo routerInfo;
+
+    /**
+     * ElGamal key pair for this router
+     */
+    KeyPair elgamalKeyPair;
+
+    /**
+     * DSA-SHA1 key pair for this router
+     */
+    KeyPair edKeyPair;
+
+    /**
      * Create router from specified config file
+     * 
      * @param configFile JSON File to use for configuration
      */
-    Router(File configFile) throws IOException{
-        //todo add config parsing
-        setUp();
+    Router(File configFile) throws IOException {
+        // todo add config parsing
+        int port = 7000; // hard coded for now we will fix later
+        this.port = port;
+        int boot = 8080;
+        setUp(port, boot, false); // change later
     }
 
     /**
      * Create router using a default config file
      */
-    Router() throws IOException{
-        //todo add config parsing
-        setUp();
+    public Router(int port, int bootstrapPort, boolean isFloodfill) throws IOException {
+        // todo add config parsing
+        this.port = port;
+        this.tunnelManager = new TunnelManager();
+        setUp(port, bootstrapPort, isFloodfill);
     }
 
-    private void setUp() throws IOException {
-        //todo set proper date from config
-        //todo add bootstrap peer
-        //setup server socket to communicate with client(application layer)
-        clientSock = new ServerSocket(7000); //hard coded for now we will fix later
+    private void setUp(int port, int bootstrapPort, boolean isFloodfill) throws IOException {
+        // speciality floodfill router
+        Security.addProvider(new BouncyCastleProvider()); // Add BouncyCastle provider for cryptography
 
-        //todo connect to bootstrap peer to get initial networkdb and tunnels
+        // Bind the socket to the router's port
+        I2NPSocket socket = new I2NPSocket(port, InetAddress.getByName("127.0.0.1"));
+
+        // Generate keys and create RouterInfo
+        elgamalKeyPair = generateKeyPairElGamal();
+        edKeyPair = generateKeyPairEd();
+        routerID = new RouterID(elgamalKeyPair.getPublic(), edKeyPair.getPublic());
+        routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), "127.0.0.1", port, edKeyPair.getPrivate());
+
+        // Initialize NetDB
+        netDB = new NetDB(routerInfo);
+
+        // Send a DatabaseStore message to the bootstrap peer
+        DatabaseStore databaseStore = new DatabaseStore(routerInfo); // reply token set to 0 for now yay!
+        I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, 1, System.currentTimeMillis() + 1000,
+                databaseStore);
+
+        socket.sendMessage(msg, "127.0.0.1", bootstrapPort);
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } // wait for the message to be sent
+
+        // send of self from self - get bootstrap info (if same get boostrap info)
+        DatabaseLookup databaseLookup = new DatabaseLookup(routerID.getHash(), routerID.getHash());
+        I2NPHeader lookupMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000,
+                databaseLookup);
+        socket.sendMessage(lookupMsg, routerInfo);
+        
+        // give enough time for all the routers to send their messages/turn on
+        Thread t1 = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    Thread.sleep(20000); // 20 seconds to wait for the message to be sent while we turn them all on
+                    DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], routerID.getHash()); // come back to this
+                    I2NPHeader lookupMsg2 = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 10,
+                            databaseLookup2); // keep experiration REALLY SMALL FOR NULL LOOKUPS!!! if it breaks set experiration lower
+                    socket.sendMessage(lookupMsg2, routerInfo);
+                    //netDB.getKClosestRouterInfos(routerID.getHash(), 10);
+                } catch (InterruptedException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+        });
+        t1.start(); // will go to routerservicethread after (pray)
+
+        Thread t2 = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    Thread.sleep(25000);
+                    // create tunnel build for 3 hops
+                    Random random = new Random();
+                    int tunnelID = random.nextInt(1000); // random tunnel id for now
+                    createTunnelBuild(3, tunnelID, true); // make inbound
+                    createTunnelBuild(3, tunnelID, false); // make outbound
+                    // double check this later
+                } catch (InterruptedException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                } catch (NoSuchAlgorithmException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+                
+            }
+        });
+        t2.start();
+
+        // Start the router service thread to handle incoming messages
+        ExecutorService threadpool = Executors.newFixedThreadPool(5);
+        while (true) {
+            I2NPHeader message = socket.getMessage();
+            threadpool.execute(new RouterServiceThread(netDB, routerInfo, message,
+                    tunnelManager, isFloodfill));
+        }
+    }
+
+    /**
+     * Query the NetDB for other routers on the network.
+     *
+     * @param k The number of closest routers to retrieve.
+     * @return A list of RouterInfo objects for the closest routers.
+     */
+    public ArrayList<RouterInfo> queryNetDBForRouters(int k) {
+        // Use the router's own hash as the key to find closest routers
+        byte[] routerHash = routerID.getHash();
+        ArrayList<RouterInfo> closestRouters = netDB.getKClosestRouterInfos(routerHash, k);
+        System.out.println("QueryNetDBForRouters returned " + closestRouters.size() + " routers.");
+        return closestRouters;
+    }
+
+    private static KeyPair generateKeyPairElGamal() {
+        // Generate a key pair for the router
+        try {
+            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("ElGamal");
+            keyGen.initialize(2048); // 2048 bits for RSA
+            return keyGen.generateKeyPair();
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    // ed signing keypair generation
+    private static KeyPair generateKeyPairEd() {
+        // Generate a key pair for the router
+        try {
+            KeyPairGenerator keyGen = null;
+            try {
+                keyGen = KeyPairGenerator.getInstance("Ed25519", "BC");
+            } catch (NoSuchProviderException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            return keyGen.generateKeyPair();
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    // this is for building the tunnels
+    public void createTunnelBuild(int numHops, int tunnelD, boolean isInbound) throws NoSuchAlgorithmException {
+        Random random = new Random();
+        ArrayList<TunnelBuild.Record> records = new ArrayList<>();
+
+        // actually get list of peers from netdb
+        ArrayList<RouterInfo> tempPeers = queryNetDBForRouters(numHops);
+        if (isInbound) {
+            // set last hop to be the router id of this router
+            tempPeers.set(tempPeers.size() - 1, routerInfo);
+        } else {
+            // set first hop to be the router id of this router
+            tempPeers.set(0, routerInfo);
+        }
+
+         Tunnel potentialTunnel = new Tunnel(tempPeers);
+
+        // add to tunnel manager
+        if (isInbound) {
+            tunnelManager.addInboundTunnel(tunnelD, potentialTunnel);
+        } else {
+            tunnelManager.addOutboundTunnel(tunnelD, potentialTunnel);
+        }
+
+        int sendMsgID = random.nextInt();
+        long requestTime = System.currentTimeMillis() / 1000;
+
+        ArrayList<TunnelHopInfo> hopInfo = new ArrayList<>(); // this is for the hops in the tunnel
+
+        for (int i = tempPeers.size()-1; i >= 0; i--) {
+            RouterInfo current = tempPeers.get(i);
+            RouterInfo next = (i + 1 < tempPeers.size()) ? tempPeers.get(i + 1) : null;
+
+            byte[] toPeer = Arrays.copyOf(current.getRouterID().getHash(), 16); // only first 16 bytes of the hash
+            int receiveTunnel = tunnelD; // tunnel id for the tunnel
+            byte[] ourIdent = routerID.getHash(); // its okay for each hop to see this cause they have the tunnel id
+
+            int nextTunnel = (next != null) ? random.nextInt() : 0;
+            byte[] nextIdent = next.getRouterID().getHash();
+
+            SecretKey layerKey = generateAESKey(256);
+            SecretKey ivKey = generateAESKey(256);
+            SecretKey replyKey = generateAESKey(256);
+
+            byte[] replyIv = new byte[16];
+            random.nextBytes(replyIv);
+
+            ArrayList<TunnelHopInfo> hopInfoInput = null; // this is for the hops in the tunnel
+
+            boolean replyFlag = false; // this is for the hops in the tunnel - they change this later
+
+            TunnelHopInfo hopInfoItem = new TunnelHopInfo(toPeer, layerKey, ivKey,
+                    receiveTunnel);
+            hopInfo.add(0, hopInfoItem); // add to the front of the list
+
+            TYPE position = null;
+            if (i == 0) {
+                position = TYPE.GATEWAY;
+                hopInfoInput = hopInfo; // set the hop info for the first hop
+            } else if (i == tempPeers.size() - 1) {
+                position = TYPE.ENDPOINT;
+            } else {
+                position = TYPE.PARTICIPANT;
+            }
+
+            TunnelBuild.Record record = new TunnelBuild.Record(
+                    toPeer,
+                    receiveTunnel,
+                    ourIdent,
+                    nextTunnel,
+                    nextIdent,
+                    layerKey,
+                    ivKey,
+                    replyKey,
+                    replyIv,
+                    requestTime,
+                    sendMsgID,
+                    position,
+                    hopInfoInput,
+                    replyFlag); // pass the hop info to the record
+
+            records.add(record);
+            System.out.println("Added record for peer: " + Arrays.toString(toPeer));
+
+            // temp disable encryption for testing
+            // for (common.I2P.I2NP.TunnelBuild.Record recordItem : records) {
+            // // encrypt the entire record with the public key of the peer
+            // PublicKey peerPublicKey = current.getRouterID().getElgamalPublicKey(); // use
+            // full key
+            // // iterate over each record and encrypt it with the public key
+            // TunnelBuild.Record encryptedData = recordItem.encrypt(peerPublicKey);
+            // recordItem = encryptedData; // oh yeah were overwriting baby
+            // }
+        }
+
+        // send tunnel build message to the first peer in the list
+        RouterInfo firstPeer = tempPeers.get(0);
+        I2NPHeader tunnelBuildMessage = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, sendMsgID,
+                System.currentTimeMillis() + 1000, new TunnelBuild(records));
+        try {
+            I2NPSocket buildSocket = new I2NPSocket();
+            buildSocket.sendMessage(tunnelBuildMessage, firstPeer);
+        } catch (SocketException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    private SecretKey generateAESKey(int bits) {
+        KeyGenerator keyGen = null;
+        try {
+            keyGen = KeyGenerator.getInstance("AES");
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+            throw new IllegalStateException("AES KeyGenerator instance could not be created.", e);
+        }
+        keyGen.init(bits);
+        return keyGen.generateKey();
     }
 
     @Override
     public void run() {
-        //todo here we will manage tunnels and also client messages
     }
 }

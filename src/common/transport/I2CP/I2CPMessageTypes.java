@@ -15,8 +15,8 @@ package common.transport.I2CP;
 public enum I2CPMessageTypes {
     CREATESESSION,
     SESSIONSTATUS,
-    REQUESTLEASESET, //not implemented
-    CREATELEASESET, //not implemented
+    REQUESTLEASESET,
+    CREATELEASESET,
     DESTLOOKUP,
     DESTREPLY,
     SENDMESSAGE,

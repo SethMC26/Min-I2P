@@ -5,6 +5,7 @@ import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.router.RouterServiceThread;
+import common.I2P.tunnels.TunnelManager;
 import common.Logger;
 import common.transport.I2NPSocket;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -53,8 +54,7 @@ public class b1 {
 
             while(true) {
                 I2NPHeader message = sock.getMessage();
-                threadpool.execute(new RouterServiceThread(netDB, routerInfo, message));
-
+                threadpool.execute(new RouterServiceThread(netDB, routerInfo, message, new TunnelManager(), false));
             }
         }
         catch(Exception e) {

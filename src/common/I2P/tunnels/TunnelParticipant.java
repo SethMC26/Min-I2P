@@ -9,11 +9,11 @@ import java.io.IOException;
 /**
  * This class represents a Participant in a Tunnel
  */
-public class TunnelParticipant extends Tunnel{
+public class TunnelParticipant extends TunnelObject{
     /**
      * what router is the next one in the path
      */
-    private RouterID nextHop;
+    private byte[] nextHop;
     /**
      * The tunnel ID on the next hop
      */
@@ -30,14 +30,31 @@ public class TunnelParticipant extends Tunnel{
      * @param nextTunnelID Integer TunnelID on next hop
      */
     public TunnelParticipant(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey,
-                                SecretKey replyKey, byte[] replyIV, RouterID nextHop, Integer nextTunnelID) {
+                                SecretKey replyKey, byte[] replyIV, byte[] nextHop, Integer nextTunnelID) {
         super(TYPE.PARTICIPANT, tunnelID, tunnelEncryptionKey, tunnelIVKey, replyKey, replyIV);
         this.nextHop = nextHop;
         this.nextTunnelID = nextTunnelID;
     }
 
     @Override
-    void handleMessage(I2NPMessage message) throws IOException {
+    public void handleMessage(I2NPMessage message) throws IOException {
+        // decrypt the message
+        // remove the outside layer
+        // send to next hop
         throw new RuntimeException("Not implemented");
+    }
+
+    private byte[] decryptLayer(I2NPMessage message) {
+        // AES decrypt one layer
+        return new byte[0]; // placeholder
+    }
+
+    private I2NPMessage rebuildMessage(byte[] decrypted) {
+        // Reconstruct message
+        return null;
+    }
+
+    private void sendToNextHop(I2NPMessage message) {
+        // Send to next hop
     }
 }

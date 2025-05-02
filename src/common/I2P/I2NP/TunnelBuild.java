@@ -1,6 +1,5 @@
 package common.I2P.I2NP;
 
-import common.I2P.tunnels.Tunnel;
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.types.JSONArray;
 import merrimackutil.json.types.JSONObject;
@@ -8,21 +7,23 @@ import merrimackutil.json.types.JSONType;
 import org.bouncycastle.util.encoders.Base64;
 
 import javax.crypto.SecretKey;
+
 import java.io.InvalidObjectException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class TunnelBuild extends I2NPMessage implements JSONSerializable{
+public class TunnelBuild extends I2NPMessage implements JSONSerializable {
     /**
      * Records key is toPeer 16 byte SHA256 hash of peerID with value being record
      */
     private HashMap<String, Record> records;
 
-    TunnelBuild(JSONObject json) throws InvalidObjectException{
+    TunnelBuild(JSONObject json) throws InvalidObjectException {
         deserialize(json);
     }
 
-    TunnelBuild(List<Record> records) {
+    public TunnelBuild(ArrayList<Record> records) {
         this.records = new HashMap<>();
 
         for (Record record : records) {
@@ -52,6 +53,10 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
         }
 
         return jsonArray;
+    }
+
+    public List<Record> getRecords() {
+        return new ArrayList<>(records.values());
     }
 
     public static class Record implements JSONSerializable {
@@ -99,14 +104,35 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
          * ID of send message
          */
         private int sendMsgID;
-
         /**
          * encypted public key data under elgamal public key of peer
          */
-        private byte[] encData;
+        private byte[] encData; // not part of regular record but enc record
+        /**
+         * Type of tunnel object requested constructor
+         */
+        public enum TYPE {
+            GATEWAY,
+            PARTICIPANT,
+            ENDPOINT
+        };
+        /**
+         * Type of tunnel object requested
+         */
+        private TYPE type;
+        /**
+         * ArrayList of routerInfo for gateway node
+         */
+        private ArrayList<TunnelHopInfo> hopInfo;
+
+        /**
+         * Flag to indicate if this is a reply message
+         */
+        private boolean replyFlag;
 
         /**
          * Construct a record from a json
+         * 
          * @param jsonObject JSON to deserialize
          * @throws InvalidObjectException throws if json is invalid
          */
@@ -117,20 +143,22 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
         /**
          * Constructs a new {@code Record} instance with all required fields.
          *
-         * @param toPeer The first 16 bytes of the SHA-256 hash of the peer's RouterIdentity.
+         * @param toPeer        The first 16 bytes of the SHA-256 hash of the peer's
+         *                      RouterIdentity.
          * @param receiveTunnel The tunnel ID to receive messages on.
-         * @param ourIdent The 32-byte SHA-256 hash of our RouterIdentity.
-         * @param nextTunnel The next tunnel ID for forwarding the message.
-         * @param nextIdent The 32-byte SHA-256 hash of the next RouterIdentity.
-         * @param layerKey The 32-byte AES key used for layer encryption.
-         * @param ivKey The 32-byte AES key used for IV derivation.
-         * @param replyKey The 32-byte AES key used for reply encryption.
-         * @param replyIv The 16-byte IV used for reply messages.
-         * @param requestTime The epoch time (in seconds) when the request was made.
-         * @param sendMsgID The ID of the sent message.
+         * @param ourIdent      The 32-byte SHA-256 hash of our RouterIdentity.
+         * @param nextTunnel    The next tunnel ID for forwarding the message.
+         * @param nextIdent     The 32-byte SHA-256 hash of the next RouterIdentity.
+         * @param layerKey      The 32-byte AES key used for layer encryption.
+         * @param ivKey         The 32-byte AES key used for IV derivation.
+         * @param replyKey      The 32-byte AES key used for reply encryption.
+         * @param replyIv       The 16-byte IV used for reply messages.
+         * @param requestTime   The epoch time (in seconds) when the request was made.
+         * @param sendMsgID     The ID of the sent message.
          */
-        public Record(byte[] toPeer, int receiveTunnel, byte[] ourIdent, int nextTunnel, byte[] nextIdent, SecretKey layerKey,
-                SecretKey ivKey, SecretKey replyKey, byte[] replyIv, long requestTime, int sendMsgID) {
+        public Record(byte[] toPeer, int receiveTunnel, byte[] ourIdent, int nextTunnel, byte[] nextIdent,
+                SecretKey layerKey,
+                SecretKey ivKey, SecretKey replyKey, byte[] replyIv, long requestTime, int sendMsgID, TYPE type, ArrayList<TunnelHopInfo> hopInfo, boolean replyFlag) {
             this.toPeer = toPeer;
             this.receiveTunnel = receiveTunnel;
             this.ourIdent = ourIdent;
@@ -142,6 +170,9 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
             this.replyIv = replyIv;
             this.requestTime = requestTime;
             this.sendMsgID = sendMsgID;
+            this.type = type;
+            this.hopInfo = hopInfo;
+            this.replyFlag = replyFlag;
         }
 
         public Record(byte[] toPeer, byte[] encData) {
@@ -155,11 +186,12 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
                 throw new InvalidObjectException("Must be JSONObject");
 
             JSONObject json = (JSONObject) jsonType;
-            json.checkValidity(new String[] {"toPeer", "encData"});
+            json.checkValidity(new String[] { "toPeer", "encData" });
 
             this.toPeer = Base64.decode(json.getString("toPeer"));
             this.encData = Base64.decode(json.getString("encData"));
-            //todo deal with deserializing encypted might want to add seperate method since only peer with elGamal private key can undo the encryption to get valid JSON
+            // todo deal with deserializing encypted might want to add seperate method since
+            // only peer with elGamal private key can undo the encryption to get valid JSON
         }
 
         @Override
@@ -170,7 +202,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
             if (encData == null) {
                 JSONObject encDataJSON = new JSONObject();
 
-                //not sure if we should handle this like this or turn Tunnels into serializable
+                // not sure if we should handle this like this or turn Tunnels into serializable
                 encDataJSON.put("receiveTunnel", receiveTunnel);
                 encDataJSON.put("ourIdent", Base64.toBase64String(ourIdent));
                 encDataJSON.put("nextTunnel", nextTunnel);
@@ -181,12 +213,14 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
                 encDataJSON.put("replyIV", Base64.toBase64String(replyIv));
                 encDataJSON.put("requestTime", requestTime);
                 encDataJSON.put("sendMsgID", sendMsgID);
+                encDataJSON.put("type", type.toString());
+                encDataJSON.put("hopInfo", new JSONArray());
+                encDataJSON.put("replyFlag", replyFlag);
 
-                //todo encrypt this data with correct peer's elgamal public key
+
                 jsonObject.put("encData", encDataJSON.toJSON());
-            }
-            else {
-                //todo this might be easier
+            } else {
+                // todo this might be easier
                 jsonObject.put("encData", Base64.toBase64String(encData));
             }
 
@@ -199,6 +233,58 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable{
 
         public byte[] getToPeer() {
             return toPeer;
+        }
+
+        public int getReceiveTunnel() {
+            return receiveTunnel;
+        }
+
+        public byte[] getOurIdent() {
+            return ourIdent;
+        }
+
+        public int getNextTunnel() {
+            return nextTunnel;
+        }
+
+        public byte[] getNextIdent() {
+            return nextIdent;
+        }
+
+        public SecretKey getLayerKey() {
+            return layerKey;
+        }
+
+        public SecretKey getIvKey() {
+            return ivKey;
+        }
+
+        public SecretKey getReplyKey() {
+            return replyKey;
+        }
+
+        public byte[] getReplyIv() {
+            return replyIv;
+        }
+
+        public long getRequestTime() {
+            return requestTime;
+        }
+
+        public int getSendMsgID() {
+            return sendMsgID;
+        }
+
+        public TYPE getPosition() {
+            return type;
+        }
+
+        public ArrayList<TunnelHopInfo> getHopInfo() {
+            return hopInfo;
+        }
+
+        public boolean isReplyFlag() {
+            return replyFlag;
         }
     }
 }
