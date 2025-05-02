@@ -74,23 +74,7 @@ public class TunnelGateway extends TunnelObject{
     }
 
     private I2NPHeader encryptMessage(I2NPMessage message) {
-        I2NPHeader encryptedMessage = null;
-        Random random = new Random();
-            int messageID = random.nextInt(1000);
-        I2NPHeader currentHeader = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, messageID, System.currentTimeMillis() + 10, message);
-
-        // Iterate through the hops in reverse order
-        for (int i = hops.size() - 1; i >= 0; i--) {
-            TunnelHopInfo hop = hops.get(i);
-            // AHHH WE NEED TO STORE NEXT HOP INFO YOU DUMBASSSSSSSS
-
-            // Build a tunnel header for the current hop
-            encryptedMessage = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, messageID, System.currentTimeMillis() + 10, currentHeader);
-
-            // Set the current header to the newly created header for the next iteration
-            currentHeader = encryptedMessage;
-        }
-        return encryptedMessage; // placeholder
+        return null; // placeholder
     }
 
     private void sendToNextHop(I2NPHeader encryptedMessage) {

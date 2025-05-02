@@ -43,14 +43,23 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
 
     @Override
     public void deserialize(JSONType arg0) throws InvalidObjectException {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'deserialize'");
+        if (!(arg0 instanceof JSONObject)) {
+            throw new InvalidObjectException("Must be JSONObject");
+        }
+
+        JSONObject jsonObject = (JSONObject) arg0;
+        this.tunnelGateway = new RouterID(jsonObject.getObject("tunnelGateway"));
+        this.tunnelID = jsonObject.getInt("tunnelID");
+        this.isSuccess = jsonObject.getBoolean("isSuccess");
     }
 
     @Override
     public JSONType toJSONType() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'toJSONType'");
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("tunnelGateway", tunnelGateway); // uhhhhhhh?
+        jsonObject.put("tunnelID", tunnelID);
+        jsonObject.put("isSuccess", isSuccess);
+        return jsonObject;
     }
 
     public int getTunnelID() {
