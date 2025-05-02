@@ -3,9 +3,7 @@ package common.I2P.NetworkDB;
 import common.Logger;
 import org.bouncycastle.util.encoders.Base64;
 
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.HashMap;
+import java.util.*;
 
 /**
  * Network database to store information about peers using modified Kademlia algorithm
@@ -45,15 +43,12 @@ public class NetDB {
             log.warn("NetDB: Record has Invalid signature disregarding");
             return;
         }
-
-        //if (Arrays.equals(record.getHash(),routerInfo.getHash()))
-            //return;
+        //avoid storing ourselfs so we do not get our own hash when getting k closest peers
+        if (Arrays.equals(record.getHash(),routerInfo.getHash()))
+            return;
 
         //calculate distance between hash and record hash
         int distance = calculateXORMetric(routerInfo.getHash(), record.getHash());
-
-        //sanity check remove for prod
-        assert distance <= 256 : "distance greater than 256! Distance" + distance;
 
         //get bucket at distance
         HashMap<String, Record> bucket = routingTable.get(distance);
@@ -77,11 +72,12 @@ public class NetDB {
      * @return Record {@code RouterInfo or LeaseSet} or null if record is not found
      */
     public synchronized Record lookup(byte[] key) {
+        if (Arrays.equals(key, routerInfo.getHash())) //we do not store ourselves so we handle that case here
+            return routerInfo;
+
         //calculate distance between hash and record we want to find(under key)
         int distance = calculateXORMetric(routerInfo.getHash(), key);
         log.trace("NetDB: distance is " + distance);
-        //sanity check remove for prod
-        assert distance <= 256 : "distance greater than 256! Distance" + distance;
 
         //get bucket key would be stored in
         HashMap<String, Record> bucket = routingTable.get(distance);
@@ -225,6 +221,9 @@ public class NetDB {
 
     /**
      * Dump the entire routing table, bucket-by-bucket, showing all keys.
+     * For RouterInfo records we also include "host:port".
+     *
+     * @author ChatGPT (OpenAI Assistant)
      *
      * @return a formatted text snapshot (ready for logging or console output)
      */
@@ -235,7 +234,7 @@ public class NetDB {
         for (int idx = 256; idx >= 0; idx--) {
             HashMap<String, Record> bucket = routingTable.get(idx);
             if (bucket == null || bucket.isEmpty()) {
-                continue;                 // skip empty buckets
+                continue;                                 // skip empty buckets
             }
 
             out.append(String.format("%n--- Bucket %-3d (size %d) %s%n",
@@ -243,14 +242,25 @@ public class NetDB {
                     bucket.size(),
                     "─".repeat(40)));
 
-            // Stable order helps diff successive dumps
-            bucket.keySet()
+            /* iterate over both key and value so we can inspect the Record */
+            bucket.entrySet()
                     .stream()
-                    .sorted()               // alphabetical
-                    .forEach(key -> out.append("   ").append(key).append('\n'));
+                    .sorted(Map.Entry.comparingByKey())     // alphabetical, stable
+                    .forEach(entry -> {
+                        String key    = entry.getKey();     // Base64(hash)
+                        Record record = entry.getValue();
+
+                        if (record.getRecordType() == Record.RecordType.ROUTERINFO) {
+                            RouterInfo ri = (RouterInfo) record;
+                            out.append(String.format("   %s %s:%d%n",
+                                    key,
+                                    ri.getHost(),
+                                    ri.getPort()));
+                        } else {                            // LeaseSet (or future types)
+                            out.append("   ").append(key).append('\n');
+                        }
+                    });
         }
         return out.toString();
     }
-
-
 }

@@ -65,4 +65,12 @@ public class CreateLeaseSet extends I2CPMessage {
         json.put("leaseSet", leaseSet.toJSONType());
         return json;
     }
+
+    public PrivateKey getPrivateKey() {
+        return privateKey;
+    }
+
+    public LeaseSet getLeaseSet() {
+        return leaseSet;
+    }
 }
