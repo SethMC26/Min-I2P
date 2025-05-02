@@ -41,6 +41,14 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
         this.isSuccess = isSuccess;
     }
 
+    public TunnelBuildReplyMessage(JSONObject messageObj) {
+        try {
+            deserialize(messageObj);
+        } catch (InvalidObjectException e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     public void deserialize(JSONType arg0) throws InvalidObjectException {
         if (!(arg0 instanceof JSONObject)) {

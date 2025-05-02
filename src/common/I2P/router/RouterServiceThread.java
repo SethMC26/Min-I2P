@@ -11,6 +11,7 @@ import common.I2P.NetworkDB.LeaseSet;
 import common.I2P.tunnels.TunnelEndpoint;
 import common.I2P.tunnels.TunnelGateway;
 import common.I2P.tunnels.TunnelManager;
+import common.I2P.tunnels.TunnelObject;
 import common.I2P.tunnels.TunnelParticipant;
 import common.Logger;
 import common.transport.I2NPSocket;
@@ -127,9 +128,33 @@ public class RouterServiceThread implements Runnable {
                 TunnelBuildReplyMessage tunnelBuildReply = (TunnelBuildReplyMessage) recievedMessage.getMessage();
                 handleTunnelBuildReplyMessage(tunnelBuildReply);
                 break;
+            case TUNNELDATA:
+                TunnelDataMessage tunnelData = (TunnelDataMessage) recievedMessage.getMessage();
+                handleTunnelDataMessage(tunnelData);
+                break;
             default:
                 throw new RuntimeException("Bad message type " + recievedMessage.getType()); // should never hit case in
                                                                                              // prod
+        }
+    }
+
+    private void handleTunnelDataMessage(TunnelDataMessage tunnelData) {
+        // get tunnel id from message
+        int tunnelID = tunnelData.getTunnelID();
+
+        // get the tunnel from the tunnel manager
+        TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelID);
+        if (tunnelObject == null) {
+            log.warn("Tunnel object not found for tunnel ID: " + tunnelID);
+            return; // Tunnel not found, handle error appropriately
+        }
+
+        // handle the message in the tunnel object
+        try {
+            tunnelObject.handleMessage(tunnelData);
+        } catch (IOException e) {
+            log.error("Error handling TunnelDataMessage: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -346,7 +371,8 @@ public class RouterServiceThread implements Runnable {
                     record.getReplyKey(),
                     record.getReplyIv(),
                     router.getHash(),
-                    router.getPort());
+                    router.getPort(),
+                    netDB);
             tunnelManager.addTunnelObject(record.getReceiveTunnel(), tunnelEndpoint);
             log.info("Added tunnel endpoint for tunnel ID: " + record.getReceiveTunnel());
         } else {
@@ -357,7 +383,8 @@ public class RouterServiceThread implements Runnable {
                     record.getReplyKey(),
                     record.getReplyIv(),
                     record.getNextIdent(),
-                    record.getNextTunnel());
+                    record.getNextTunnel(),
+                    netDB);
             tunnelManager.addTunnelObject(record.getReceiveTunnel(), tunnelParticipant);
             log.info("Added tunnel participant for tunnel ID: " + record.getReceiveTunnel());
         }

@@ -1,10 +1,16 @@
 package common.I2P.tunnels;
 
+import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.I2NPMessage;
+import common.I2P.I2NP.TunnelDataMessage;
 import common.I2P.IDs.RouterID;
+import common.I2P.NetworkDB.NetDB;
+import common.I2P.NetworkDB.RouterInfo;
+import common.transport.I2NPSocket;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
+import java.util.Random;
 
 /**
  * This class represents a Participant in a Tunnel
@@ -20,6 +26,11 @@ public class TunnelParticipant extends TunnelObject{
     private Integer nextTunnelID;
 
     /**
+     * Networkd database for this router
+     */
+    private NetDB netDB;
+
+    /**
      * Create TunnelGateway
      * @param tunnelID Integer ID of tunnel
      * @param tunnelEncryptionKey AES key for encrypting messages
@@ -30,31 +41,31 @@ public class TunnelParticipant extends TunnelObject{
      * @param nextTunnelID Integer TunnelID on next hop
      */
     public TunnelParticipant(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey,
-                                SecretKey replyKey, byte[] replyIV, byte[] nextHop, Integer nextTunnelID) {
+                             SecretKey replyKey, byte[] replyIV, byte[] nextHop, Integer nextTunnelID, NetDB netDB) {
         super(TYPE.PARTICIPANT, tunnelID, tunnelEncryptionKey, tunnelIVKey, replyKey, replyIV);
         this.nextHop = nextHop;
         this.nextTunnelID = nextTunnelID;
+        this.netDB = netDB;
     }
 
     @Override
     public void handleMessage(I2NPMessage message) throws IOException {
-        // decrypt the message
-        // remove the outside layer
-        // send to next hop
-        throw new RuntimeException("Not implemented");
+        if (!(message instanceof TunnelDataMessage)) {
+            throw new IOException("Expected TunnelDataMessage but received: " + message.getClass().getSimpleName());
+        }
+
+        TunnelDataMessage tdm = (TunnelDataMessage) message;
+        I2NPMessage innerPayload = tdm.getPayload();
+        sendToNextHop(innerPayload);
     }
 
-    private byte[] decryptLayer(I2NPMessage message) {
-        // AES decrypt one layer
-        return new byte[0]; // placeholder
-    }
+    private void sendToNextHop(I2NPMessage message) throws IOException {
+        Random random = new Random();
+        int msgID = random.nextInt(0xFFFF);
+        I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELDATA, msgID, System.currentTimeMillis(), message);
 
-    private I2NPMessage rebuildMessage(byte[] decrypted) {
-        // Reconstruct message
-        return null;
-    }
-
-    private void sendToNextHop(I2NPMessage message) {
-        // Send to next hop
+        I2NPSocket socket = new I2NPSocket();
+        RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextHop);
+        socket.sendMessage(header, nextRouter);
     }
 }

@@ -21,7 +21,8 @@ public class I2NPHeader implements JSONSerializable {
         DATABASESEARCHREPLY(3),
         DELIVERYSTATUS(10),
         TUNNELBUILD(21),
-        TUNNELBUILDREPLY(22);
+        TUNNELBUILDREPLY(22),
+        TUNNELDATA(23);
 
         //below code courtesy of chatGPT
         private final int value;
@@ -163,6 +164,12 @@ public class I2NPHeader implements JSONSerializable {
                 break;
             case TYPE.TUNNELBUILD:
                 message = new TunnelBuild(messageObj);
+                break;
+            case TYPE.TUNNELBUILDREPLY:
+                message = new TunnelBuildReplyMessage(messageObj);
+                break;
+            case TYPE.TUNNELDATA:
+                message = new TunnelDataMessage(messageObj);
                 break;
             default:
                 throw new InvalidObjectException("Bad type: " + type);

@@ -7,18 +7,28 @@ import merrimackutil.json.types.JSONType;
 
 public class TunnelDataMessage extends I2NPMessage{
     private int tunnelID;
-    private byte[] payload;
+    private I2NPMessage payload;
 
-    public TunnelDataMessage(int tunnelID, byte[] payload) {
+    public TunnelDataMessage(int tunnelID, I2NPMessage payload) {
         this.tunnelID = tunnelID;
+        // reminder to self, change this to byte[] when we have the payload
+        // this is just a placeholder for now while testing tunnel builds
         this.payload = payload;
+    }
+
+    public TunnelDataMessage(JSONObject messageObj) {
+        try {
+            deserialize(messageObj);
+        } catch (InvalidObjectException e) {
+            e.printStackTrace();
+        }
     }
 
     public int getTunnelID() {
         return tunnelID;
     }
 
-    public byte[] getPayload() {
+    public I2NPMessage getPayload() {
         return payload;
     }
 
@@ -30,7 +40,7 @@ public class TunnelDataMessage extends I2NPMessage{
 
         JSONObject jsonObject = (JSONObject) arg0;
         this.tunnelID = jsonObject.getInt("tunnelID");
-        this.payload = jsonObject.getString("payload").getBytes(); // pray this works
+        this.payload = (I2NPMessage) jsonObject.get("payload"); // pray this works
     }
 
     @Override
