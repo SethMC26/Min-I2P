@@ -14,6 +14,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -124,7 +125,7 @@ public class ServerConnectionHandler implements Runnable {
                 // ------- Adding the Song to the Database ------ //
                 recvMsg = socket.getMessage();
 
-                List<String> audioData = new ArrayList<>();
+                List<byte[]> audioData = new ArrayList<>();
 
                 while(recvMsg.getType().equals("Byte")) {
 
@@ -143,8 +144,7 @@ public class ServerConnectionHandler implements Runnable {
 
                     // Append the byte data to the StringBuilder as a Base64 string
                     byte[] data = byteMessage.getData();
-                    String base64String = Base64.toBase64String(data);
-                    audioData.add(base64String);
+                    audioData.add(data);
 
                     recvMsg = socket.getMessage();
                 }
@@ -182,14 +182,9 @@ public class ServerConnectionHandler implements Runnable {
                     socket.sendMessage(byteMessage);
                 }
 
-                System.out.println("Received audio data: " + audio.size() + " chunks");
-                System.out.println("Data: " + Base64.toBase64String(audio.getLast()).substring(audio.size() - 21));
-
-
                 // Send an End message to indicate the end of the audio stream
                 Message endMessage = new Message("End");
                 socket.sendMessage(endMessage);
-
 
                 break;
             case "List":

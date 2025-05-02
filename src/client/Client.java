@@ -325,7 +325,7 @@ public class Client {
                 System.exit(1);
             }
 
-            List<String> audioData = new ArrayList<>();
+            List<byte[]> audioData = new ArrayList<>();
 
             while (recvMsg.getType().equals("Byte")) {
                 // check if message is a byte message
@@ -343,14 +343,12 @@ public class Client {
 
                 // Append the byte data to the StringBuilder as a Base64 string
                 byte[] data = byteMessage.getData();
-                String base64String = Base64.toBase64String(data);
-                audioData.add(base64String);
+                audioData.add(data);
 
                 recvMsg = socket.getMessage();
             }
 
-            System.out.println("Received audio data: " + audioData.size() + " chunks");
-            System.out.println("Data: " + audioData.getLast().substring(audioData.size() - 21));
+            System.out.println("Got all audio data: " + audioData.size() + " chunks");
         }
 
         // Check if list was requested

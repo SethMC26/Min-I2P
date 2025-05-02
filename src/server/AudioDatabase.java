@@ -8,6 +8,7 @@ import merrimackutil.json.types.JSONType;
 import org.bouncycastle.util.encoders.Base64;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -70,7 +71,7 @@ public class AudioDatabase implements JSONSerializable {
         try (BufferedReader br = new BufferedReader(new FileReader(audioPath))) {
             String line;
             while ((line = br.readLine()) != null) {
-                String base64Bytes = line;
+                String base64Bytes = line.split("\n")[0];
                 byte[] bytes = Base64.decode(base64Bytes);
                 byteList.add(bytes);
             }
@@ -111,7 +112,7 @@ public class AudioDatabase implements JSONSerializable {
      * @param audioName - String the name of the audio
      * @param audio - String of the audio
      */
-    public void addAudio(String audioName, List<String> audio) {
+    public void addAudio(String audioName, List<byte[]> audio) {
         if (checkIfAudioExists(audioName)) {
             System.err.println("Audio already exists in the database");
             return;
@@ -166,15 +167,16 @@ public class AudioDatabase implements JSONSerializable {
         }
     }
 
-    private void saveAudioFile(String path, List<String> audio) {
+    private void saveAudioFile(String path, List<byte[]> audio) {
 
         try (FileWriter fw = new FileWriter(path,true)) {
-            BufferedWriter bw = new BufferedWriter(fw);
-            PrintWriter out = new PrintWriter(bw);
 
-            for (String base64Bytes : audio) {
-                out.println(base64Bytes);
+            for (byte[] base64Bytes : audio) {
+                String text = Base64.toBase64String(base64Bytes) + "\n";
+                fw.write(text);
+                fw.flush();
             }
+
         } catch (IOException e) {
             System.err.println("Error saving audio file: " + e.getMessage());
         }
