@@ -91,20 +91,21 @@ public class Router implements Runnable {
         int port = 7000; // hard coded for now we will fix later
         this.port = port;
         int boot = 8080;
-        setUp(port, boot); // change later
+        setUp(port, boot, false); // change later
     }
 
     /**
      * Create router using a default config file
      */
-    public Router(int port, int bootstrapPort) throws IOException {
+    public Router(int port, int bootstrapPort, boolean isFloodfill) throws IOException {
         // todo add config parsing
         this.port = port;
         this.tunnelManager = new TunnelManager();
-        setUp(port, bootstrapPort);
+        setUp(port, bootstrapPort, isFloodfill);
     }
 
-    private void setUp(int port, int bootstrapPort) throws IOException {
+    private void setUp(int port, int bootstrapPort, boolean isFloodfill) throws IOException {
+        // speciality floodfill router
         Security.addProvider(new BouncyCastleProvider()); // Add BouncyCastle provider for cryptography
 
         // Bind the socket to the router's port
@@ -164,7 +165,7 @@ public class Router implements Runnable {
         while (true) {
             I2NPHeader message = socket.getMessage();
             threadpool.execute(new RouterServiceThread(netDB, routerInfo, message,
-                    tunnelManager));
+                    tunnelManager, isFloodfill));
         }
     }
 

@@ -51,6 +51,10 @@ public class RouterServiceThread implements Runnable {
      * Logger
      */
     private Logger log;
+    /**
+     * Is this router a flood fill router
+     */
+    private boolean isFloodFill;
 
     /**
      * TunnelManager for this router
@@ -65,12 +69,13 @@ public class RouterServiceThread implements Runnable {
      * @param recievedMessage I2NP message received
      */
     public RouterServiceThread(NetDB networkDatabase, RouterInfo router, I2NPHeader recievedMessage,
-            TunnelManager tunnelManager) {
+            TunnelManager tunnelManager, boolean isFloodFill) {
         this.netDB = networkDatabase;
         this.router = router;
         this.recievedMessage = recievedMessage;
         this.random = new SecureRandom();
         this.log = Logger.getInstance();
+        this.isFloodFill = isFloodFill;
     }
 
     /**
@@ -473,6 +478,8 @@ public class RouterServiceThread implements Runnable {
         // lets send store to 2 nearest neighbors
         // turn off flood fill for now to test netDB(network is so small that everyone
         // would store everything)
+
+        // if (isFloodFill) { - add this
         /*
          * if (netDB.lookup(store.getRecord().getHash()) == null) {
          * ArrayList<RouterInfo> closestPeers=
