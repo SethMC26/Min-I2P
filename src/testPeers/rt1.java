@@ -2,11 +2,14 @@ package testPeers;
 
 import java.io.IOException;
 
+import common.Logger;
 import common.I2P.router.Router;
 
 public class rt1 {
     public static void main(String[] args) {
         int numberOfRouters = 5; // Specify the number of routers to create
+        Logger log = Logger.getInstance();
+        log.setMinLevel(Logger.Level.DEBUG);
 
         for (int i = 0; i < numberOfRouters; i++) {
             int port1 = 10001 + i * 2;
@@ -15,7 +18,7 @@ public class rt1 {
             Thread routerThread = new Thread(() -> {
                 try {
                     System.out.println("Router started on ports: " + port1 + " and " + port2);
-                    Router router = new Router(port1, port2, true);
+                    Router router = new Router(port1, port2, false);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }

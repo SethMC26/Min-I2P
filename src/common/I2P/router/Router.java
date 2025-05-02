@@ -113,14 +113,11 @@ public class Router implements Runnable {
         netDB = new NetDB(routerInfo);
 
         // Send a DatabaseStore message to the bootstrap peer
-        System.out.println("Creating databsestore message to bootstrap peer: " + bootstrapPort);
         DatabaseStore databaseStore = new DatabaseStore(routerInfo); // reply token set to 0 for now yay!
         Random random = new Random();
         int msgId = random.nextInt(); // random message id for now
         I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, msgId, System.currentTimeMillis() + 1000,
                 databaseStore);
-
-                System.out.println("Sending DatabaseStore message to bootstrap peer: " + bootstrapPort);
         socket.sendMessage(msg, "127.0.0.1", bootstrapPort);
         try {
             Thread.sleep(1000);
@@ -129,25 +126,21 @@ public class Router implements Runnable {
             e.printStackTrace();
         } // wait for the message to be sent
 
-        // send of self from self - get bootstrap info (if same get boostrap info)
-        System.out.println("Creating databsestore message to self: " + port);
-        DatabaseLookup databaseLookup = new DatabaseLookup(routerID.getHash(), routerID.getHash());
+        // send of self from self to bootstrap - get bootstrap info (if same get boostrap info)
+        DatabaseLookup databaseLookup = new DatabaseLookup(routerID.getHash(), routerInfo.getHash());
         I2NPHeader lookupMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000,
                 databaseLookup);
-                System.out.println("Sending DatabaseLookup message to self: " + port);
-        socket.sendMessage(lookupMsg, routerInfo);
+        socket.sendMessage(lookupMsg, "127.0.0.1", bootstrapPort);
 
         // give enough time for all the routers to send their messages/turn on
         Thread t1 = new Thread(new Runnable() {
             public void run() {
                 try {
-                    Thread.sleep(20000); // 20 seconds to wait for the message to be sent while we turn them all on
-                    DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], routerID.getHash()); // come back
-                                                                                                           // to this
-                    I2NPHeader lookupMsg2 = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1,
-                            System.currentTimeMillis() + 10,
-                            databaseLookup2); // keep experiration REALLY SMALL FOR NULL LOOKUPS!!! if it breaks set
-                                              // experiration lower
+                    Thread.sleep(5000); // 5 seconds to wait for the message to be sent while we turn them all on
+                    DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], routerInfo.getHash());
+                    I2NPHeader lookupMsg2 = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
+                            System.currentTimeMillis() + 900,
+                            databaseLookup2);
                     socket.sendMessage(lookupMsg2, routerInfo);
                     // netDB.getKClosestRouterInfos(routerID.getHash(), 10);
                 } catch (InterruptedException e) {
@@ -165,7 +158,7 @@ public class Router implements Runnable {
         Thread t2 = new Thread(new Runnable() {
             public void run() {
                 try {
-                    Thread.sleep(25000);
+                    Thread.sleep(10000);
                     // create tunnel build for 3 hops
                     Random random = new Random();
                     int tunnelID = random.nextInt(1000); // random tunnel id for now

@@ -207,8 +207,6 @@ public class RouterServiceThread implements Runnable {
     }
 
     private void handleTunnelBuildMessage(TunnelBuild tunnelBuild) {
-        System.out.println("TunnelBuild message received: " + tunnelBuild.toJSONType().getFormattedJSON());
-
         // iterate through all the records and compare the first 16 bytes of the hash
         // to the toPeer field of the record, if they match we have found the correct
         // record for us
@@ -220,7 +218,7 @@ public class RouterServiceThread implements Runnable {
                 // we have found the correct record for us, now we can send the reply back to
                 // the peer
                 try {
-                    // Decrypt the ElGamal block
+                    // Decrypt the ElGamal
 
                     // Get session key, we skip bloom filter
 
@@ -269,8 +267,6 @@ public class RouterServiceThread implements Runnable {
         } else {
             replyMessage = new TunnelBuildReplyMessage(record.getReceiveTunnel(), false);
         }
-
-        System.out.println("TunnelBuildReply message created: " + replyMessage.toJSONType().getFormattedJSON());
         // query netdb for router info of next hop
         RouterInfo nextRouter = (RouterInfo) netDB.lookup(record.getNextIdent()); // FOR THE LOVE OF GOD PLEASE BE SET PROPERLLY
         // realistically this will be fowarded to the client and client will handle lease set publishing
