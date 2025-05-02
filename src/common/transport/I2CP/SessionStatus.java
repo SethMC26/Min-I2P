@@ -58,4 +58,8 @@ public class SessionStatus extends I2CPMessage{
         json.put("status", status.ordinal());
         return json;
     }
+
+    public Status getStatus() {
+        return status;
+    }
 }

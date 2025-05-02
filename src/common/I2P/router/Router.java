@@ -1,10 +1,6 @@
 package common.I2P.router;
 
-import common.I2P.I2NP.DatabaseLookup;
-import common.I2P.I2NP.DatabaseStore;
-import common.I2P.I2NP.I2NPHeader;
-import common.I2P.I2NP.TunnelBuild;
-import common.I2P.I2NP.TunnelHopInfo;
+import common.I2P.I2NP.*;
 import common.I2P.I2NP.TunnelBuild.Record.TYPE;
 import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.Lease;
@@ -13,20 +9,17 @@ import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.Tunnel;
 import common.I2P.tunnels.TunnelManager;
-import common.I2P.NetworkDB.Record;
 import common.transport.I2NPSocket;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.SocketException;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.PublicKey;
-import java.security.Security;
+import java.security.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -34,12 +27,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-import javax.crypto.SecretKeyFactory;
-
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 /**
  * Class represents Core Router module of I2P
@@ -201,8 +188,10 @@ public class Router implements Runnable {
         ExecutorService threadpool = Executors.newFixedThreadPool(5);
         while (true) {
             I2NPHeader message = socket.getMessage();
-            threadpool.execute(new RouterServiceThread(netDB, routerInfo, message,
-                    tunnelManager, isFloodfill));
+            RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, tunnelManager);
+            //To sam, this will turn on floodfill, from your favorite NetDB implementor Seth
+            //rst.setFloodFill(true);
+            threadpool.execute(rst);
         }
     }
 

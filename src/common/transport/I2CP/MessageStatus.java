@@ -83,4 +83,16 @@ public class MessageStatus extends I2CPMessage{
         json.put("nonce", Base64.toBase64String(nonce));
         return json;
     }
+
+    public int getMessageID() {
+        return messageID;
+    }
+
+    public Status getStatus() {
+        return status;
+    }
+
+    public byte[] getNonce() {
+        return nonce;
+    }
 }

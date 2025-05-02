@@ -41,7 +41,7 @@ public class Lease implements JSONSerializable {
      * @param json JSON to deserialize
      * @throws throws if json is invalid
      */
-    Lease(JSONObject json) throws InvalidObjectException {
+    public Lease(JSONObject json) throws InvalidObjectException {
         deserialize(json);
     }
 

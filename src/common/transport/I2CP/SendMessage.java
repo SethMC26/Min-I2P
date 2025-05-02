@@ -64,4 +64,16 @@ public class SendMessage extends I2CPMessage{
         json.put("nonce", Base64.toBase64String(nonce));
         return json;
     }
+
+    public Destination getDestination() {
+        return destination;
+    }
+
+    public JSONObject getPayload() {
+        return payload;
+    }
+
+    public byte[] getNonce() {
+        return nonce;
+    }
 }
