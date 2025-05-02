@@ -126,6 +126,11 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
         private ArrayList<TunnelHopInfo> hopInfo;
 
         /**
+         * Flag to indicate if this is a reply message
+         */
+        private boolean replyFlag;
+
+        /**
          * Construct a record from a json
          * 
          * @param jsonObject JSON to deserialize
@@ -153,7 +158,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
          */
         public Record(byte[] toPeer, int receiveTunnel, byte[] ourIdent, int nextTunnel, byte[] nextIdent,
                 SecretKey layerKey,
-                SecretKey ivKey, SecretKey replyKey, byte[] replyIv, long requestTime, int sendMsgID, TYPE type, ArrayList<TunnelHopInfo> hopInfo) {
+                SecretKey ivKey, SecretKey replyKey, byte[] replyIv, long requestTime, int sendMsgID, TYPE type, ArrayList<TunnelHopInfo> hopInfo, boolean replyFlag) {
             this.toPeer = toPeer;
             this.receiveTunnel = receiveTunnel;
             this.ourIdent = ourIdent;
@@ -167,6 +172,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             this.sendMsgID = sendMsgID;
             this.type = type;
             this.hopInfo = hopInfo;
+            this.replyFlag = replyFlag;
         }
 
         public Record(byte[] toPeer, byte[] encData) {
@@ -209,6 +215,8 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 encDataJSON.put("sendMsgID", sendMsgID);
                 encDataJSON.put("type", type.toString());
                 encDataJSON.put("hopInfo", new JSONArray());
+                encDataJSON.put("replyFlag", replyFlag);
+
 
                 jsonObject.put("encData", encDataJSON.toJSON());
             } else {
@@ -275,8 +283,8 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             return hopInfo;
         }
 
-        public void setEncData(byte[] replyBlock) {
-            this.encData = replyBlock;
+        public boolean isReplyFlag() {
+            return replyFlag;
         }
     }
 }

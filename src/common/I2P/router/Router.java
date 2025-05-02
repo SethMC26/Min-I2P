@@ -286,6 +286,8 @@ public class Router implements Runnable {
 
             ArrayList<TunnelHopInfo> hopInfoInput = null; // this is for the hops in the tunnel
 
+            boolean replyFlag = false; // this is for the hops in the tunnel - they change this later
+
             TunnelHopInfo hopInfoItem = new TunnelHopInfo(toPeer, layerKey, ivKey,
                     receiveTunnel);
             hopInfo.add(0, hopInfoItem); // add to the front of the list
@@ -313,7 +315,8 @@ public class Router implements Runnable {
                     requestTime,
                     sendMsgID,
                     position,
-                    hopInfoInput); // pass the hop info to the record
+                    hopInfoInput,
+                    replyFlag); // pass the hop info to the record
 
             records.add(record);
             System.out.println("Added record for peer: " + Arrays.toString(toPeer));

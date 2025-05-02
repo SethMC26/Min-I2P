@@ -269,8 +269,10 @@ public class RouterServiceThread implements Runnable {
         // pick random type
         TunnelBuild.Record.TYPE type = TunnelBuild.Record.TYPE.PARTICIPANT; // this is general enough
 
+        // reply flag set to true here
+        // this is also temp plain text
         TunnelBuild.Record replyRecord = new TunnelBuild.Record(toPeer, receiveTunnel, ourIdent, nextTunnel,
-                nextIdent, layerKey, ivKey, replyKey, replyIv, requestTime, sendMsgID, type, null);
+                nextIdent, layerKey, ivKey, replyKey, replyIv, requestTime, sendMsgID, type, null, true);
 
         // we need to encrypt this but for now return the record
         // like this should return bytes in the future
