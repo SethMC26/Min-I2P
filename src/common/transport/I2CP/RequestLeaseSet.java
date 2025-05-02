@@ -55,6 +55,10 @@ public class RequestLeaseSet extends I2CPMessage {
         json.put("leases", array);
         return json;
     }
+
+    public ArrayList<Lease> getLeases() {
+        return leases;
+    }
 }
 
 
