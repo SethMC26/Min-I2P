@@ -102,6 +102,7 @@ public class NetDB {
      * @return a list of up to {@code k} closest RouterInfo Records
      *
      * @author ChatGPT (OpenAI Assistant) - collaborator
+     * @deprecated Since 5/1/2025
      */
     public synchronized ArrayList<RouterInfo> getKClosestRouterInfos(byte[] key, int k) {
         // Calculate XOR distance from our own router ID to the target key
@@ -154,6 +155,54 @@ public class NetDB {
         // Return the list of RouterInfo records found
         return result;
     }
+    /**
+     * Retrieve up to {@code k} closest records (either {@link RouterInfo} or
+     * {@link LeaseSet}) to the supplied key, using the same XOR-metric walk that
+     * Kademlia employs.
+     *
+     * @param key 32-byte SHA-256 hash whose neighbours we want
+     * @param k   maximum number of records to return
+     * @return a list (≤ k) of the closest {@code Record}s in distance order
+     *
+     * @author ChatGPT (OpenAI Assistant)
+     */
+    public synchronized ArrayList<Record> getKClosestPeers(byte[] key, int k) {
+        ArrayList<Record> result = new ArrayList<>(k);
+
+        int startDistance = calculateXORMetric(routerInfo.getHash(), key);
+        int lower  = startDistance;      // search downward
+        int higher = startDistance + 1;  // and upward
+
+        while (result.size() < k && (lower >= 0 || higher <= 255)) {
+
+            /* --- lower bucket ------------------------------------------------ */
+            if (lower >= 0) {
+                HashMap<String, Record> bucket = routingTable.get(lower);
+                if (bucket != null) {
+                    for (Record record : bucket.values()) {
+                        result.add(record);               // RouterInfo or LeaseSet
+                        if (result.size() >= k) break;
+                    }
+                }
+                lower--;
+            }
+
+            /* --- higher bucket ----------------------------------------------- */
+            if (higher <= 255) {
+                HashMap<String, Record> bucket = routingTable.get(higher);
+                if (bucket != null) {
+                    for (Record record : bucket.values()) {
+                        result.add(record);
+                        if (result.size() >= k) break;
+                    }
+                }
+                higher++;
+            }
+        }
+        return result;
+    }
+
+
 
 
     /**
