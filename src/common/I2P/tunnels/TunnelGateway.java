@@ -3,12 +3,14 @@ package common.I2P.tunnels;
 import common.I2P.I2NP.DatabaseLookup;
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.I2NPMessage;
+import common.I2P.I2NP.TunnelHopInfo;
 import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.RouterInfo;
 import common.transport.I2NPSocket;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Random;
 
 /**
@@ -30,6 +32,11 @@ public class TunnelGateway extends TunnelObject{
     private RouterInfo routerInfo;
 
     /**
+     * List of hops in the tunnel
+     */
+    private ArrayList<TunnelHopInfo> hops;
+
+    /**
      * Create TunnelGateway
      * @param tunnelID Integer ID of tunnel
      * @param tunnelEncryptionKey AES key for encrypting messages
@@ -40,11 +47,12 @@ public class TunnelGateway extends TunnelObject{
      * @param nextTunnelID Integer TunnelID on next hop
      */
     public TunnelGateway(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey, SecretKey replyKey,
-                            byte[] replyIV, byte[] nextHop, Integer nextTunnelID, RouterInfo routerInfo) {
+                            byte[] replyIV, byte[] nextHop, Integer nextTunnelID, RouterInfo routerInfo, ArrayList<TunnelHopInfo> hops) {
         super(TYPE.GATEWAY, tunnelID, tunnelEncryptionKey, tunnelIVKey, replyKey, replyIV);
         this.nextHop = nextHop;
         this.nextTunnelID = nextTunnelID;
         this.routerInfo = routerInfo;
+        this.hops = hops;
     }
 
     @Override
