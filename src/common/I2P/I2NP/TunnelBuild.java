@@ -1,7 +1,5 @@
 package common.I2P.I2NP;
 
-import common.I2P.NetworkDB.RouterInfo;
-import common.I2P.tunnels.TunnelManager;
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.types.JSONArray;
 import merrimackutil.json.types.JSONObject;
@@ -9,17 +7,11 @@ import merrimackutil.json.types.JSONType;
 import org.bouncycastle.util.encoders.Base64;
 
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 
-import java.io.ByteArrayOutputStream;
 import java.io.InvalidObjectException;
-import java.security.PrivateKey;
-import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
 
 public class TunnelBuild extends I2NPMessage implements JSONSerializable {
     /**
@@ -112,12 +104,10 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
          * ID of send message
          */
         private int sendMsgID;
-
         /**
          * encypted public key data under elgamal public key of peer
          */
-        private byte[] encData;
-
+        private byte[] encData; // not part of regular record but enc record
         /**
          * Type of tunnel object requested constructor
          */
@@ -126,11 +116,14 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             PARTICIPANT,
             ENDPOINT
         };
-
         /**
          * Type of tunnel object requested
          */
         private TYPE type;
+        /**
+         * ArrayList of routerInfo for gateway node
+         */
+        private ArrayList<TunnelHopInfo> hopInfo;
 
         /**
          * Construct a record from a json
@@ -160,7 +153,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
          */
         public Record(byte[] toPeer, int receiveTunnel, byte[] ourIdent, int nextTunnel, byte[] nextIdent,
                 SecretKey layerKey,
-                SecretKey ivKey, SecretKey replyKey, byte[] replyIv, long requestTime, int sendMsgID, TYPE type) {
+                SecretKey ivKey, SecretKey replyKey, byte[] replyIv, long requestTime, int sendMsgID, TYPE type, ArrayList<TunnelHopInfo> hopInfo) {
             this.toPeer = toPeer;
             this.receiveTunnel = receiveTunnel;
             this.ourIdent = ourIdent;
@@ -173,6 +166,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             this.requestTime = requestTime;
             this.sendMsgID = sendMsgID;
             this.type = type;
+            this.hopInfo = hopInfo;
         }
 
         public Record(byte[] toPeer, byte[] encData) {
@@ -214,6 +208,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 encDataJSON.put("requestTime", requestTime);
                 encDataJSON.put("sendMsgID", sendMsgID);
                 encDataJSON.put("type", type.toString());
+                encDataJSON.put("hopInfo", new JSONArray());
 
                 jsonObject.put("encData", encDataJSON.toJSON());
             } else {
@@ -276,86 +271,8 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             return type;
         }
 
-        public Record encrypt(PublicKey publicKey) {
-            try {
-                // Generate AES session key
-                KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-                keyGen.init(256); // 256-bit AES key
-                SecretKey sessionKey = keyGen.generateKey();
-
-                // Encrypt fields using sessionKey (AES)
-                Cipher aesCipher = Cipher.getInstance("AES/ECB/PKCS5Padding"); // ECB OK for single blocks
-                aesCipher.init(Cipher.ENCRYPT_MODE, sessionKey);
-
-                // Encrypt each field
-                byte[] encryptedLayerKey = aesCipher.doFinal(layerKey.getEncoded());
-                byte[] encryptedIvKey = aesCipher.doFinal(ivKey.getEncoded());
-                byte[] encryptedReplyKey = aesCipher.doFinal(replyKey.getEncoded());
-                byte[] encryptedReplyIv = aesCipher.doFinal(replyIv);
-                byte[] encryptedNextIdent = aesCipher.doFinal(nextIdent);
-                byte[] encryptedOurIdent = aesCipher.doFinal(ourIdent);
-
-                // Encrypt session key using ElGamal
-                Cipher elgamalCipher = Cipher.getInstance("ElGamal/None/NoPadding", "BC");
-                elgamalCipher.init(Cipher.ENCRYPT_MODE, publicKey);
-                byte[] encryptedSessionKey = elgamalCipher.doFinal(sessionKey.getEncoded());
-
-                // Package everything
-                JSONObject encDataJSON = new JSONObject();
-                encDataJSON.put("encryptedSessionKey", Base64.toBase64String(encryptedSessionKey));
-                encDataJSON.put("encryptedLayerKey", Base64.toBase64String(encryptedLayerKey));
-                encDataJSON.put("encryptedIvKey", Base64.toBase64String(encryptedIvKey));
-                encDataJSON.put("encryptedReplyKey", Base64.toBase64String(encryptedReplyKey));
-                encDataJSON.put("encryptedReplyIv", Base64.toBase64String(encryptedReplyIv));
-                encDataJSON.put("encryptedNextIdent", Base64.toBase64String(encryptedNextIdent));
-                encDataJSON.put("encryptedOurIdent", Base64.toBase64String(encryptedOurIdent));
-                // Also store plaintext ints
-                encDataJSON.put("receiveTunnel", receiveTunnel);
-                encDataJSON.put("nextTunnel", nextTunnel);
-                encDataJSON.put("requestTime", requestTime);
-                encDataJSON.put("sendMsgID", sendMsgID);
-                encDataJSON.put("type", type.toString());
-
-                this.encData = encDataJSON.toJSON().getBytes();
-
-                return new Record(this.toPeer, this.encData);
-            } catch (Exception e) {
-                System.err.println("Encryption failed: " + e.getMessage());
-                e.printStackTrace();
-            }
-            return null;
-        }
-
-        public Record decrypt(SecretKey secretKey) {
-            try {
-                // Decrypt the session key using ElGamal
-                Cipher elgamalCipher = Cipher.getInstance("ElGamal/None/NoPadding", "BC");
-                elgamalCipher.init(Cipher.DECRYPT_MODE, secretKey);
-                byte[] decryptedSessionKey = elgamalCipher.doFinal(encData);
-
-                // Decrypt the fields using the session key (AES)
-                Cipher aesCipher = Cipher.getInstance("AES/ECB/PKCS5Padding"); // ECB OK for single blocks
-                aesCipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(decryptedSessionKey, "AES"));
-
-                // Decrypt each field
-                byte[] decryptedLayerKey = aesCipher.doFinal(Base64.decode(encData));
-                byte[] decryptedIvKey = aesCipher.doFinal(Base64.decode(encData));
-                byte[] decryptedReplyKey = aesCipher.doFinal(Base64.decode(encData));
-                byte[] decryptedReplyIv = aesCipher.doFinal(Base64.decode(encData));
-                byte[] decryptedNextIdent = aesCipher.doFinal(Base64.decode(encData));
-                byte[] decryptedOurIdent = aesCipher.doFinal(Base64.decode(encData));
-
-                // Create a new Record with the decrypted values
-                return new Record(toPeer, receiveTunnel, decryptedOurIdent, nextTunnel, decryptedNextIdent,
-                        new SecretKeySpec(decryptedLayerKey, "AES"),
-                        new SecretKeySpec(decryptedIvKey, "AES"),
-                        new SecretKeySpec(decryptedReplyKey, "AES"),
-                        decryptedReplyIv, requestTime, sendMsgID, type);
-            } catch (Exception e) {
-                System.err.println("Decryption failed: " + e.getMessage());
-                e.printStackTrace();
-            }
-            return null;
+        public ArrayList<TunnelHopInfo> getHopInfo() {
+            return hopInfo;
         }
 
         public void setEncData(byte[] replyBlock) {

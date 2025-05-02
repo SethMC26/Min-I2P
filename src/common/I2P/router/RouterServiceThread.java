@@ -115,11 +115,7 @@ public class RouterServiceThread implements Runnable {
                 break;
             case TUNNELBUILDREPLY:
                 TunnelBuildReplyMessage tunnelBuildReply = (TunnelBuildReplyMessage) recievedMessage.getMessage();
-                if (handleTunnelBuildReplyMessage(tunnelBuildReply)) {
-                    log.debug("TunnelBuildReply message is valid, tunnel manager preserved");
-                } else {
-                    log.debug("Bad reply message, removing from TunnelManager");
-                }
+                handleTunnelBuildReplyMessage(tunnelBuildReply);
                 break;
             default:
                 throw new RuntimeException("Bad message type " + recievedMessage.getType()); // should never hit case in
@@ -274,7 +270,7 @@ public class RouterServiceThread implements Runnable {
         TunnelBuild.Record.TYPE type = TunnelBuild.Record.TYPE.PARTICIPANT; // this is general enough
 
         TunnelBuild.Record replyRecord = new TunnelBuild.Record(toPeer, receiveTunnel, ourIdent, nextTunnel,
-                nextIdent, layerKey, ivKey, replyKey, replyIv, requestTime, sendMsgID, type);
+                nextIdent, layerKey, ivKey, replyKey, replyIv, requestTime, sendMsgID, type, null);
 
         // we need to encrypt this but for now return the record
         // like this should return bytes in the future
@@ -302,7 +298,8 @@ public class RouterServiceThread implements Runnable {
                     record.getReplyIv(),
                     record.getNextIdent(),
                     record.getNextTunnel(),
-                    router);
+                    router,
+                    record.getHopInfo());
             tunnelManager.addTunnelObject(record.getReceiveTunnel(), tunnelGateway);
             log.info("Added tunnel gateway for tunnel ID: " + record.getReceiveTunnel());
         } else if (record.getPosition() == TunnelBuild.Record.TYPE.ENDPOINT) {

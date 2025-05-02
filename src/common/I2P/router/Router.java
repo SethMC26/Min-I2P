@@ -4,6 +4,7 @@ import common.I2P.I2NP.DatabaseLookup;
 import common.I2P.I2NP.DatabaseStore;
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.TunnelBuild;
+import common.I2P.I2NP.TunnelHopInfo;
 import common.I2P.I2NP.TunnelBuild.Record.TYPE;
 import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.NetDB;
@@ -263,7 +264,9 @@ public class Router implements Runnable {
         int sendMsgID = random.nextInt();
         long requestTime = System.currentTimeMillis() / 1000;
 
-        for (int i = 0; i < tempPeers.size(); i++) {
+        ArrayList<TunnelHopInfo> hopInfo = new ArrayList<>(); // this is for the hops in the tunnel
+
+        for (int i = tempPeers.size()-1; i >= 0; i--) {
             RouterInfo current = tempPeers.get(i);
             RouterInfo next = (i + 1 < tempPeers.size()) ? tempPeers.get(i + 1) : null;
 
@@ -281,9 +284,16 @@ public class Router implements Runnable {
             byte[] replyIv = new byte[16];
             random.nextBytes(replyIv);
 
+            ArrayList<TunnelHopInfo> hopInfoInput = null; // this is for the hops in the tunnel
+
+            TunnelHopInfo hopInfoItem = new TunnelHopInfo(toPeer, layerKey, ivKey,
+                    receiveTunnel);
+            hopInfo.add(0, hopInfoItem); // add to the front of the list
+
             TYPE position = null;
             if (i == 0) {
                 position = TYPE.GATEWAY;
+                hopInfoInput = hopInfo; // set the hop info for the first hop
             } else if (i == tempPeers.size() - 1) {
                 position = TYPE.ENDPOINT;
             } else {
@@ -302,7 +312,8 @@ public class Router implements Runnable {
                     replyIv,
                     requestTime,
                     sendMsgID,
-                    position);
+                    position,
+                    hopInfoInput); // pass the hop info to the record
 
             records.add(record);
             System.out.println("Added record for peer: " + Arrays.toString(toPeer));
