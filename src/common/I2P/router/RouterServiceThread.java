@@ -334,7 +334,8 @@ public class RouterServiceThread implements Runnable {
                     record.getNextIdent(),
                     record.getNextTunnel(),
                     router,
-                    record.getHopInfo());
+                    record.getHopInfo(),
+                    netDB);
             tunnelManager.addTunnelObject(record.getReceiveTunnel(), tunnelGateway);
             log.info("Added tunnel gateway for tunnel ID: " + record.getReceiveTunnel());
         } else if (record.getPosition() == TunnelBuild.Record.TYPE.ENDPOINT) {

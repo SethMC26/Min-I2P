@@ -7,6 +7,8 @@ import common.I2P.I2NP.TunnelBuild;
 import common.I2P.I2NP.TunnelHopInfo;
 import common.I2P.I2NP.TunnelBuild.Record.TYPE;
 import common.I2P.IDs.RouterID;
+import common.I2P.NetworkDB.Lease;
+import common.I2P.NetworkDB.LeaseSet;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.Tunnel;
@@ -27,6 +29,7 @@ import java.security.PublicKey;
 import java.security.Security;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
@@ -140,17 +143,20 @@ public class Router implements Runnable {
         I2NPHeader lookupMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000,
                 databaseLookup);
         socket.sendMessage(lookupMsg, routerInfo);
-        
+
         // give enough time for all the routers to send their messages/turn on
         Thread t1 = new Thread(new Runnable() {
             public void run() {
                 try {
                     Thread.sleep(20000); // 20 seconds to wait for the message to be sent while we turn them all on
-                    DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], routerID.getHash()); // come back to this
-                    I2NPHeader lookupMsg2 = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 10,
-                            databaseLookup2); // keep experiration REALLY SMALL FOR NULL LOOKUPS!!! if it breaks set experiration lower
+                    DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], routerID.getHash()); // come back
+                                                                                                           // to this
+                    I2NPHeader lookupMsg2 = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1,
+                            System.currentTimeMillis() + 10,
+                            databaseLookup2); // keep experiration REALLY SMALL FOR NULL LOOKUPS!!! if it breaks set
+                                              // experiration lower
                     socket.sendMessage(lookupMsg2, routerInfo);
-                    //netDB.getKClosestRouterInfos(routerID.getHash(), 10);
+                    // netDB.getKClosestRouterInfos(routerID.getHash(), 10);
                 } catch (InterruptedException e) {
                     // TODO Auto-generated catch block
                     e.printStackTrace();
@@ -163,27 +169,27 @@ public class Router implements Runnable {
         t1.start(); // will go to routerservicethread after (pray)
 
         // wait for client request
-        // Thread t2 = new Thread(new Runnable() {
-        //     public void run() {
-        //         try {
-        //             Thread.sleep(25000);
-        //             // create tunnel build for 3 hops
-        //             Random random = new Random();
-        //             int tunnelID = random.nextInt(1000); // random tunnel id for now
-        //             createTunnelBuild(3, tunnelID, true); // make inbound
-        //             createTunnelBuild(3, tunnelID, false); // make outbound
-        //             // double check this later
-        //         } catch (InterruptedException e) {
-        //             // TODO Auto-generated catch block
-        //             e.printStackTrace();
-        //         } catch (NoSuchAlgorithmException e) {
-        //             // TODO Auto-generated catch block
-        //             e.printStackTrace();
-        //         }
-                
-        //     }
-        // });
-        // t2.start();
+        Thread t2 = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    Thread.sleep(25000);
+                    // create tunnel build for 3 hops
+                    Random random = new Random();
+                    int tunnelID = random.nextInt(1000); // random tunnel id for now
+                    createTunnelBuild(3, tunnelID, true); // make inbound
+                    createTunnelBuild(3, tunnelID, false); // make outbound
+                    // double check this later
+                } catch (InterruptedException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                } catch (NoSuchAlgorithmException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+
+            }
+        });
+        t2.start();
 
         // Start the router service thread to handle incoming messages
         ExecutorService threadpool = Executors.newFixedThreadPool(5);
@@ -253,7 +259,7 @@ public class Router implements Runnable {
             tempPeers.set(0, routerInfo);
         }
 
-         Tunnel potentialTunnel = new Tunnel(tempPeers);
+        Tunnel potentialTunnel = new Tunnel(tempPeers);
 
         // add to tunnel manager
         if (isInbound) {
@@ -267,7 +273,7 @@ public class Router implements Runnable {
 
         ArrayList<TunnelHopInfo> hopInfo = new ArrayList<>(); // this is for the hops in the tunnel
 
-        for (int i = tempPeers.size()-1; i >= 0; i--) {
+        for (int i = tempPeers.size() - 1; i >= 0; i--) {
             RouterInfo current = tempPeers.get(i);
             RouterInfo next = (i - 1 >= 0) ? tempPeers.get(i - 1) : null;
 
@@ -303,9 +309,13 @@ public class Router implements Runnable {
                     next = routerInfo; // set to client creating request if real for testing set to gateway router
                     // PELASE TREMEMBER TO CHANG ETHIS SAM OMG PLEAS JEHGEAH FG SGF
                 } else {
-                    // were gonne need to get the lease set for the client
-                    // for testing get lease set of the creator router kachow
-                    // all this cause im too lazy to make a damn client
+                    LeaseSet leaseSet = (LeaseSet) netDB.lookup(current.getRouterID().getHash());
+                    // this is the destination temp client would do this during creation instead
+
+                    HashSet<Lease> leases = leaseSet.getLeases(); // get the router info for the destination
+                    //just select the first lease for now cause theres only one
+                    Lease lease = leases.iterator().next();
+                    next = (RouterInfo) netDB.lookup(lease.getTunnelGW()); // get the router info for the destination
                 }
             } else {
                 position = TYPE.PARTICIPANT;
