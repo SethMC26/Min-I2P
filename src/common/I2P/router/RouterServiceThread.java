@@ -7,25 +7,19 @@ import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.TunnelEndpoint;
 import common.I2P.tunnels.TunnelGateway;
 import common.I2P.tunnels.TunnelManager;
-import common.I2P.tunnels.TunnelObject;
 import common.I2P.tunnels.TunnelParticipant;
 import common.Logger;
 import common.transport.I2NPSocket;
-import java.util.Base64;
 
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.net.SocketException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Random;
-
-import javax.crypto.Cipher;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 
 /**
  * Handle incoming I2NP messages
@@ -401,7 +395,7 @@ public class RouterServiceThread implements Runnable {
             }
             // create message to send to requesting router
             result = new I2NPHeader(I2NPHeader.TYPE.DATABASESEARCHREPLY, recievedMessage.getMsgID(),
-                    System.currentTimeMillis() + 5,
+                    System.currentTimeMillis() + 1,
                     new DatabaseSearchReply(lookup.getKey(), closestPeersHashes, router.getHash()));
         }
 
@@ -454,9 +448,12 @@ public class RouterServiceThread implements Runnable {
                 case ROUTERINFO -> {
                     // send lookup request to peer
                     RouterInfo peerRouterInfo = (RouterInfo) peerRecord;
+                    if (Arrays.equals(peerRouterInfo.getHash(), router.getHash()))
+                        continue;
+
                     try {
                         I2NPHeader lookupMessage = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
-                                System.currentTimeMillis() + 10,
+                                System.currentTimeMillis() + 20,
                                 new DatabaseLookup(searchReply.getKey(), router.getHash()));
                         peerSocket.sendMessage(lookupMessage, peerRouterInfo);
                     } catch (IOException e) {
@@ -551,16 +548,15 @@ public class RouterServiceThread implements Runnable {
     private void findPeerRecordForReply(int msToWait, byte[] fromHash) {
         // we will ask two of our buddies to see if we could find info to send to
         // information back to this router
-        ArrayList<RouterInfo> closestPeers = netDB.getKClosestRouterInfos(fromHash, 2);
+        ArrayList<RouterInfo> closestPeers = netDB.getKClosestRouterInfos(fromHash, 3);
         I2NPSocket peerSock = null;
-
+        log.trace("Going to ask " + closestPeers.size());
         try {
             peerSock = new I2NPSocket();
-            long expiration = System.currentTimeMillis() + 5;
+            long expiration = System.currentTimeMillis() + 10;
             for (RouterInfo peer : closestPeers) {
                 // avoid recursively sending messages to ourself could happen if someone sends
-                // us
-                if (peer.getPort() == router.getPort())
+                if (Arrays.equals(peer.getHash(), router.getHash()))
                     continue;
 
                 log.trace("Asking peer port: " + peer.getPort() + " to find: "

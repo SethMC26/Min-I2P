@@ -8,6 +8,7 @@ import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.router.ClientServiceThread;
 import common.I2P.router.RouterServiceThread;
+import common.I2P.tunnels.TunnelManager;
 import common.Logger;
 import common.transport.I2NPSocket;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -20,6 +21,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class p2 {
+    static int routerPort = 10002;
+    static int servicePort = 20002;
     public static void main(String[] args) throws IOException {
         Security.addProvider(new BouncyCastleProvider());
         Logger log = Logger.getInstance();
@@ -27,9 +30,27 @@ public class p2 {
 
         Thread Router = new Thread(new Router());
         Router.start();
-        Thread cst = new Thread(new ClientServiceThread(routerInfo, netDB, 20002, new ConcurrentLinkedQueue<>()));
+        Thread cst = new Thread(new ClientServiceThread(routerInfo, netDB, servicePort, new ConcurrentLinkedQueue<>()));
         cst.start();
 
+        try {
+            Thread.sleep(1_100);
+        }
+        catch(Exception e) {
+            e.printStackTrace();
+        }
+        DatabaseLookup databaseLookup = new DatabaseLookup(new byte[32], routerInfo.getHash());
+        //databaseStore.setReply(500, new byte[32]);
+        I2NPSocket sock = new I2NPSocket();
+        I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 10, databaseLookup);
+        sock.sendMessage(msg, "127.0.0.1", 8080);
+        try {
+            Thread.sleep(10_100);
+        }
+        catch(Exception e) {
+            e.printStackTrace();
+        }
+        System.out.println(netDB.logNetDB());
     }
     private static RouterInfo routerInfo;
     private static NetDB netDB;
@@ -60,7 +81,7 @@ public class p2 {
 
                 //create information about this router
                 RouterID routerID = new RouterID(pubKey, signingpubKey);
-                routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), "127.0.0.1", 10002, signingprivKey);
+                routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), "127.0.0.1", routerPort, signingprivKey);
 
                 netDB = new NetDB(routerInfo);
                 I2NPSocket sock = new I2NPSocket();
@@ -84,20 +105,13 @@ public class p2 {
                 //databaseStore.setReply(500, new byte[32]);
 
                 msg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 100, databaseLookup);
-                sock.sendMessage(msg, "127.0.0.1", 10001);
-
-            /* <- test for bad keys
-            DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], new byte[32]);
-            msg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 100, databaseLookup2);
-            sock.sendMessage(msg, "127.0.0.1", 8080);
-
-             */
+                sock.sendMessage(msg, "127.0.0.1", 8080);
 
                 ExecutorService threadPool = Executors.newFixedThreadPool(5);
-                sock = new I2NPSocket(10002, InetAddress.getByName("127.0.0.1"));
+                sock = new I2NPSocket(routerPort, InetAddress.getByName("127.0.0.1"));
                 while (true) {
                     I2NPHeader recvMessage = sock.getMessage();
-                    threadPool.execute(new RouterServiceThread(netDB, routerInfo, recvMessage));
+                    threadPool.execute(new RouterServiceThread(netDB, routerInfo, recvMessage, new TunnelManager(), false));
                 }
             } catch (Exception e) {
                 e.printStackTrace();
