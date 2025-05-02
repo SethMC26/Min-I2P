@@ -283,7 +283,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             return hopInfo;
         }
 
-        public boolean isReplyFlag() {
+        public boolean getReplyFlag() {
             return replyFlag;
         }
     }

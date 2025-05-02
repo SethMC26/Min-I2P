@@ -30,10 +30,10 @@ public class Lease implements JSONSerializable {
      * @param tunnelID tunnel ID for lease
      * @param expiration Expiration of lease in epoch time
      */
-    Lease(RouterID tunnelRouter, int tunnelID, long expiration) {
+    public Lease(RouterID tunnelRouter, int tunnelID) {
         this.tunnelGW = tunnelRouter.getHash();
         this.tunnelID = tunnelID;
-        this.expiration = expiration;
+        // this.expiration = expiration; no longer needed expiration is no longer used
     }
 
     /**
@@ -54,7 +54,8 @@ public class Lease implements JSONSerializable {
         json.checkValidity(new String[] {"tunnelGW", "tunnelID", "expiration"});
         tunnelGW = Base64.decode(json.getString("tunnelGW"));
         tunnelID = json.getInt("tunnelID");
-        expiration = json.getLong("expiration"); //well ill be darned ant that handy
+        // expiration = json.getLong("expiration"); //well ill be darned ant that handy
+        // stroke your damn ego a little more seth - from sam
     }
 
 

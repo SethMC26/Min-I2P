@@ -162,27 +162,28 @@ public class Router implements Runnable {
         });
         t1.start(); // will go to routerservicethread after (pray)
 
-        Thread t2 = new Thread(new Runnable() {
-            public void run() {
-                try {
-                    Thread.sleep(25000);
-                    // create tunnel build for 3 hops
-                    Random random = new Random();
-                    int tunnelID = random.nextInt(1000); // random tunnel id for now
-                    createTunnelBuild(3, tunnelID, true); // make inbound
-                    createTunnelBuild(3, tunnelID, false); // make outbound
-                    // double check this later
-                } catch (InterruptedException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                } catch (NoSuchAlgorithmException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
+        // wait for client request
+        // Thread t2 = new Thread(new Runnable() {
+        //     public void run() {
+        //         try {
+        //             Thread.sleep(25000);
+        //             // create tunnel build for 3 hops
+        //             Random random = new Random();
+        //             int tunnelID = random.nextInt(1000); // random tunnel id for now
+        //             createTunnelBuild(3, tunnelID, true); // make inbound
+        //             createTunnelBuild(3, tunnelID, false); // make outbound
+        //             // double check this later
+        //         } catch (InterruptedException e) {
+        //             // TODO Auto-generated catch block
+        //             e.printStackTrace();
+        //         } catch (NoSuchAlgorithmException e) {
+        //             // TODO Auto-generated catch block
+        //             e.printStackTrace();
+        //         }
                 
-            }
-        });
-        t2.start();
+        //     }
+        // });
+        // t2.start();
 
         // Start the router service thread to handle incoming messages
         ExecutorService threadpool = Executors.newFixedThreadPool(5);
@@ -268,7 +269,7 @@ public class Router implements Runnable {
 
         for (int i = tempPeers.size()-1; i >= 0; i--) {
             RouterInfo current = tempPeers.get(i);
-            RouterInfo next = (i + 1 < tempPeers.size()) ? tempPeers.get(i + 1) : null;
+            RouterInfo next = (i - 1 >= 0) ? tempPeers.get(i - 1) : null;
 
             byte[] toPeer = Arrays.copyOf(current.getRouterID().getHash(), 16); // only first 16 bytes of the hash
             int receiveTunnel = tunnelD; // tunnel id for the tunnel
@@ -298,6 +299,14 @@ public class Router implements Runnable {
                 hopInfoInput = hopInfo; // set the hop info for the first hop
             } else if (i == tempPeers.size() - 1) {
                 position = TYPE.ENDPOINT;
+                if (isInbound) {
+                    next = routerInfo; // set to client creating request if real for testing set to gateway router
+                    // PELASE TREMEMBER TO CHANG ETHIS SAM OMG PLEAS JEHGEAH FG SGF
+                } else {
+                    // were gonne need to get the lease set for the client
+                    // for testing get lease set of the creator router kachow
+                    // all this cause im too lazy to make a damn client
+                }
             } else {
                 position = TYPE.PARTICIPANT;
             }

@@ -1,9 +1,13 @@
 package common.I2P.router;
 
 import common.I2P.I2NP.*;
+import common.I2P.IDs.Destination;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.Record;
 import common.I2P.NetworkDB.RouterInfo;
+import common.I2P.NetworkDB.Record.RecordType;
+import common.I2P.NetworkDB.Lease;
+import common.I2P.NetworkDB.LeaseSet;
 import common.I2P.tunnels.TunnelEndpoint;
 import common.I2P.tunnels.TunnelGateway;
 import common.I2P.tunnels.TunnelManager;
@@ -11,14 +15,20 @@ import common.I2P.tunnels.TunnelParticipant;
 import common.Logger;
 import common.transport.I2NPSocket;
 
+import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.net.SocketException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.Random;
 
 /**
@@ -130,16 +140,32 @@ public class RouterServiceThread implements Runnable {
         // check if each record has 0x0 at the end of the bytes
         // we do not need to decrypt the data as i havent implemented this
 
-        for (TunnelBuild.Record record : tunnelBuildReply.getRecords()) {
-            int replyValue = record.getSendMsgID();
-            if (replyValue == 0) {
-                log.debug("Success!");
-                // keep tunnel in the TunnelManager
-            } else {
-                // remove the tunnel from the TunnelManager cause it was not successful
-                // impelmenet this later cause idk how to get tunnel id from the record
+        // THIS NEEDS TO BE IN CLIENT IN REALITY FORWARD TO CLIENT 
+        // PLEASE SAM CHANGE THIS ITS ONLY FOR TESTING UNTIL WE HAVE CLIENT LEASE SETS
+        // SAMMMMMMM - love past sam <3
+        // this is only for inbound tunnel
+        
+        if (tunnelManager.getInboundTunnel(tunnelBuildReply.getTunnelID()) != null) {
+            Lease lease = new Lease(router.getRouterID(), tunnelBuildReply.getTunnelID());
+            HashSet<Lease> leases = new HashSet<>();
+            Destination destination = new Destination(router.getRouterID().getSigningPublicKey());
+            // generate random secret key temporarily
+            KeyPairGenerator keyPairGenerator;
+            try {
+                keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+            } catch (NoSuchAlgorithmException e) {
+                log.error("RSA algorithm not available: " + e.getMessage());
+                return false; // Handle the error appropriately
             }
+            keyPairGenerator.initialize(2048);
+            KeyPair keyPair = keyPairGenerator.generateKeyPair();
+            PrivateKey privateKey = keyPair.getPrivate();
+            LeaseSet leaseSet = new LeaseSet(leases, destination, router.getRouterID().getElgamalPublicKey(), privateKey);
+
+            // publish lease set to netDB
+            netDB.store(leaseSet);
         }
+        
         return true;
     }
 
@@ -200,11 +226,18 @@ public class RouterServiceThread implements Runnable {
     }
 
     private void handleEndpointBehavior(TunnelBuild tunnelBuild, common.I2P.I2NP.TunnelBuild.Record record) {
-        TunnelBuildReplyMessage replyMessage = new TunnelBuildReplyMessage(tunnelBuild.getRecords());
+        TunnelBuildReplyMessage replyMessage;
+        if (record.getReplyFlag()) { // this is only checking one fucking reply flag please change you dumbass - love sam who just wrote thsi
+            replyMessage = new TunnelBuildReplyMessage(record.getReceiveTunnel(), true);
+        } else {
+            replyMessage = new TunnelBuildReplyMessage(record.getReceiveTunnel(), false);
+        }
 
         System.out.println("TunnelBuildReply message created: " + replyMessage.toJSONType().getFormattedJSON());
         // query netdb for router info of next hop
-        RouterInfo nextRouter = (RouterInfo) netDB.lookup(record.getOurIdent()); // gets router info record right?
+        RouterInfo nextRouter = (RouterInfo) netDB.lookup(record.getNextIdent()); // FOR THE LOVE OF GOD PLEASE BE SET PROPERLLY
+        // realistically this will be fowarded to the client and client will handle lease set publishing
+        // for now we have router act as client cause i dont want to set up a fucking client
         // forward message to next hop
         I2NPSocket nextHopSocket = null;
         try {

@@ -32,6 +32,7 @@ public class LeaseSet extends Record implements JSONSerializable {
      * Leases in lease set
      */
     HashSet<Lease> leases;
+    // seth told me this is really efficient which is really cool - sam
 
     /**
      * Create new LeaseSet
