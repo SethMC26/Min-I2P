@@ -76,6 +76,9 @@ public class I2CPSocket extends Socket {
                 case MESSAGESTATUS -> {
                     return new MessageStatus(json);
                 }
+                case PAYLOADMESSAGE -> {
+                    return new PayloadMessage(json);
+                }
                 case DESTROYSESSION -> {
                     return new DestroySession(json);
                 }
