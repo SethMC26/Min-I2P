@@ -85,12 +85,11 @@ public class I2CPSocket extends Socket {
                 case DESTREPLY -> {
                     return new DestinationReply(json);
                 }
-                //lease set messages not implemeneted im not sure if we will need them
                 case CREATELEASESET -> {
-                    throw new UnsupportedOperationException("Createlease set not implemented");
+                    return new CreateLeaseSet(json);
                 }
                 case REQUESTLEASESET -> {
-                    throw new UnsupportedOperationException("Request Leaseset not implemented");
+                    return new RequestLeaseSet(json);
                 }
 
                 default -> {
