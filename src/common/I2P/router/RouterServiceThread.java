@@ -63,13 +63,13 @@ public class RouterServiceThread implements Runnable {
      * @param recievedMessage I2NP message received
      */
     public RouterServiceThread(NetDB networkDatabase, RouterInfo router, I2NPHeader recievedMessage,
-            TunnelManager tunnelManager, boolean isFloodFill) {
+            TunnelManager tunnelManager) {
         this.netDB = networkDatabase;
         this.router = router;
         this.recievedMessage = recievedMessage;
         this.random = new SecureRandom();
         this.log = Logger.getInstance();
-        this.isFloodFill = isFloodFill;
+        this.isFloodFill = false;
     }
 
     /**
@@ -90,11 +90,23 @@ public class RouterServiceThread implements Runnable {
 
         switch (recievedMessage.getType()) {
             case DATABASELOOKUP:
+                //To avoid trivial DDOS attacks let make sure no one sets the expiration very high for recursive searches
+                if (recievedMessage.getExpiration() > System.currentTimeMillis() + 1000 ) {
+                    log.warn("Received message expiration is too high ignoring");
+                    return;
+                }
+                //handle lookup
                 DatabaseLookup lookup = (DatabaseLookup) recievedMessage.getMessage();
                 log.debug("Handling lookup message ");
                 handleLookup(lookup);
                 break;
             case DATABASESEARCHREPLY:
+                //To avoid trivial DDOS attacks let make sure no one sets the expiration very high for recursive searches
+                if (recievedMessage.getExpiration() > System.currentTimeMillis() + 1000 ) {
+                    log.warn("Received message expiration is too high ignoring");
+                    return;
+                }
+                //handle search reply
                 DatabaseSearchReply searchReply = (DatabaseSearchReply) recievedMessage.getMessage();
                 log.debug("Handling search reply ");
                 handleSearchReply(searchReply);
@@ -337,7 +349,7 @@ public class RouterServiceThread implements Runnable {
             if (requestRouter == null) {
                 log.trace("Could not find peer: " + Base64.getEncoder().encodeToString(lookup.getFromHash()));
                 // attempt to find peer for reply we will wait 10 milli seconds
-                findPeerRecordForReply(10, lookup.getFromHash());
+                findPeerRecordForReply(50, lookup.getFromHash());
                 requestRouter = netDB.lookup(lookup.getFromHash());
                 // if we still do not know give up
                 if (requestRouter == null) {
@@ -389,12 +401,12 @@ public class RouterServiceThread implements Runnable {
             log.trace("Record not found sending nearest neighbors");
             // get hashes of closest peers that could have key
             ArrayList<byte[]> closestPeersHashes = new ArrayList<>();
-            for (RouterInfo currPeer : netDB.getKClosestRouterInfos(lookup.getKey(), 2)) {
+            for (RouterInfo currPeer : netDB.getKClosestRouterInfos(lookup.getKey(), 3)) {
                 closestPeersHashes.add(currPeer.getHash());
             }
-            // create message to send to requesting router
+            // create message to send to requesting router make sure to decrease expiration so search will timeout
             result = new I2NPHeader(I2NPHeader.TYPE.DATABASESEARCHREPLY, recievedMessage.getMsgID(),
-                    System.currentTimeMillis() + 1,
+                    recievedMessage.getExpiration() - 10,
                     new DatabaseSearchReply(lookup.getKey(), closestPeersHashes, router.getHash()));
         }
 
@@ -447,12 +459,11 @@ public class RouterServiceThread implements Runnable {
                 case ROUTERINFO -> {
                     // send lookup request to peer
                     RouterInfo peerRouterInfo = (RouterInfo) peerRecord;
-                    if (Arrays.equals(peerRouterInfo.getHash(), router.getHash()))
-                        continue;
 
                     try {
+                        //we will decrease expiration so recursive search expires
                         I2NPHeader lookupMessage = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
-                                System.currentTimeMillis() + 20,
+                                recievedMessage.getExpiration() - 10,
                                 new DatabaseLookup(searchReply.getKey(), router.getHash()));
                         peerSocket.sendMessage(lookupMessage, peerRouterInfo);
                     } catch (IOException e) {
@@ -469,47 +480,38 @@ public class RouterServiceThread implements Runnable {
     }
 
     private void handleStore(DatabaseStore store) {
-        // if we do not have record we use floodfill record by sending it to 2
-        // friends(routers)
-        // lets send store to 2 nearest neighbors
-        // turn off flood fill for now to test netDB(network is so small that everyone
-        // would store everything)
+        // if we do not have record we use floodfill record by sending it to 3 friends(Routers)
+        if (isFloodFill && (netDB.lookup(store.getKey()) == null)) {
+            ArrayList<RouterInfo> closestPeers=
+                    netDB.getKClosestRouterInfos(store.getKey(), 3);
+            I2NPSocket floodSock = null;
+            try {
+                //create socket to send store request to peers
+                floodSock = new I2NPSocket();
+            }
+            catch (SocketException e) {
+                System.err.println("Could not connect to peers " + e.getMessage());
+            }
 
-        // if (isFloodFill) { - add this
-        /*
-         * if (netDB.lookup(store.getRecord().getHash()) == null) {
-         * ArrayList<RouterInfo> closestPeers=
-         * netDB.getKClosestRouterInfos(store.getKey(), 2);
-         * I2NPSocket floodSock = null;
-         * try {
-         * //create socket to send store request to peers
-         * floodSock = new I2NPSocket();
-         * }
-         * catch (SocketException e) {
-         * System.err.println("Could not connect to peers " + e.getMessage());
-         * }
-         * 
-         * //send store request to nearest peers
-         * for (RouterInfo peer : closestPeers) {
-         * log.trace("Sending flood store to peer: " +
-         * Base64.toBase64String(peer.getHash()));
-         * //create send store request, we will say store request valid for 3 seconds
-         * I2NPHeader peerMSG = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE,
-         * random.nextInt(),
-         * System.currentTimeMillis() + 100, new DatabaseStore(store.getRecord()));
-         * //send message to peer
-         * try {
-         * floodSock.sendMessage(peerMSG, peer);
-         * }
-         * catch (IOException e) {
-         * System.err.println("I/O exception occured " + e.getMessage());
-         * }
-         * }
-         * //close socket if created
-         * if (floodSock != null )
-         * floodSock.close();
-         * }
-         */
+            //send store request to nearest peers
+            for (RouterInfo peer : closestPeers) {
+                log.trace("Sending flood store to peer: " + peer.getPort());
+                //create send store request, we will say store request valid for 100 ms(store request ok to live longer)
+                I2NPHeader peerMSG = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, random.nextInt(),
+                        System.currentTimeMillis() + 100, new DatabaseStore(store.getRecord()));
+                //send message to peer
+                try {
+                    floodSock.sendMessage(peerMSG, peer);
+                }
+                catch (IOException e) {
+                    log.error("RST: Issue in floodfill connecting to peer ", e);
+                }
+            }
+            //close socket if created
+            if (floodSock != null )
+                floodSock.close();
+
+        }
         // add Record to our netDB
         netDB.store(store.getRecord());
 
@@ -552,16 +554,12 @@ public class RouterServiceThread implements Runnable {
         log.trace("Going to ask " + closestPeers.size());
         try {
             peerSock = new I2NPSocket();
-            long expiration = System.currentTimeMillis() + 10;
             for (RouterInfo peer : closestPeers) {
-                // avoid recursively sending messages to ourself could happen if someone sends
-                if (Arrays.equals(peer.getHash(), router.getHash()))
-                    continue;
 
                 log.trace("Asking peer port: " + peer.getPort() + " to find: "
                         + Base64.getEncoder().encodeToString(fromHash));
                 I2NPHeader peerLookup = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
-                        expiration, new DatabaseLookup(fromHash, router.getHash()));
+                        System.currentTimeMillis() + 100, new DatabaseLookup(fromHash, router.getHash()));
                 peerSock.sendMessage(peerLookup, peer);
             }
 
@@ -584,5 +582,13 @@ public class RouterServiceThread implements Runnable {
      */
     public void setReceivedMessage(I2NPHeader mockHeader) {
         this.recievedMessage = mockHeader;
+    }
+
+    /**
+     * Turn on floodfill algorithm for new store requests to this router
+     * @param isFloodFill Boolean to turn floodfill on/off
+     */
+    public void setFloodFill(boolean isFloodFill) {
+        this.isFloodFill = isFloodFill;
     }
 }
