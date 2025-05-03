@@ -203,7 +203,6 @@ public class Router implements Runnable {
         // Use the router's own hash as the key to find closest routers
         byte[] routerHash = routerID.getHash();
         ArrayList<RouterInfo> closestRouters = netDB.getKClosestRouterInfos(routerHash, k);
-        System.out.println("QueryNetDBForRouters returned " + closestRouters.size() + " routers.");
         return closestRouters;
     }
 
@@ -252,8 +251,10 @@ public class Router implements Runnable {
 
         // add to tunnel manager
         if (isInbound) {
+            System.out.println("Adding inbound tunnel: " + tunnelID);
             tunnelManager.addInboundTunnel(tunnelID, potentialTunnel);
         } else {
+            System.out.println("Adding outbound tunnel: " + tunnelID);
             tunnelManager.addOutboundTunnel(tunnelID, potentialTunnel);
         }
 
@@ -297,9 +298,9 @@ public class Router implements Runnable {
                     next = routerInfo; // set to client creating request if real for testing set to gateway router
                     // PELASE TREMEMBER TO CHANG ETHIS SAM OMG PLEAS JEHGEAH FG SGF
                 } else {
-                    System.out.println("attmpting...");
                     //below code will not work we store our routerInfo under our routerID
-                    common.I2P.NetworkDB.Record record = netDB.lookup(new Destination(routerID.getSigningPublicKey()).getHash()); // get the lease set for the destination which is ourself
+                    Destination dest = new Destination(edKeyPair.getPublic());
+                    common.I2P.NetworkDB.Record record = netDB.lookup(dest.getHash()); // get the lease set for the destination which is ourself
                     LeaseSet leaseSet = (LeaseSet) record; // get the lease set for the destination
                     // apparently it thinks this is a router info and not a lease set so uhhh well come back to this
                     // this is the destination temp client would do this during creation instead
@@ -308,7 +309,6 @@ public class Router implements Runnable {
                     // just select the first lease for now cause theres only one
                     Lease lease = leases.iterator().next();
                     next = (RouterInfo) netDB.lookup(lease.getTunnelGW()); // get the router info for the destination
-                    System.out.println("Next hop is: " + Arrays.toString(next.getRouterID().getHash()));
                 }
             } else {
                 position = TunnelBuild.Record.TYPE.PARTICIPANT;
@@ -334,7 +334,6 @@ public class Router implements Runnable {
                     replyFlag); // pass the hop info to the record
 
             records.add(record);
-            System.out.println("Added record for peer: " + Arrays.toString(toPeer));
 
             // temp disable encryption for testing
             // for (common.I2P.I2NP.TunnelBuild.Record recordItem : records) {
