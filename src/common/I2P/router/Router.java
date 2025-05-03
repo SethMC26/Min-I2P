@@ -165,7 +165,7 @@ public class Router implements Runnable {
                     int tunnelID = random.nextInt(1000); // random tunnel id for now
                     createTunnelBuild(3, tunnelID, true); // make inbound
                     Thread.sleep(1000); // wait for the message to be sent
-                    //createTunnelBuild(3, tunnelID, false); // make outbound
+                    createTunnelBuild(3, tunnelID, false); // make outbound
                     // double check this later
                 } catch (InterruptedException e) {
                     // TODO Auto-generated catch block
@@ -306,6 +306,7 @@ public class Router implements Runnable {
                     next = routerInfo; // set to client creating request if real for testing set to gateway router
                     // PELASE TREMEMBER TO CHANG ETHIS SAM OMG PLEAS JEHGEAH FG SGF
                 } else {
+                    //below code will not work we store our routerInfo under our routerID
                     LeaseSet leaseSet = (LeaseSet) netDB.lookup(current.getRouterID().getHash());
                     // this is the destination temp client would do this during creation instead
 

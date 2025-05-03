@@ -181,7 +181,6 @@ public class RouterServiceThread implements Runnable {
                 log.error("RSA algorithm not available: " + e.getMessage());
                 return false; // Handle the error appropriately
             }
-            keyPairGenerator.initialize(2048);
             KeyPair keyPair = keyPairGenerator.generateKeyPair();
             PrivateKey privateKey = keyPair.getPrivate();
             LeaseSet leaseSet = new LeaseSet(leases, destination, router.getRouterID().getElgamalPublicKey(), privateKey);
