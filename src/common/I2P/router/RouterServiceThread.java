@@ -12,7 +12,8 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.net.SocketException;
-import java.security.*;
+import java.security.PrivateKey;
+import java.security.SecureRandom;
 import java.util.*;
 
 /**
@@ -210,7 +211,7 @@ public class RouterServiceThread implements Runnable {
 
                     // Get session key, we skip bloom filter
 
-                    if (!isTimestampValid(record.getRequestTime())) {
+                    if (System.currentTimeMillis() > record.getRequestTime() + 60000) { //allow for 1 minute for tunnelBuild
                         log.warn("Invalid timestamp in tunnel request. Dropping record.");
                         continue;
                     }
@@ -256,7 +257,6 @@ public class RouterServiceThread implements Runnable {
                 }
             }
         }
-        return;
     }
 
     private void handleEndpointBehavior(TunnelBuild tunnelBuild, common.I2P.I2NP.TunnelBuild.Record record) {
@@ -342,15 +342,6 @@ public class RouterServiceThread implements Runnable {
         // new Record(toPeer, encData);
 
         return replyRecord;
-    }
-
-    private boolean isTimestampValid(long requestTime) {
-        long currentTime = System.currentTimeMillis() / 1000;
-        long requestHour = requestTime / 3600;
-        long currentHour = currentTime / 3600;
-
-        // Allow for clock skew (5 minutes ahead, 65 minutes behind)
-        return requestHour == currentHour || requestHour == currentHour - 1;
     }
 
     private void addTunnelToManager(TunnelBuild.Record record) {
