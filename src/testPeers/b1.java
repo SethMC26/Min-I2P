@@ -54,7 +54,7 @@ public class b1 {
 
             while(true) {
                 I2NPHeader message = sock.getMessage();
-                RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, new TunnelManager());
+                RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, new TunnelManager(), signingprivKey);
                 rst.setFloodFill(false); //we can turn on if needed but it might be better to always send null key
                 threadpool.execute(rst);
             }

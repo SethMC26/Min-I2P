@@ -111,7 +111,7 @@ public class p5 {
                 sock = new I2NPSocket(routerPort, InetAddress.getByName("127.0.0.1"));
                 while (true) {
                     I2NPHeader recvMessage = sock.getMessage();
-                    threadPool.execute(new RouterServiceThread(netDB, routerInfo, recvMessage, new TunnelManager()));
+                    threadPool.execute(new RouterServiceThread(netDB, routerInfo, recvMessage, new TunnelManager(), signingprivKey));
                 }
             } catch (Exception e) {
                 e.printStackTrace();

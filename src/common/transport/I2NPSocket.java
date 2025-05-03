@@ -46,7 +46,6 @@ public class I2NPSocket extends DatagramSocket {
      */
     public void sendMessage(I2NPHeader message, RouterInfo toSend) throws IOException {
         byte[] messageByte = message.serialize().getBytes(StandardCharsets.UTF_8);
-        System.out.println("Sending message: " + messageByte);
         if (messageByte.length > MAX_SIZE)
             throw new RuntimeException("Bytes is over max size! We will need to increase max size");
 

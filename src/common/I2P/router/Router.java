@@ -183,7 +183,7 @@ public class Router implements Runnable {
         ExecutorService threadpool = Executors.newFixedThreadPool(5);
         while (true) {
             I2NPHeader message = socket.getMessage();
-            RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, tunnelManager);
+            RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, tunnelManager, edKeyPair.getPrivate());
             // To sam, this will turn on floodfill, from your favorite NetDB implementor
             // Seth
             // rst.setFloodFill(true);
@@ -306,14 +306,19 @@ public class Router implements Runnable {
                     next = routerInfo; // set to client creating request if real for testing set to gateway router
                     // PELASE TREMEMBER TO CHANG ETHIS SAM OMG PLEAS JEHGEAH FG SGF
                 } else {
+                    System.out.println("attmpting...");
                     //below code will not work we store our routerInfo under our routerID
-                    LeaseSet leaseSet = (LeaseSet) netDB.lookup(current.getRouterID().getHash());
+                    common.I2P.NetworkDB.Record record = netDB.lookup(routerID.getHash()); // get the lease set for the destination which is ourself
+                    System.out.println("Record is: " + record.toString());
+                    LeaseSet leaseSet = (LeaseSet) record; // get the lease set for the destination
+                    // apparently it thinks this is a router info and not a lease set so uhhh well come back to this
                     // this is the destination temp client would do this during creation instead
 
                     HashSet<Lease> leases = leaseSet.getLeases(); // get the router info for the destination
                     // just select the first lease for now cause theres only one
                     Lease lease = leases.iterator().next();
                     next = (RouterInfo) netDB.lookup(lease.getTunnelGW()); // get the router info for the destination
+                    System.out.println("Next hop is: " + Arrays.toString(next.getRouterID().getHash()));
                 }
             } else {
                 position = TunnelBuild.Record.TYPE.PARTICIPANT;

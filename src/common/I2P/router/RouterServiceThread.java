@@ -50,6 +50,11 @@ public class RouterServiceThread implements Runnable {
     private TunnelManager tunnelManager;
 
     /**
+     * Signing private key for this router
+     */
+    private PrivateKey signingPrivateKey;
+
+    /**
      * Create thread to handle router I2NP message
      * 
      * @param networkDatabase Network database of router
@@ -57,7 +62,7 @@ public class RouterServiceThread implements Runnable {
      * @param recievedMessage I2NP message received
      */
     public RouterServiceThread(NetDB networkDatabase, RouterInfo router, I2NPHeader recievedMessage,
-            TunnelManager tunnelManager) {
+            TunnelManager tunnelManager, PrivateKey signingPrivateKey) {
         this.netDB = networkDatabase;
         this.router = router;
         this.recievedMessage = recievedMessage;
@@ -65,6 +70,7 @@ public class RouterServiceThread implements Runnable {
         this.log = Logger.getInstance();
         this.isFloodFill = false;
         this.tunnelManager = tunnelManager;
+        this.signingPrivateKey = signingPrivateKey;
     }
 
     /**
@@ -125,6 +131,7 @@ public class RouterServiceThread implements Runnable {
                 break;
             case TUNNELBUILDREPLY:
                 TunnelBuildReplyMessage tunnelBuildReply = (TunnelBuildReplyMessage) recievedMessage.getMessage();
+                System.out.println("TunnelBuildReply message received: " + tunnelBuildReply.toJSONType().getFormattedJSON());
                 handleTunnelBuildReplyMessage(tunnelBuildReply);
                 break;
             case TUNNELDATA:
@@ -172,18 +179,10 @@ public class RouterServiceThread implements Runnable {
         if (tunnelManager.getInboundTunnel(tunnelBuildReply.getTunnelID()) != null) {
             Lease lease = new Lease(router.getRouterID(), tunnelBuildReply.getTunnelID());
             HashSet<Lease> leases = new HashSet<>();
+            leases.add(lease); // lol forgot to add it
             Destination destination = new Destination(router.getRouterID().getSigningPublicKey());
             // generate random secret key temporarily
-            KeyPairGenerator keyPairGenerator;
-            try {
-                keyPairGenerator = KeyPairGenerator.getInstance("ed25519");
-            } catch (NoSuchAlgorithmException e) {
-                log.error("RSA algorithm not available: " + e.getMessage());
-                return false; // Handle the error appropriately
-            }
-            KeyPair keyPair = keyPairGenerator.generateKeyPair();
-            PrivateKey privateKey = keyPair.getPrivate();
-            LeaseSet leaseSet = new LeaseSet(leases, destination, router.getRouterID().getElgamalPublicKey(), privateKey);
+            LeaseSet leaseSet = new LeaseSet(leases, destination, router.getRouterID().getElgamalPublicKey(), signingPrivateKey);
 
             // publish lease set to netDB
             netDB.store(leaseSet);
@@ -262,11 +261,8 @@ public class RouterServiceThread implements Runnable {
 
     private void handleEndpointBehavior(TunnelBuild tunnelBuild, common.I2P.I2NP.TunnelBuild.Record record) {
         TunnelBuildReplyMessage replyMessage;
-        if (record.getReplyFlag()) { // this is only checking one fucking reply flag please change you dumbass - love sam who just wrote thsi
-            replyMessage = new TunnelBuildReplyMessage(record.getReceiveTunnel(), true);
-        } else {
-            replyMessage = new TunnelBuildReplyMessage(record.getReceiveTunnel(), false);
-        }
+        // realistically have a check here that all reply flags are set to true
+        replyMessage = new TunnelBuildReplyMessage(record.getReceiveTunnel(), true);
         // query netdb for router info of next hop
         RouterInfo nextRouter = (RouterInfo) netDB.lookup(record.getNextIdent()); // FOR THE LOVE OF GOD PLEASE BE SET PROPERLLY
         // realistically this will be fowarded to the client and client will handle lease set publishing
