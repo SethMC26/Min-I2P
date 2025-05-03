@@ -81,6 +81,7 @@ public class RouterServiceThread implements Runnable {
         this.random = new SecureRandom();
         this.log = Logger.getInstance();
         this.isFloodFill = false;
+        this.tunnelManager = tunnelManager;
     }
 
     /**
@@ -217,7 +218,10 @@ public class RouterServiceThread implements Runnable {
         for (TunnelBuild.Record record : tunnelBuild.getRecords()) {
             byte[] toPeer = Arrays.copyOf(record.getToPeer(), 16); // only first 16 bytes of the hash
             // check if first 16 byte of hash matches our first 16 bytes of hash
-            if (Arrays.equals(toPeer, Arrays.copyOf(router.getHash(), 16))) {
+            // SAM PLEASE FOR THE LOVE OF GOD DOUBLE CHECK ROUTERID VS ROUTERINFO THIS IS LIKE THE FIFTH TIME IVE DONE THIS
+            // with love - current same <3
+            if (Arrays.equals(toPeer, Arrays.copyOf(router.getRouterID().getHash(), 16))) {
+                System.out.println("Found matching record for us: " + Base64.getEncoder().encodeToString(toPeer));
                 // we have found the correct record for us, now we can send the reply back to
                 // the peer
                 try {
@@ -233,6 +237,8 @@ public class RouterServiceThread implements Runnable {
                     // byte[] replyBlock = createReplyBlock(record);
                     // record.setEncData(replyBlock);
 
+                    byte[] nextIdent = record.getNextIdent();
+
                     // temp before enc
                     common.I2P.I2NP.TunnelBuild.Record replyRecord = createReplyBlock(record);
                     record = replyRecord; // replace the record with the reply block
@@ -242,13 +248,18 @@ public class RouterServiceThread implements Runnable {
 
                     // Handle endpoint behavior
                     if (record.getPosition() == TunnelBuild.Record.TYPE.ENDPOINT) {
+                        System.out.println("Endpoint behavior detected.");
                         handleEndpointBehavior(tunnelBuild, record);
                     } else {
                         // forward build request to next hop
                         I2NPSocket nextHopSocket = new I2NPSocket();
                         I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, random.nextInt(),
                                 System.currentTimeMillis() + 100, tunnelBuild);
-                        RouterInfo nextRouter = (RouterInfo) netDB.lookup(record.getNextIdent());
+                                System.out.println("Next ident: " + Base64.getEncoder().encodeToString(nextIdent));
+                        RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextIdent);
+                        String prettyprint = netDB.logNetDB();
+                        System.out.println("NetDB: " + prettyprint);
+                        System.out.println("Next router: " + nextRouter);
                         nextHopSocket.sendMessage(header, nextRouter);
                         nextHopSocket.close();
                     }

@@ -22,6 +22,7 @@ import java.net.SocketException;
 import java.security.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
@@ -236,7 +237,7 @@ public class Router implements Runnable {
     }
 
     // this is for building the tunnels
-    public void createTunnelBuild(int numHops, int tunnelD, boolean isInbound) throws NoSuchAlgorithmException {
+    public void createTunnelBuild(int numHops, int tunnelID, boolean isInbound) throws NoSuchAlgorithmException {
         Random random = new Random();
         ArrayList<TunnelBuild.Record> records = new ArrayList<>();
 
@@ -258,9 +259,9 @@ public class Router implements Runnable {
 
         // add to tunnel manager
         if (isInbound) {
-            tunnelManager.addInboundTunnel(tunnelD, potentialTunnel);
+            tunnelManager.addInboundTunnel(tunnelID, potentialTunnel);
         } else {
-            tunnelManager.addOutboundTunnel(tunnelD, potentialTunnel);
+            tunnelManager.addOutboundTunnel(tunnelID, potentialTunnel);
         }
 
         int sendMsgID = random.nextInt();
@@ -270,14 +271,14 @@ public class Router implements Runnable {
 
         for (int i = tempPeers.size() - 1; i >= 0; i--) {
             RouterInfo current = tempPeers.get(i);
-            RouterInfo next = (i - 1 >= 0) ? tempPeers.get(i - 1) : null;
+            RouterInfo next = (i + 1 < tempPeers.size()) ? tempPeers.get(i + 1) : null;
 
             byte[] toPeer = Arrays.copyOf(current.getRouterID().getHash(), 16); // only first 16 bytes of the hash
-            int receiveTunnel = tunnelD; // tunnel id for the tunnel
+            int receiveTunnel = tunnelID; // tunnel id for the tunnel
             byte[] ourIdent = routerID.getHash(); // its okay for each hop to see this cause they have the tunnel id
 
-            int nextTunnel = (next != null) ? random.nextInt() : 0;
-            byte[] nextIdent = (next != null) ? next.getRouterID().getHash() : routerID.getHash(); // last hop is ours
+            int nextTunnel = (next != null) ? tunnelID : 0;
+            byte[] nextIdent = (next != null) ? next.getHash() : routerInfo.getHash(); // last hop is ours
 
             SecretKey layerKey = generateAESKey(256);
             SecretKey ivKey = generateAESKey(256);
