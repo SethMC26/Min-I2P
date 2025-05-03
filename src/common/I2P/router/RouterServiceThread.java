@@ -239,21 +239,21 @@ public class RouterServiceThread implements Runnable {
                         I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, random.nextInt(),
                                 System.currentTimeMillis() + 100, tunnelBuild);
                                 System.out.println("Next ident: " + Base64.getEncoder().encodeToString(nextIdent));
-                        RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextIdent);
-                        if (nextRouter == null) { //try to find next router
-                            findPeerRecordForReply(100,nextIdent);
+                        RouterInfo nextRouter = validatePeerRouter(record.getNextIdent());
+                        if (nextRouter == null ) {
+                            log.error("Could not find endpoint " + Base64.getEncoder().encodeToString(record.getNextIdent()));
+                            return;
                         }
-                        String prettyprint = netDB.logNetDB();
-                        System.out.println("NetDB: " + prettyprint);
-                        System.out.println("Next router: " + nextRouter);
+                        log.debug("NetDB state " + netDB.logNetDB());
+                        log.debug("next Router: " + nextRouter.getPort());
                         nextHopSocket.sendMessage(header, nextRouter);
                         nextHopSocket.close();
                     }
                     // note to self - how do we adjust for recursive decryption on reply records?
 
-                } catch (Exception e) {
-                    log.error("Error processing TunnelBuild record: " + e.getMessage());
-                    e.printStackTrace();
+                } catch (IOException e) {
+                    log.debug("Most likely close is connecting to peer to send message to");
+                    log.error("Error processing TunnelBuild record: ", e);
                 }
             }
         }
@@ -264,7 +264,12 @@ public class RouterServiceThread implements Runnable {
         // realistically have a check here that all reply flags are set to true
         replyMessage = new TunnelBuildReplyMessage(record.getReceiveTunnel(), true);
         // query netdb for router info of next hop
-        RouterInfo nextRouter = (RouterInfo) netDB.lookup(record.getNextIdent()); // FOR THE LOVE OF GOD PLEASE BE SET PROPERLLY
+        RouterInfo nextRouter = validatePeerRouter(record.getNextIdent());
+        if (nextRouter == null ) {
+            log.error("Could not find endpoint " + Base64.getEncoder().encodeToString(record.getNextIdent()));
+            return;
+        }
+
         // realistically this will be fowarded to the client and client will handle lease set publishing
         // for now we have router act as client cause i dont want to set up a fucking client
         // forward message to next hop
@@ -618,6 +623,22 @@ public class RouterServiceThread implements Runnable {
             log.warn("Sleep was interrupted");
             peerSock.close();
         }
+    }
+
+    /**
+     * Verify that a peer exists in NetDB and they are a RouterInfo - will attempt to find them if they are not in netDB
+     * @param hash Hash of peer to validate
+     * @return RouterInfo of peer or null if they do not exist
+     */
+    private RouterInfo validatePeerRouter(byte[] hash) {
+        Record record = netDB.lookup(hash);
+        if (record == null || record.getRecordType() == Record.RecordType.LEASESET) {
+            findPeerRecordForReply(100, hash); //if record is bad ask our friends to find proper one
+            record = netDB.lookup(hash);
+        }
+        if (record == null || record.getRecordType() == Record.RecordType.LEASESET) //if still bad return null
+            return null;
+        return (RouterInfo) record;
     }
 
     /**
