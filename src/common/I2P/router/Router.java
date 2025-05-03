@@ -12,7 +12,6 @@ import common.I2P.tunnels.TunnelManager;
 import common.Logger;
 import common.transport.I2NPSocket;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.util.encoders.Base64;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -300,8 +299,6 @@ public class Router implements Runnable {
                 } else {
                     System.out.println("attmpting...");
                     //below code will not work we store our routerInfo under our routerID
-                    System.err.println("netDB " + netDB.logNetDB());
-                    System.err.println("trying to lookup " + Base64.toBase64String(new Destination(routerID.getSigningPublicKey()).getHash()));
                     common.I2P.NetworkDB.Record record = netDB.lookup(new Destination(routerID.getSigningPublicKey()).getHash()); // get the lease set for the destination which is ourself
                     LeaseSet leaseSet = (LeaseSet) record; // get the lease set for the destination
                     // apparently it thinks this is a router info and not a lease set so uhhh well come back to this
