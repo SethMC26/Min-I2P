@@ -69,11 +69,6 @@ public class I2NPHeader implements JSONSerializable {
     private I2NPMessage message;
 
     /**
-     * I2NPHeader for this message
-     */
-    private I2NPHeader header;
-
-    /**
      *
      * @param type TYPE of message
      * @param msgID Int of unique ID for message
@@ -90,14 +85,6 @@ public class I2NPHeader implements JSONSerializable {
         this.chks = createCheckSum();
     }
 
-    public I2NPHeader(TYPE type, int msgID, Long expiration, I2NPHeader header) {
-        this.type = type;
-        this.msgID = msgID;
-        this.expiration = expiration;
-        this.header = header;
-        
-    }
-
     public I2NPHeader(JSONObject json) throws InvalidObjectException {
         deserialize(json);
     }
@@ -110,11 +97,6 @@ public class I2NPHeader implements JSONSerializable {
         messageJSON.put("msgID", msgID);
         messageJSON.put("expiration", expiration);
         messageJSON.put("chks", Base64.toBase64String(chks));
-        if (header != null) {
-            messageJSON.put("header", header.toJSONType());
-        } else {
-            messageJSON.put("header", null);
-        }
         messageJSON.put("message", message.toJSONType());
 
         return messageJSON;
@@ -135,17 +117,6 @@ public class I2NPHeader implements JSONSerializable {
         expiration = messageJSON.getLong("expiration"); //huh this method kinda usefull....
         //decode bytes in base64 strings
         chks = Base64.decode(messageJSON.getString("chks"));
-        //get header if it exists
-        if (messageJSON.containsKey("header")) {
-            //check if header is null
-            if (messageJSON.getObject("header") != null) {
-                header = new I2NPHeader(messageJSON.getObject("header"));
-            } else {
-                header = null;
-            }
-        } else {
-            header = null;
-        }
 
         JSONObject messageObj = messageJSON.getObject("message");
 
@@ -163,6 +134,7 @@ public class I2NPHeader implements JSONSerializable {
                 message = new DeliveryStatus(messageObj);
                 break;
             case TYPE.TUNNELBUILD:
+                System.out.println("TunnelBuild message: " + messageObj.toString());
                 message = new TunnelBuild(messageObj);
                 break;
             case TYPE.TUNNELBUILDREPLY:

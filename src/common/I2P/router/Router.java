@@ -126,8 +126,9 @@ public class Router implements Runnable {
             e.printStackTrace();
         } // wait for the message to be sent
 
-        // send of self from self to bootstrap - get bootstrap info (if same get boostrap info)
-        DatabaseLookup databaseLookup = new DatabaseLookup(routerID.getHash(), routerInfo.getHash());
+        // send of self from self to bootstrap - get bootstrap info (if same get
+        // boostrap info)
+        DatabaseLookup databaseLookup = new DatabaseLookup(routerInfo.getHash(), routerInfo.getHash());
         I2NPHeader lookupMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000,
                 databaseLookup);
         socket.sendMessage(lookupMsg, "127.0.0.1", bootstrapPort);
@@ -141,7 +142,7 @@ public class Router implements Runnable {
                     I2NPHeader lookupMsg2 = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
                             System.currentTimeMillis() + 900,
                             databaseLookup2);
-                    socket.sendMessage(lookupMsg2, routerInfo);
+                    socket.sendMessage(lookupMsg2, "127.0.0.1", bootstrapPort);
                     // netDB.getKClosestRouterInfos(routerID.getHash(), 10);
                 } catch (InterruptedException e) {
                     // TODO Auto-generated catch block
@@ -163,6 +164,7 @@ public class Router implements Runnable {
                     Random random = new Random();
                     int tunnelID = random.nextInt(1000); // random tunnel id for now
                     createTunnelBuild(3, tunnelID, true); // make inbound
+                    Thread.sleep(1000); // wait for the message to be sent
                     createTunnelBuild(3, tunnelID, false); // make outbound
                     // double check this later
                 } catch (InterruptedException e) {
@@ -182,8 +184,9 @@ public class Router implements Runnable {
         while (true) {
             I2NPHeader message = socket.getMessage();
             RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, tunnelManager);
-            //To sam, this will turn on floodfill, from your favorite NetDB implementor Seth
-            //rst.setFloodFill(true);
+            // To sam, this will turn on floodfill, from your favorite NetDB implementor
+            // Seth
+            // rst.setFloodFill(true);
             threadpool.execute(rst);
         }
     }
@@ -239,6 +242,10 @@ public class Router implements Runnable {
 
         // actually get list of peers from netdb
         ArrayList<RouterInfo> tempPeers = queryNetDBForRouters(numHops);
+        if (tempPeers == null || tempPeers.isEmpty()) {
+            throw new IllegalStateException(
+                    "tempPeers is null or empty. Ensure queryNetDBForRouters returns valid data.");
+        }
         if (isInbound) {
             // set last hop to be the router id of this router
             tempPeers.set(tempPeers.size() - 1, routerInfo);
@@ -270,7 +277,7 @@ public class Router implements Runnable {
             byte[] ourIdent = routerID.getHash(); // its okay for each hop to see this cause they have the tunnel id
 
             int nextTunnel = (next != null) ? random.nextInt() : 0;
-            byte[] nextIdent = next.getRouterID().getHash();
+            byte[] nextIdent = (next != null) ? next.getRouterID().getHash() : routerID.getHash(); // last hop is ours
 
             SecretKey layerKey = generateAESKey(256);
             SecretKey ivKey = generateAESKey(256);
@@ -290,7 +297,8 @@ public class Router implements Runnable {
             TYPE position = null;
             if (i == 0) {
                 position = TYPE.GATEWAY;
-                hopInfoInput = hopInfo; // set the hop info for the first hop
+                hopInfoInput = new ArrayList<>(hopInfo);
+                // set the hop info for the first hop
             } else if (i == tempPeers.size() - 1) {
                 position = TYPE.ENDPOINT;
                 if (isInbound) {
@@ -301,7 +309,7 @@ public class Router implements Runnable {
                     // this is the destination temp client would do this during creation instead
 
                     HashSet<Lease> leases = leaseSet.getLeases(); // get the router info for the destination
-                    //just select the first lease for now cause theres only one
+                    // just select the first lease for now cause theres only one
                     Lease lease = leases.iterator().next();
                     next = (RouterInfo) netDB.lookup(lease.getTunnelGW()); // get the router info for the destination
                 }

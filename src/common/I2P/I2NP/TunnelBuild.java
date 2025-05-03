@@ -7,8 +7,12 @@ import merrimackutil.json.types.JSONType;
 import org.bouncycastle.util.encoders.Base64;
 
 import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.SecretKeySpec;
 
 import java.io.InvalidObjectException;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -33,15 +37,23 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
 
     @Override
     public void deserialize(JSONType jsonType) throws InvalidObjectException {
-        if (!(jsonType instanceof JSONArray))
-            throw new InvalidObjectException("Must be JSONArray");
+        if (jsonType == null) {
+            throw new InvalidObjectException("TunnelBuild deserialization failed: input JSONType is null");
+        }
+
+        if (!(jsonType instanceof JSONArray)) {
+            throw new InvalidObjectException("TunnelBuild deserialization failed: Expected JSONArray, got "
+                    + jsonType.getClass().getSimpleName());
+        }
 
         JSONArray jsonArray = (JSONArray) jsonType;
+        this.records = new HashMap<>();
 
         for (int i = 0; i < jsonArray.size(); i++) {
-            Record record = new Record(jsonArray.getObject(i));
-
-            records.put(Base64.toBase64String(record.getToPeer()), record);
+            JSONObject recordObject = jsonArray.getObject(i);
+            Record record = new Record(recordObject);
+            String key = Base64.toBase64String(record.getToPeer());
+            records.put(key, record);
         }
     }
 
@@ -51,7 +63,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
         for (Record record : records.values()) {
             jsonArray.add(record.toJSONType());
         }
-
+        System.out.println("TunnelBuild toJSONType: " + jsonArray.toString());
         return jsonArray;
     }
 
@@ -108,6 +120,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
          * encypted public key data under elgamal public key of peer
          */
         private byte[] encData; // not part of regular record but enc record
+
         /**
          * Type of tunnel object requested constructor
          */
@@ -116,6 +129,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             PARTICIPANT,
             ENDPOINT
         };
+
         /**
          * Type of tunnel object requested
          */
@@ -158,7 +172,8 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
          */
         public Record(byte[] toPeer, int receiveTunnel, byte[] ourIdent, int nextTunnel, byte[] nextIdent,
                 SecretKey layerKey,
-                SecretKey ivKey, SecretKey replyKey, byte[] replyIv, long requestTime, int sendMsgID, TYPE type, ArrayList<TunnelHopInfo> hopInfo, boolean replyFlag) {
+                SecretKey ivKey, SecretKey replyKey, byte[] replyIv, long requestTime, int sendMsgID, TYPE type,
+                ArrayList<TunnelHopInfo> hopInfo, boolean replyFlag) {
             this.toPeer = toPeer;
             this.receiveTunnel = receiveTunnel;
             this.ourIdent = ourIdent;
@@ -189,9 +204,34 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             json.checkValidity(new String[] { "toPeer", "encData" });
 
             this.toPeer = Base64.decode(json.getString("toPeer"));
-            this.encData = Base64.decode(json.getString("encData"));
-            // todo deal with deserializing encypted might want to add seperate method since
-            // only peer with elGamal private key can undo the encryption to get valid JSON
+
+            // Check if encData is a JSON object or a Base64 string
+            if (json.get("encData") instanceof JSONObject) {
+                JSONObject encDataJSON = json.getObject("encData");
+
+                this.receiveTunnel = encDataJSON.getInt("receiveTunnel");
+                this.ourIdent = Base64.decode(encDataJSON.getString("ourIdent"));
+                this.nextTunnel = encDataJSON.getInt("nextTunnel");
+                this.nextIdent = Base64.decode(encDataJSON.getString("nextIdent"));
+                this.layerKey = new SecretKeySpec(Base64.decode(encDataJSON.getString("layerKey")), "AES");
+                this.ivKey = new SecretKeySpec(Base64.decode(encDataJSON.getString("IVKey")), "AES");
+                this.replyKey = new SecretKeySpec(Base64.decode(encDataJSON.getString("replyKey")), "AES");
+                this.replyIv = Base64.decode(encDataJSON.getString("replyIV"));
+                this.requestTime = encDataJSON.getLong("requestTime");
+                this.sendMsgID = encDataJSON.getInt("sendMsgID");
+                this.type = TYPE.valueOf(encDataJSON.getString("type"));
+
+                // Deserialize hopInfo
+                JSONArray hopInfoArray = encDataJSON.getArray("hopInfo");
+                this.hopInfo = new ArrayList<>();
+                for (int i = 0; i < hopInfoArray.size(); i++) {
+                    this.hopInfo.add(new TunnelHopInfo(hopInfoArray.getObject(i)));
+                }
+
+                this.replyFlag = encDataJSON.getBoolean("replyFlag");
+            } else {
+                this.encData = Base64.decode(json.getString("encData"));
+            }
         }
 
         @Override
@@ -202,7 +242,6 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             if (encData == null) {
                 JSONObject encDataJSON = new JSONObject();
 
-                // not sure if we should handle this like this or turn Tunnels into serializable
                 encDataJSON.put("receiveTunnel", receiveTunnel);
                 encDataJSON.put("ourIdent", Base64.toBase64String(ourIdent));
                 encDataJSON.put("nextTunnel", nextTunnel);
@@ -214,13 +253,20 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 encDataJSON.put("requestTime", requestTime);
                 encDataJSON.put("sendMsgID", sendMsgID);
                 encDataJSON.put("type", type.toString());
-                encDataJSON.put("hopInfo", new JSONArray());
+
+                // Serialize hopInfo
+                JSONArray hopInfoArray = new JSONArray();
+                if (hopInfo != null) {
+                    for (TunnelHopInfo hop : hopInfo) {
+                        hopInfoArray.add(hop.toJSONType());
+                    }
+                }
+                encDataJSON.put("hopInfo", hopInfoArray);
+
                 encDataJSON.put("replyFlag", replyFlag);
 
-
-                jsonObject.put("encData", encDataJSON.toJSON());
+                jsonObject.put("encData", encDataJSON);
             } else {
-                // todo this might be easier
                 jsonObject.put("encData", Base64.toBase64String(encData));
             }
 

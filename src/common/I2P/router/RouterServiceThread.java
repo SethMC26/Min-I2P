@@ -133,7 +133,10 @@ public class RouterServiceThread implements Runnable {
                 // todo implement delivery status
                 break;
             case TUNNELBUILD:
+                // handle tunnel build message
+                System.out.println("TunnelBuild message received: " + recievedMessage.toJSONType().getFormattedJSON());
                 TunnelBuild tunnelBuild = (TunnelBuild) recievedMessage.getMessage();
+                System.out.println("TunnelBuild message received: " + tunnelBuild.toJSONType().getFormattedJSON());
                 handleTunnelBuildMessage(tunnelBuild);
                 break;
             case TUNNELBUILDREPLY:
