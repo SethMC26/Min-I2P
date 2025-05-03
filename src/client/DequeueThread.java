@@ -1,7 +1,6 @@
 package client;
 
 import javax.sound.sampled.*;
-import java.io.ByteArrayInputStream;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class DequeueThread implements Runnable {
