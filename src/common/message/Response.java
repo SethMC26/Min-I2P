@@ -39,13 +39,11 @@ public class Response extends Message {
 
     @Override
     public void deserialize(JSONType jsonType) throws InvalidObjectException {
-        if (!(jsonType instanceof JSONObject)) {
-            throw new InvalidObjectException("jsonType must be a JSONObject");
-        }
+        super.deserialize(jsonType);
+
         JSONObject messageJSON = (JSONObject) jsonType;
 
-        messageJSON.checkValidity(new String[] { "type", "status", "payload" });
-        type = messageJSON.getString("type");
+        messageJSON.checkValidity(new String[] { "status", "payload" });
         status = messageJSON.getBoolean("status");
         payload = messageJSON.getString("payload");
     }

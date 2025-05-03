@@ -60,13 +60,9 @@ public class Request extends Message {
 
     @Override
     public void deserialize(JSONType jsonType) throws InvalidObjectException {
-        if (!(jsonType instanceof JSONObject)) {
-            throw new InvalidObjectException("JSONObject expected.");
-        }
+        super.deserialize(jsonType);
 
         JSONObject obj = (JSONObject) jsonType;
-
-        super.deserialize(obj);
 
         obj.checkValidity(new String[]{"type", "username"});
         username = obj.getString("username");

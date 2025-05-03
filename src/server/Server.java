@@ -11,6 +11,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.net.ServerSocket;
 import java.util.concurrent.ExecutorService;
@@ -171,7 +172,7 @@ public class Server {
 
                 executor.execute(new ServerConnectionHandler(socket, audioDatabase, usersDatabase));
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             System.err.println("Error starting server: " + e.getMessage());
         }
 

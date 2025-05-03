@@ -35,15 +35,12 @@ public class ByteMessage extends Message {
 
     @Override
     public void deserialize(JSONType jsonType) throws InvalidObjectException {
-        if (!(jsonType instanceof JSONObject)) {
-            throw new InvalidObjectException("JSONObject expected.");
-        }
+        super.deserialize(jsonType);
 
         JSONObject obj = (JSONObject) jsonType;
 
-        super.deserialize(obj);
+        obj.checkValidity(new String[]{"data"});
 
-        obj.checkValidity(new String[]{"type", "data"});
         String temp = obj.getString("data");
         data = Base64.decode(temp);
     }
