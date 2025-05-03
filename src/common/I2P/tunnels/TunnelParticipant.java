@@ -3,14 +3,14 @@ package common.I2P.tunnels;
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.I2NPMessage;
 import common.I2P.I2NP.TunnelDataMessage;
-import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
 import common.transport.I2NPSocket;
+import merrimackutil.json.types.JSONObject;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
-import java.util.Random;
+import java.security.SecureRandom;
 
 /**
  * This class represents a Participant in a Tunnel
@@ -55,17 +55,18 @@ public class TunnelParticipant extends TunnelObject{
         }
 
         TunnelDataMessage tdm = (TunnelDataMessage) message;
-        I2NPMessage innerPayload = tdm.getPayload();
+        JSONObject innerPayload = tdm.getPayload();
         sendToNextHop(innerPayload);
     }
 
-    private void sendToNextHop(I2NPMessage message) throws IOException {
-        Random random = new Random();
-        int msgID = random.nextInt(0xFFFF);
-        I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELDATA, msgID, System.currentTimeMillis(), message);
+    private void sendToNextHop(JSONObject message) throws IOException {
+        int msgID = new SecureRandom().nextInt();
+        //recasting to a new TunnelDataMessage here might be fine or might cause errors - seth
+        I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELDATA, msgID, System.currentTimeMillis(),new TunnelDataMessage(message));
 
         I2NPSocket socket = new I2NPSocket();
-        RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextHop);
+        RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextHop); //this is a dangerous cast we could crash here -seth
         socket.sendMessage(header, nextRouter);
+        socket.close();
     }
 }
