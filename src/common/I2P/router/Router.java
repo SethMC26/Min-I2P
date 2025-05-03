@@ -1,6 +1,7 @@
 package common.I2P.router;
 
 import common.I2P.I2NP.*;
+import common.I2P.IDs.Destination;
 import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.Lease;
 import common.I2P.NetworkDB.LeaseSet;
@@ -11,6 +12,7 @@ import common.I2P.tunnels.TunnelManager;
 import common.Logger;
 import common.transport.I2NPSocket;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.util.encoders.Base64;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -18,12 +20,10 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
-import java.net.SocketException;
 import java.security.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -34,43 +34,49 @@ public class Router implements Runnable {
     /**
      * TunnelManager is responsible for managing tunnels
      */
-    public TunnelManager tunnelManager;
+    private TunnelManager tunnelManager;
 
     /**
      * Socket is for connecting to client using I2CP protocol
      */
-    ServerSocket clientSock;
+    private ServerSocket clientSock;
 
     /**
      * NetworkDB is the database of all routers in the network
      */
-    NetDB netDB;;
+    private NetDB netDB;;
 
     /**
      * RouterID is the ID of this router
      */
-    public RouterID routerID;
+    private RouterID routerID;
     // CHANGE THIS TO PRIVATE LATER!!!! I JUST NEEDED IT FOR A TEST
 
     /**
      * Port of the router
      */
-    int port;
+    private int port;
 
     /**
      * RouterInfo is the information about this router
      */
-    public RouterInfo routerInfo;
+    private RouterInfo routerInfo;
 
     /**
      * ElGamal key pair for this router
      */
-    KeyPair elgamalKeyPair;
+    private KeyPair elgamalKeyPair;
 
     /**
-     * DSA-SHA1 key pair for this router
+     * Ed25519 key pair for this router
      */
-    KeyPair edKeyPair;
+    private KeyPair edKeyPair;
+    /**
+     *Secure random
+     */
+    private SecureRandom random = new SecureRandom();
+
+    private Logger log = Logger.getInstance();
 
     /**
      * Create router from specified config file
@@ -82,25 +88,30 @@ public class Router implements Runnable {
         int port = 7000; // hard coded for now we will fix later
         this.port = port;
         int boot = 8080;
-        setUp(port, boot, false); // change later
+        setUp(port, boot); // change later
     }
 
     /**
      * Create router using a default config file
      */
-    public Router(int port, int bootstrapPort, boolean isFloodfill) throws IOException {
+    public Router(int port, int bootstrapPort) {
         // todo add config parsing
         this.port = port;
         this.tunnelManager = new TunnelManager();
-        setUp(port, bootstrapPort, isFloodfill);
+        try {
+            setUp(port, bootstrapPort);
+        } catch (IOException e) {
+            log.error("Fatal could not setup router", e);
+            throw new RuntimeException(e);
+        }
     }
 
-    private void setUp(int port, int bootstrapPort, boolean isFloodfill) throws IOException {
+    private void setUp(int port, int bootstrapPort) throws IOException {
         // speciality floodfill router
         Security.addProvider(new BouncyCastleProvider()); // Add BouncyCastle provider for cryptography
 
         // Bind the socket to the router's port
-        I2NPSocket socket = new I2NPSocket(port, InetAddress.getByName("127.0.0.1"));
+        I2NPSocket socket = new I2NPSocket(port, InetAddress.getLoopbackAddress());
 
         // Generate keys and create RouterInfo
         elgamalKeyPair = generateKeyPairElGamal();
@@ -113,25 +124,23 @@ public class Router implements Runnable {
 
         // Send a DatabaseStore message to the bootstrap peer
         DatabaseStore databaseStore = new DatabaseStore(routerInfo); // reply token set to 0 for now yay!
-        Random random = new Random();
         int msgId = random.nextInt(); // random message id for now
-        I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, msgId, System.currentTimeMillis() + 1000,
+        I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, msgId, System.currentTimeMillis() + 500,
                 databaseStore);
         socket.sendMessage(msg, "127.0.0.1", bootstrapPort);
+
         try {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+           log.warn("Sleeping interrupted attempting to continue setup", e);
         } // wait for the message to be sent
 
         // send of self from self to bootstrap - get bootstrap info (if same get
         // boostrap info)
         DatabaseLookup databaseLookup = new DatabaseLookup(routerInfo.getHash(), routerInfo.getHash());
-        I2NPHeader lookupMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 1000,
+        I2NPHeader lookupMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(), System.currentTimeMillis() + 500,
                 databaseLookup);
         socket.sendMessage(lookupMsg, "127.0.0.1", bootstrapPort);
-
         // give enough time for all the routers to send their messages/turn on
         Thread t1 = new Thread(new Runnable() {
             public void run() {
@@ -144,11 +153,11 @@ public class Router implements Runnable {
                     socket.sendMessage(lookupMsg2, "127.0.0.1", bootstrapPort);
                     // netDB.getKClosestRouterInfos(routerID.getHash(), 10);
                 } catch (InterruptedException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+                    log.warn("Sleeping interrupted attempting to continue ", e);
                 } catch (IOException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+                    log.error("Could not setup/send message to learn about peers" , e);
+                    log.error("FATAL: step needed to establish connection with peers");
+                    throw new RuntimeException(e);
                 }
             }
         });
@@ -161,20 +170,14 @@ public class Router implements Runnable {
                     Logger.getInstance().debug("Net db " + netDB.logNetDB());
                     Thread.sleep(10000);
                     // create tunnel build for 3 hops
-                    Random random = new Random();
-                    int tunnelID = random.nextInt(1000); // random tunnel id for now
+                    int tunnelID = random.nextInt(); // random tunnel id for now
                     createTunnelBuild(3, tunnelID, true); // make inbound
                     Thread.sleep(1000); // wait for the message to be sent
                     createTunnelBuild(3, tunnelID, false); // make outbound
                     // double check this later
                 } catch (InterruptedException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                } catch (NoSuchAlgorithmException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+                    log.warn("Sleeping interrupted attempting to continue ", e);
                 }
-
             }
         });
         t2.start();
@@ -205,44 +208,36 @@ public class Router implements Runnable {
         return closestRouters;
     }
 
-    private static KeyPair generateKeyPairElGamal() {
+    private KeyPair generateKeyPairElGamal() {
         // Generate a key pair for the router
         try {
             KeyPairGenerator keyGen = KeyPairGenerator.getInstance("ElGamal");
             keyGen.initialize(2048); // 2048 bits for RSA
             return keyGen.generateKeyPair();
         } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
-        return null;
     }
 
     // ed signing keypair generation
-    private static KeyPair generateKeyPairEd() {
+    private KeyPair generateKeyPairEd() {
         // Generate a key pair for the router
         try {
-            KeyPairGenerator keyGen = null;
-            try {
-                keyGen = KeyPairGenerator.getInstance("Ed25519", "BC");
-            } catch (NoSuchProviderException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
+            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("Ed25519", "BC");
             return keyGen.generateKeyPair();
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
+        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
+            throw new RuntimeException(e); //should never hit case
         }
-        return null;
     }
 
     // this is for building the tunnels
-    public void createTunnelBuild(int numHops, int tunnelID, boolean isInbound) throws NoSuchAlgorithmException {
-        Random random = new Random();
+    public void createTunnelBuild(int numHops, int tunnelID, boolean isInbound) {
         ArrayList<TunnelBuild.Record> records = new ArrayList<>();
 
         // actually get list of peers from netdb
         ArrayList<RouterInfo> tempPeers = queryNetDBForRouters(numHops);
         if (tempPeers == null || tempPeers.isEmpty()) {
+            log.warn("Peer list too small - try restarting router could be timing issue");
             throw new IllegalStateException(
                     "tempPeers is null or empty. Ensure queryNetDBForRouters returns valid data.");
         }
@@ -264,7 +259,7 @@ public class Router implements Runnable {
         }
 
         int sendMsgID = random.nextInt();
-        long requestTime = System.currentTimeMillis() / 1000;
+        long requestTime = System.currentTimeMillis();
 
         ArrayList<TunnelHopInfo> hopInfo = new ArrayList<>(); // this is for the hops in the tunnel
 
@@ -273,9 +268,6 @@ public class Router implements Runnable {
 
             byte[] toPeer = Arrays.copyOf(current.getRouterID().getHash(), 16); // only first 16 bytes of the hash
             int receiveTunnel = tunnelID; // tunnel id for the tunnel
-            byte[] ourIdent = routerID.getHash(); // its okay for each hop to see this cause they have the tunnel id
-
-
 
             SecretKey layerKey = generateAESKey(256);
             SecretKey ivKey = generateAESKey(256);
@@ -308,8 +300,9 @@ public class Router implements Runnable {
                 } else {
                     System.out.println("attmpting...");
                     //below code will not work we store our routerInfo under our routerID
-                    common.I2P.NetworkDB.Record record = netDB.lookup(routerID.getHash()); // get the lease set for the destination which is ourself
-                    System.out.println("Record is: " + record.toString());
+                    System.err.println("netDB " + netDB.logNetDB());
+                    System.err.println("trying to lookup " + Base64.toBase64String(new Destination(routerID.getSigningPublicKey()).getHash()));
+                    common.I2P.NetworkDB.Record record = netDB.lookup(new Destination(routerID.getSigningPublicKey()).getHash()); // get the lease set for the destination which is ourself
                     LeaseSet leaseSet = (LeaseSet) record; // get the lease set for the destination
                     // apparently it thinks this is a router info and not a lease set so uhhh well come back to this
                     // this is the destination temp client would do this during creation instead
@@ -330,7 +323,7 @@ public class Router implements Runnable {
             TunnelBuild.Record record = new TunnelBuild.Record(
                     toPeer,
                     receiveTunnel,
-                    ourIdent,
+                    current.getHash(),
                     nextTunnel,
                     nextIdent,
                     layerKey,
@@ -361,31 +354,31 @@ public class Router implements Runnable {
         RouterInfo firstPeer = tempPeers.get(0);
         I2NPHeader tunnelBuildMessage = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, sendMsgID,
                 System.currentTimeMillis() + 1000, new TunnelBuild(records));
+        I2NPSocket buildSocket = null;
         try {
-            I2NPSocket buildSocket = new I2NPSocket();
+            buildSocket = new I2NPSocket();
             buildSocket.sendMessage(tunnelBuildMessage, firstPeer);
-        } catch (SocketException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            buildSocket.close();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            if (buildSocket != null)
+                buildSocket.close(); //if possible close socket if created
+            log.error("Fatal: Could not send tunnel build message");
+            log.info("Try restarting router");
         }
     }
 
     private SecretKey generateAESKey(int bits) {
-        KeyGenerator keyGen = null;
         try {
-            keyGen = KeyGenerator.getInstance("AES");
+            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+            keyGen.init(bits);
+            return keyGen.generateKey();
         } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-            throw new IllegalStateException("AES KeyGenerator instance could not be created.", e);
+            throw new RuntimeException(e); //should never hit case
         }
-        keyGen.init(bits);
-        return keyGen.generateKey();
     }
 
     @Override
     public void run() {
+        //todo move setup in here for when client needs to run their own router
     }
 }
