@@ -1,20 +1,20 @@
 package common.I2P.tunnels;
 
-import common.I2P.I2NP.DatabaseLookup;
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.I2NPMessage;
 import common.I2P.I2NP.TunnelDataMessage;
 import common.I2P.I2NP.TunnelHopInfo;
-import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
+import common.Logger;
 import common.transport.I2NPSocket;
+import merrimackutil.json.types.JSONObject;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.net.SocketException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
-import java.util.Random;
 
 /**
  * This class represents a gateway in a tunnel
@@ -62,7 +62,7 @@ public class TunnelGateway extends TunnelObject{
     }
 
     @Override
-    public void handleMessage(I2NPMessage message) throws IOException {
+    public void handleMessage(I2NPMessage message) {
         // decrypt the message initially client -> router
         // get router info for each hop in the path
         // recursively encrypt the messaege for each hop in the path with the pk
@@ -76,14 +76,20 @@ public class TunnelGateway extends TunnelObject{
 
     private I2NPMessage encryptMessage(I2NPMessage message) {
         I2NPMessage currentPayload = message;
-    
+
         // Reverse the hop list: we wrap from last hop to first
         for (int i = hops.size() - 1; i >= 0; i--) {
             TunnelHopInfo hop = hops.get(i);
             Integer tunnelId = hop.getSendTunnelId(); // use the tunnel ID for this hop
     
             // Wrap the current payload in a new TunnelDataMessage for this hop
-            currentPayload = new TunnelDataMessage(tunnelId, currentPayload);
+            if (!((currentPayload.toJSONType()) instanceof JSONObject)) {
+                Logger.getInstance().error("We should be a JSONObject here if we want to have payload be JSON," +
+                        " Seth likely fucked up the codebase(many such cases)");
+                throw new IllegalArgumentException("Should be JSONObject or Seth fucked up Sam's codebase");
+            }
+
+            currentPayload = new TunnelDataMessage(tunnelId, (JSONObject) currentPayload.toJSONType());
         }
     
         // Outer layer goes to the first hop in the tunnel
@@ -92,13 +98,15 @@ public class TunnelGateway extends TunnelObject{
 
     private void sendToNextHop(I2NPMessage encryptedMessage) {
         try {
-            Random random = new Random();
-            int msgID = random.nextInt(0xFFFF); // generate a random message ID
+            int msgID = new SecureRandom().nextInt(); // generate a random message ID, with secure random
+
             // create header for the message
             I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELDATA, msgID, System.currentTimeMillis() + 10, encryptedMessage);
             I2NPSocket socket = new I2NPSocket();
-            RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextHop);
+            RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextHop); //this is a dangerous cast could crash here should be fixed -seth
             socket.sendMessage(header, nextRouter);
+
+            socket.close(); //make sure to close socket
         } catch (SocketException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
