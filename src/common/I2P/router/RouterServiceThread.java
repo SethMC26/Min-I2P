@@ -247,7 +247,7 @@ public class RouterServiceThread implements Runnable {
                     addTunnelToManager(record);
 
                     // Handle endpoint behavior
-                    if (record.getPosition() == TunnelBuild.Record.TYPE.ENDPOINT) {
+                    if (record.getPosition().equals(TunnelBuild.Record.TYPE.ENDPOINT)) {
                         System.out.println("Endpoint behavior detected.");
                         handleEndpointBehavior(tunnelBuild, record);
                     } else {
@@ -299,6 +299,7 @@ public class RouterServiceThread implements Runnable {
                 nextHopSocket.close();
             log.error("Error sending TunnelBuildReply message: " + e.getMessage());
         }
+        return;
     }
 
     // switch thsi from bytes to record and have sendmsgid be the reply bit yyyyyasudyasukdghasjhdgashjdgha

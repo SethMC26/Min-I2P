@@ -271,7 +271,7 @@ public class Router implements Runnable {
 
         for (int i = tempPeers.size() - 1; i >= 0; i--) {
             RouterInfo current = tempPeers.get(i);
-            RouterInfo next = (i + 1 < tempPeers.size()) ? tempPeers.get(i + 1) : null;
+            RouterInfo next = (i - 1 >= 0) ? tempPeers.get(i - 1) : null;
 
             byte[] toPeer = Arrays.copyOf(current.getRouterID().getHash(), 16); // only first 16 bytes of the hash
             int receiveTunnel = tunnelID; // tunnel id for the tunnel
@@ -295,13 +295,13 @@ public class Router implements Runnable {
                     receiveTunnel);
             hopInfo.add(0, hopInfoItem); // add to the front of the list
 
-            TYPE position = null;
+            TunnelBuild.Record.TYPE position = null;
             if (i == 0) {
-                position = TYPE.GATEWAY;
+                position = TunnelBuild.Record.TYPE.GATEWAY;
                 hopInfoInput = new ArrayList<>(hopInfo);
                 // set the hop info for the first hop
             } else if (i == tempPeers.size() - 1) {
-                position = TYPE.ENDPOINT;
+                position = TunnelBuild.Record.TYPE.ENDPOINT;
                 if (isInbound) {
                     next = routerInfo; // set to client creating request if real for testing set to gateway router
                     // PELASE TREMEMBER TO CHANG ETHIS SAM OMG PLEAS JEHGEAH FG SGF
@@ -315,7 +315,7 @@ public class Router implements Runnable {
                     next = (RouterInfo) netDB.lookup(lease.getTunnelGW()); // get the router info for the destination
                 }
             } else {
-                position = TYPE.PARTICIPANT;
+                position = TunnelBuild.Record.TYPE.PARTICIPANT;
             }
 
             TunnelBuild.Record record = new TunnelBuild.Record(
