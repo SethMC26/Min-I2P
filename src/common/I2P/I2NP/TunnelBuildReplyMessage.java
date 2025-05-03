@@ -51,7 +51,8 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
         }
 
         JSONObject jsonObject = (JSONObject) arg0;
-        this.tunnelGateway = new RouterID(jsonObject.getObject("tunnelGateway"));
+        //im commenting this out to avoid serialization error - seth
+        //this.tunnelGateway = new RouterID(jsonObject.getObject("tunnelGateway"));
         this.tunnelID = jsonObject.getInt("tunnelID");
         this.isSuccess = jsonObject.getBoolean("isSuccess");
     }
@@ -59,7 +60,8 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
     @Override
     public JSONType toJSONType() {
         JSONObject jsonObject = new JSONObject();
-        jsonObject.put("tunnelGateway", tunnelGateway.toJSONType()); // uhhhhhhh?
+        //commenting out to avoid serialization error -seth
+        //jsonObject.put("tunnelGateway", tunnelGateway.toJSONType()); // uhhhhhhh?
         jsonObject.put("tunnelID", tunnelID);
         jsonObject.put("isSuccess", isSuccess);
         return jsonObject;

@@ -176,7 +176,7 @@ public class RouterServiceThread implements Runnable {
             // generate random secret key temporarily
             KeyPairGenerator keyPairGenerator;
             try {
-                keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+                keyPairGenerator = KeyPairGenerator.getInstance("ed25519");
             } catch (NoSuchAlgorithmException e) {
                 log.error("RSA algorithm not available: " + e.getMessage());
                 return false; // Handle the error appropriately
@@ -241,6 +241,9 @@ public class RouterServiceThread implements Runnable {
                                 System.currentTimeMillis() + 100, tunnelBuild);
                                 System.out.println("Next ident: " + Base64.getEncoder().encodeToString(nextIdent));
                         RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextIdent);
+                        if (nextRouter == null) { //try to find next router
+                            findPeerRecordForReply(100,nextIdent);
+                        }
                         String prettyprint = netDB.logNetDB();
                         System.out.println("NetDB: " + prettyprint);
                         System.out.println("Next router: " + nextRouter);
