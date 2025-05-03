@@ -79,31 +79,9 @@ public class RouterInfo extends Record implements JSONSerializable {
         deserialize(json);
     }
 
-    /**
-     * Get SHA256 hash of this class
-     * @return 32 byte SHA256 hash of this class
-     */
+    @Override
     public byte[] getHash() {
-        try {
-            //hash this class
-            MessageDigest md = MessageDigest.getInstance("SHA256");
-            //update hash with router info
-            md.update(routerID.getElgamalPublicKey().getEncoded());
-            md.update(routerID.getSigningPublicKey().getEncoded());
-            //update hash with date
-            ByteBuffer longBytes = ByteBuffer.allocate(Long.BYTES);
-            longBytes.putLong(date);
-            md.update(longBytes);
-            //update hash with host
-            md.update(routerAddress.host.getBytes(StandardCharsets.UTF_8));
-            //update hash with port
-            ByteBuffer portByte = ByteBuffer.allocate(Integer.BYTES);
-            portByte.putInt(routerAddress.port);
-            md.update(portByte);
-
-            return md.digest();
-        }
-        catch (NoSuchAlgorithmException ex) {throw new RuntimeException(ex);} //should not hit this case
+        return routerID.getHash();
     }
 
     /**
