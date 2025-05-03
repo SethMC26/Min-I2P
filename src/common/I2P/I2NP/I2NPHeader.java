@@ -118,30 +118,27 @@ public class I2NPHeader implements JSONSerializable {
         //decode bytes in base64 strings
         chks = Base64.decode(messageJSON.getString("chks"));
 
-        JSONObject messageObj = messageJSON.getObject("message");
-
         switch (type) {
             case TYPE.DATABASESTORE:
-                message = new DatabaseStore(messageObj);
+                message = new DatabaseStore(messageJSON.getObject("message"));
                 break;
             case TYPE.DATABASELOOKUP:
-                message = new DatabaseLookup(messageObj);
+                message = new DatabaseLookup(messageJSON.getObject("message"));
                 break;
             case TYPE.DATABASESEARCHREPLY:
-                message = new DatabaseSearchReply(messageObj);
+                message = new DatabaseSearchReply(messageJSON.getObject("message"));
                 break;
             case TYPE.DELIVERYSTATUS:
-                message = new DeliveryStatus(messageObj);
+                message = new DeliveryStatus(messageJSON.getObject("message"));
                 break;
             case TYPE.TUNNELBUILD:
-                System.out.println("TunnelBuild message: " + messageObj.toString());
-                message = new TunnelBuild(messageObj);
+                message = new TunnelBuild(messageJSON.getArray("message"));
                 break;
             case TYPE.TUNNELBUILDREPLY:
-                message = new TunnelBuildReplyMessage(messageObj);
+                message = new TunnelBuildReplyMessage(messageJSON.getObject("message"));
                 break;
             case TYPE.TUNNELDATA:
-                message = new TunnelDataMessage(messageObj);
+                message = new TunnelDataMessage(messageJSON.getObject("message"));
                 break;
             default:
                 throw new InvalidObjectException("Bad type: " + type);

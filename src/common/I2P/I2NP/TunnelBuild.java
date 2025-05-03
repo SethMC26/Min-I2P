@@ -7,12 +7,8 @@ import merrimackutil.json.types.JSONType;
 import org.bouncycastle.util.encoders.Base64;
 
 import javax.crypto.SecretKey;
-import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.SecretKeySpec;
-
 import java.io.InvalidObjectException;
-import java.security.NoSuchAlgorithmException;
-import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -23,7 +19,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
      */
     private HashMap<String, Record> records;
 
-    TunnelBuild(JSONObject json) throws InvalidObjectException {
+    TunnelBuild(JSONArray json) throws InvalidObjectException {
         deserialize(json);
     }
 
