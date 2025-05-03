@@ -168,6 +168,24 @@ public class AudioDatabase implements JSONSerializable {
 
     private void saveAudioFile(String path, List<byte[]> audio) {
 
+        File file = new File(path);
+        if (!file.exists()) {
+            try {
+                //create directory if necessary
+                File parent = file.getParentFile();
+                if (parent != null) {
+                    parent.mkdir();
+                }
+
+                if (!file.createNewFile()) {
+                    System.err.println("Could not create audio.json file");
+                    throw new IOException("Could not create audio.json file");
+                }
+            } catch (IOException e) {
+                System.err.println("FATAL: Could not create database: " + e.getMessage());
+            }
+        }
+
         try (FileWriter fw = new FileWriter(path,true)) {
 
             for (byte[] base64Bytes : audio) {
