@@ -1,7 +1,6 @@
 package common.I2P.router;
 
 import common.I2P.I2NP.*;
-import common.I2P.I2NP.TunnelBuild.Record.TYPE;
 import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.Lease;
 import common.I2P.NetworkDB.LeaseSet;
@@ -9,6 +8,7 @@ import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.Tunnel;
 import common.I2P.tunnels.TunnelManager;
+import common.Logger;
 import common.transport.I2NPSocket;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
@@ -22,9 +22,7 @@ import java.net.SocketException;
 import java.security.*;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -141,7 +139,7 @@ public class Router implements Runnable {
                     Thread.sleep(5000); // 5 seconds to wait for the message to be sent while we turn them all on
                     DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], routerInfo.getHash());
                     I2NPHeader lookupMsg2 = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
-                            System.currentTimeMillis() + 900,
+                            System.currentTimeMillis() + 100,
                             databaseLookup2);
                     socket.sendMessage(lookupMsg2, "127.0.0.1", bootstrapPort);
                     // netDB.getKClosestRouterInfos(routerID.getHash(), 10);
@@ -160,13 +158,14 @@ public class Router implements Runnable {
         Thread t2 = new Thread(new Runnable() {
             public void run() {
                 try {
+                    Logger.getInstance().debug("Net db " + netDB.logNetDB());
                     Thread.sleep(10000);
                     // create tunnel build for 3 hops
                     Random random = new Random();
                     int tunnelID = random.nextInt(1000); // random tunnel id for now
                     createTunnelBuild(3, tunnelID, true); // make inbound
                     Thread.sleep(1000); // wait for the message to be sent
-                    createTunnelBuild(3, tunnelID, false); // make outbound
+                    //createTunnelBuild(3, tunnelID, false); // make outbound
                     // double check this later
                 } catch (InterruptedException e) {
                     // TODO Auto-generated catch block
@@ -271,14 +270,12 @@ public class Router implements Runnable {
 
         for (int i = tempPeers.size() - 1; i >= 0; i--) {
             RouterInfo current = tempPeers.get(i);
-            RouterInfo next = (i - 1 >= 0) ? tempPeers.get(i - 1) : null;
 
             byte[] toPeer = Arrays.copyOf(current.getRouterID().getHash(), 16); // only first 16 bytes of the hash
             int receiveTunnel = tunnelID; // tunnel id for the tunnel
             byte[] ourIdent = routerID.getHash(); // its okay for each hop to see this cause they have the tunnel id
 
-            int nextTunnel = (next != null) ? tunnelID : 0;
-            byte[] nextIdent = (next != null) ? next.getHash() : routerInfo.getHash(); // last hop is ours
+
 
             SecretKey layerKey = generateAESKey(256);
             SecretKey ivKey = generateAESKey(256);
@@ -296,9 +293,12 @@ public class Router implements Runnable {
             hopInfo.add(0, hopInfoItem); // add to the front of the list
 
             TunnelBuild.Record.TYPE position = null;
+
+            RouterInfo next;
             if (i == 0) {
                 position = TunnelBuild.Record.TYPE.GATEWAY;
                 hopInfoInput = new ArrayList<>(hopInfo);
+                next = tempPeers.get(i+1);
                 // set the hop info for the first hop
             } else if (i == tempPeers.size() - 1) {
                 position = TunnelBuild.Record.TYPE.ENDPOINT;
@@ -316,7 +316,10 @@ public class Router implements Runnable {
                 }
             } else {
                 position = TunnelBuild.Record.TYPE.PARTICIPANT;
+                next = tempPeers.get(i+1);
             }
+            int nextTunnel = tunnelID;
+            byte[] nextIdent = next.getHash();
 
             TunnelBuild.Record record = new TunnelBuild.Record(
                     toPeer,

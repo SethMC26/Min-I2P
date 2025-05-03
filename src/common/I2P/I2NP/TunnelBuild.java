@@ -215,7 +215,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 this.replyIv = Base64.decode(encDataJSON.getString("replyIV"));
                 this.requestTime = encDataJSON.getLong("requestTime");
                 this.sendMsgID = encDataJSON.getInt("sendMsgID");
-                this.type = TYPE.valueOf(encDataJSON.getString("type"));
+                this.type = TYPE.values()[encDataJSON.getInt("type")];
 
                 // Deserialize hopInfo
                 JSONArray hopInfoArray = encDataJSON.getArray("hopInfo");
@@ -248,7 +248,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 encDataJSON.put("replyIV", Base64.toBase64String(replyIv));
                 encDataJSON.put("requestTime", requestTime);
                 encDataJSON.put("sendMsgID", sendMsgID);
-                encDataJSON.put("type", type.toString());
+                encDataJSON.put("type", type.ordinal());
 
                 // Serialize hopInfo
                 JSONArray hopInfoArray = new JSONArray();

@@ -2,35 +2,18 @@ package common.I2P.router;
 
 import common.I2P.I2NP.*;
 import common.I2P.IDs.Destination;
-import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.Record;
-import common.I2P.NetworkDB.RouterInfo;
-import common.I2P.NetworkDB.Record.RecordType;
-import common.I2P.NetworkDB.Lease;
-import common.I2P.NetworkDB.LeaseSet;
-import common.I2P.tunnels.TunnelEndpoint;
-import common.I2P.tunnels.TunnelGateway;
-import common.I2P.tunnels.TunnelManager;
-import common.I2P.tunnels.TunnelObject;
-import common.I2P.tunnels.TunnelParticipant;
+import common.I2P.NetworkDB.*;
+import common.I2P.tunnels.*;
 import common.Logger;
 import common.transport.I2NPSocket;
 
-import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.net.SocketException;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.SecureRandom;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.HashSet;
-import java.util.Random;
+import java.security.*;
+import java.util.*;
 
 /**
  * Handle incoming I2NP messages
@@ -241,13 +224,14 @@ public class RouterServiceThread implements Runnable {
 
                     // temp before enc
                     common.I2P.I2NP.TunnelBuild.Record replyRecord = createReplyBlock(record);
-                    record = replyRecord; // replace the record with the reply block
+                    //hey sam seth here we are doing this then checking if it's an endpoint?
+                    //record = replyRecord; // replace the record with the reply block
 
                     // Add the tunnel to the TunnelManager
                     addTunnelToManager(record);
 
                     // Handle endpoint behavior
-                    if (record.getPosition().equals(TunnelBuild.Record.TYPE.ENDPOINT)) {
+                    if (record.getPosition() == TunnelBuild.Record.TYPE.ENDPOINT) {
                         System.out.println("Endpoint behavior detected.");
                         handleEndpointBehavior(tunnelBuild, record);
                     } else {

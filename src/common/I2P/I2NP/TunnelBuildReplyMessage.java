@@ -1,15 +1,10 @@
 package common.I2P.I2NP;
 
-import java.io.InvalidObjectException;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-
-import common.I2P.I2NP.TunnelBuild.Record;
 import common.I2P.IDs.RouterID;
-import merrimackutil.json.types.JSONArray;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
+
+import java.io.InvalidObjectException;
 
 public class TunnelBuildReplyMessage extends I2NPMessage {
 
@@ -64,7 +59,7 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
     @Override
     public JSONType toJSONType() {
         JSONObject jsonObject = new JSONObject();
-        jsonObject.put("tunnelGateway", tunnelGateway); // uhhhhhhh?
+        jsonObject.put("tunnelGateway", tunnelGateway.toJSONType()); // uhhhhhhh?
         jsonObject.put("tunnelID", tunnelID);
         jsonObject.put("isSuccess", isSuccess);
         return jsonObject;
