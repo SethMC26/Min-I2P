@@ -1,0 +1,7 @@
+{
+  "port": 5001,
+  "debug": true,
+  "database-file": "test-data/database/database.json",
+  "users-file": "test-data/database/users.json",
+  "audio-file": "test-data/database/audio/"
+}
