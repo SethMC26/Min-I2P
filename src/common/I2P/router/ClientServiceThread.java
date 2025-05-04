@@ -173,11 +173,11 @@ public class ClientServiceThread implements Runnable {
 
                     //deal with client messages
                     if (clientSock.hasMessage()) {
-                        I2CPMessage message = clientSock.getMessage();
-                        log.debug("Handling message type " + message.getType());
-                        switch(message.getType()) {
+                        recvMsg = clientSock.getMessage();
+                        log.debug("Handling message type " + recvMsg.getType());
+                        switch(recvMsg.getType()) {
                             case SENDMESSAGE -> {
-                                SendMessage send = (SendMessage) message;
+                                SendMessage send = (SendMessage) recvMsg;
 
                                 clientSock.sendMessage(send); //for testing just echo message back
                                 //todo set up session information in router
@@ -196,7 +196,7 @@ public class ClientServiceThread implements Runnable {
                                 return; //close thread
                             }
                             default -> {
-                                log.error("Bad type received from client only send and destroy allowed " + message.getType());
+                                log.error("Bad type received from client only send and destroy allowed " + recvMsg.getType());
                                 MessageStatus status = new MessageStatus(sessionID, 0, new byte[4], MessageStatus.Status.BADMESSAGE);
                                 clientSock.sendMessage(status);
                             }
@@ -260,8 +260,8 @@ public class ClientServiceThread implements Runnable {
                 }
                 //attempt lookup again
                 record = netDB.lookup(hash);
-                if (record.getRecordType() == Record.RecordType.ROUTERINFO)
-                    record = null; //bad type of record should be leaseset for destination
+                if (record == null || record.getRecordType() == Record.RecordType.ROUTERINFO)
+                    return null; //bad type of record should be leaseset for destination
             }
             LeaseSet leaseSet = (LeaseSet) record;
             return leaseSet.getDestination();
