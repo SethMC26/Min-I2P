@@ -1,122 +1,157 @@
 package testPeers;
 
-import common.I2P.I2NP.DatabaseLookup;
-import common.I2P.I2NP.DatabaseStore;
-import common.I2P.I2NP.I2NPHeader;
-import common.I2P.IDs.RouterID;
-import common.I2P.NetworkDB.NetDB;
-import common.I2P.NetworkDB.RouterInfo;
-import common.I2P.router.ClientServiceThread;
-import common.I2P.router.RouterServiceThread;
-import common.I2P.tunnels.TunnelManager;
+import common.I2P.IDs.Destination;
+import common.I2P.NetworkDB.Lease;
+import common.I2P.NetworkDB.LeaseSet;
+import common.I2P.router.Router;
 import common.Logger;
-import common.transport.I2NPSocket;
+import common.transport.I2CP.*;
+import merrimackutil.json.types.JSONObject;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.util.encoders.Base64;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.security.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.HashSet;
+import java.util.Scanner;
 
 public class p5 {
     static int routerPort = 10005;
     static int servicePort = 20005;
+    static InetSocketAddress bootstrapPeer = new InetSocketAddress("127.0.0.1", 8080);
+
     public static void main(String[] args) throws IOException {
         Security.addProvider(new BouncyCastleProvider());
         Logger log = Logger.getInstance();
         log.setMinLevel(Logger.Level.DEBUG);
 
-        Thread Router = new Thread(new Router());
-        Router.start();
-        Thread cst = new Thread(new ClientServiceThread(routerInfo, netDB, servicePort, new ConcurrentLinkedQueue<>()));
-        cst.start();
-        try {
-            Thread.sleep(3_100);
-        }
-        catch(Exception e) {
-            e.printStackTrace();
-        }
-        DatabaseLookup databaseLookup = new DatabaseLookup(new byte[32], routerInfo.getHash());
-        //databaseStore.setReply(500, new byte[32]);
-        I2NPSocket sock = new I2NPSocket();
-        I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 900, databaseLookup);
-        sock.sendMessage(msg, "127.0.0.1", 8080);
+        Thread router = new Thread(new Router(InetAddress.getLoopbackAddress(), routerPort, servicePort, bootstrapPeer));
+        router.start();
 
         try {
-            Thread.sleep(10_100);
-        }
-        catch(Exception e) {
+            Thread.sleep(20000); //wait until router setup
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        System.out.println(netDB.logNetDB());
-    }
-    private static RouterInfo routerInfo;
-    private static NetDB netDB;
-    private static class Router implements Runnable {
-        @Override
-        public void run() {
-            try {
-                // Generate a pair of keys. Using Elgamal key generation.
-                // The size of the key should be 512-bits. Anything smaller is
-                // too small for practical purposes.
-                KeyPairGenerator elgamalKeyGen = KeyPairGenerator.getInstance(
-                        "ElGamal");
-                elgamalKeyGen.initialize(512);
-                KeyPair elgamalPair = elgamalKeyGen.generateKeyPair();
+        KeyPair destEd25519Key = generateKeyPairEd();
+        KeyPair destElgamalKey = generateKeyPairElGamal();
 
-                // Get the public and private key pair from the generated
-                // pair.
-                PublicKey pubKey = elgamalPair.getPublic();
-                PrivateKey privKey = elgamalPair.getPrivate();
+        Destination clientDest = new Destination(destEd25519Key.getPublic());
 
+        //do client stuff
+        I2CPSocket socket = new I2CPSocket("127.0.0.1", servicePort);
+        socket.sendMessage(new CreateSession(clientDest));
 
-                KeyPairGenerator generator = KeyPairGenerator.getInstance("Ed25519", "BC");
-                KeyPair pair = generator.generateKeyPair();
+        I2CPMessage recvMessage;
+        recvMessage = socket.getMessage();
 
-                // Get the public and private key pair from the generated pair.
-                PublicKey signingpubKey = pair.getPublic();
-                PrivateKey signingprivKey = pair.getPrivate();
+        if (recvMessage.getType() != I2CPMessageTypes.SESSIONSTATUS) {
+            System.err.println("bad type: " + recvMessage.getType());
+            System.err.println(recvMessage.toJSONType().getFormattedJSON());
+            return;
+        }
+        SessionStatus sessionStatus = (SessionStatus) recvMessage;
 
-                //create information about this router
-                RouterID routerID = new RouterID(pubKey, signingpubKey);
-                routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), "127.0.0.1", routerPort, signingprivKey);
+        if (sessionStatus.getStatus() != SessionStatus.Status.CREATED) {
+            System.err.println("could not create session " + sessionStatus.getStatus());
+            return;
+        }
 
-                netDB = new NetDB(routerInfo);
-                I2NPSocket sock = new I2NPSocket();
+        //IMPORTANT NOTE this is the session ID since it is generated by the router
+        int sessionID = sessionStatus.getSessionID();
+        recvMessage = socket.getMessage();
 
-                DatabaseStore databaseStore = new DatabaseStore(routerInfo);
-                I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, 1, System.currentTimeMillis() + 100, databaseStore);
+        if (recvMessage.getType() != I2CPMessageTypes.REQUESTLEASESET) {
+            System.err.println("Bad type " + recvMessage.getType());
+            System.err.println(recvMessage.toJSONType().getFormattedJSON());
+        }
 
-                sock.sendMessage(msg, "127.0.0.1", 8080);
+        RequestLeaseSet requestLeaseSet = (RequestLeaseSet) recvMessage;
+        HashSet<Lease> leases = new HashSet<>();
+        leases.addAll(requestLeaseSet.getLeases());
 
-                try {
-                    Thread.sleep(10);                 // wait 1000 ms
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();  // restore interrupt status
+        LeaseSet leaseSet = new LeaseSet(leases, clientDest, destElgamalKey.getPublic(), destEd25519Key.getPrivate());
+
+        socket.sendMessage(new CreateLeaseSet(sessionID, destElgamalKey.getPrivate(), leaseSet));
+
+        //basic testing loop
+        Scanner input = new Scanner(System.in);
+        Destination currDest = null;
+
+        while(true) {
+            System.out.println("You are client for dest: " + Base64.toBase64String(clientDest.getHash()));
+            System.out.println("Press 1 to lookup destination");
+            System.out.println("Press 2 to send message to ");
+            System.out.println();
+            int usercase = input.nextInt();
+            input.nextLine();
+            switch(usercase) {
+                case 1 -> {
+                    try {
+                        System.out.print("Please enter destination hash: ");
+                        String hash = input.nextLine();
+                        byte[] destKey = Base64.decode(hash);
+                        socket.sendMessage(new DestinationLookup(sessionID, destKey));
+                        recvMessage = socket.getMessage();
+                        System.out.println("Got message from router");
+                        DestinationReply reply = (DestinationReply) recvMessage;
+                        if (reply.getDestination() != null) {
+                            currDest = reply.getDestination();
+                            System.out.println("Got destination! " + currDest);
+                            System.out.println("You can now send there!");
+                        }
+                        else {
+                            System.out.println("Destination not found :(");
+                        }
+                    }
+                    catch (Exception e) {
+                        Logger.getInstance().error("error " ,e );
+                    }
                 }
-                //create information about this router
-                //System.out.println("enter hash:");
-                //String hash = new Scanner(System.in).nextLine();
+                case 2 -> {
+                    if (currDest == null) {
+                        System.out.println("please lookup destination first");
+                        continue;
+                    }
+                    JSONObject obj = new JSONObject();
+                    obj.put("To:", Base64.toBase64String(currDest.getHash()));
+                    obj.put("Message", "You will find moonlit nights stangley empty");
+                    obj.put("From: ", Base64.toBase64String(clientDest.getHash()));
 
-                //DatabaseLookup databaseLookup = new DatabaseLookup(Base64.decode(hash), routerInfo.getHash());
-                DatabaseLookup databaseLookup = new DatabaseLookup(routerInfo.getHash(), routerInfo.getHash());
-                //databaseStore.setReply(500, new byte[32]);
-
-                msg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, 1, System.currentTimeMillis() + 100, databaseLookup);
-                sock.sendMessage(msg, "127.0.0.1", 8080);
-
-                ExecutorService threadPool = Executors.newFixedThreadPool(5);
-                sock = new I2NPSocket(routerPort, InetAddress.getByName("127.0.0.1"));
-                while (true) {
-                    I2NPHeader recvMessage = sock.getMessage();
-                    threadPool.execute(new RouterServiceThread(netDB, routerInfo, recvMessage, new TunnelManager(), signingprivKey));
+                    socket.sendMessage(new SendMessage(sessionID, currDest, new byte[4], obj));
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
+                default -> {
+                    System.out.println("bad input gurrr ");
+                }
             }
         }
+
     }
+    /*
+     * stolen from sam router class
+     */
+    private static KeyPair generateKeyPairEd() {
+        // Generate a key pair for the router
+        try {
+            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("Ed25519", "BC");
+            return keyGen.generateKeyPair();
+        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
+            throw new RuntimeException(e); // should never hit case
+        }
+    }
+
+    private static KeyPair generateKeyPairElGamal() {
+        // Generate a key pair for the router
+        try {
+            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("ElGamal");
+            keyGen.initialize(2048); // 2048 bits for RSA
+            return keyGen.generateKeyPair();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }
 

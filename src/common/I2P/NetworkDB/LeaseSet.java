@@ -9,7 +9,6 @@ import org.bouncycastle.util.encoders.Base64;
 
 import java.io.InvalidObjectException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
@@ -126,7 +125,7 @@ public class LeaseSet extends Record implements JSONSerializable {
             throw new InvalidObjectException("Must be JSONObject");
 
         JSONObject json = (JSONObject) jsonType;
-        json.checkValidity(new String[] {"destination", "encryptionKey", "signingPublicKey", "signature", "leases"});
+        json.checkValidity(new String[] {"destination", "encryptionKey", "signature", "leases"});
 
         destination = new Destination(json.getObject("destination"));
         signature = Base64.decode(json.getString("signature"));

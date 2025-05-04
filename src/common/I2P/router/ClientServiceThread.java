@@ -2,12 +2,9 @@ package common.I2P.router;
 
 import common.I2P.I2NP.DatabaseLookup;
 import common.I2P.I2NP.I2NPHeader;
-import common.I2P.I2NP.I2NPMessage;
 import common.I2P.IDs.Destination;
-import common.I2P.NetworkDB.LeaseSet;
-import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.Record;
-import common.I2P.NetworkDB.RouterInfo;
+import common.I2P.NetworkDB.*;
 import common.Logger;
 import common.transport.I2CP.*;
 import common.transport.I2NPSocket;
@@ -15,8 +12,10 @@ import common.transport.I2NPSocket;
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.net.ServerSocket;
+import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -45,9 +44,9 @@ public class ClientServiceThread implements Runnable {
      */
     private SecureRandom random = new SecureRandom();
     /**
-     * Queue to get messages from RouterServiceThread
+     * Hashmap with client connections stored under session IDs and queues of messages for those sessions
      */
-    private ConcurrentLinkedQueue<I2CPMessage> clientMessage;
+    private HashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> clientMessages;
     /**
      * Network database
      */
@@ -61,12 +60,12 @@ public class ClientServiceThread implements Runnable {
      * @param clientMessages Queue of messages from client
      * @throws IOException if could not create ServerSocket or I2NPSocket
      */
-    public ClientServiceThread(RouterInfo router, NetDB netDB, int port, ConcurrentLinkedQueue<I2CPMessage> clientMessages) throws IOException {
+    public ClientServiceThread(RouterInfo router, NetDB netDB, int port, HashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> clientMessages) throws IOException {
         this.router = router;
         this.netDB = netDB;
         this.server = new ServerSocket(port);
         this.routerSock = new I2NPSocket();
-        this.clientMessage = clientMessages;
+        this.clientMessages = clientMessages;
     }
 
     @Override
@@ -94,34 +93,6 @@ public class ClientServiceThread implements Runnable {
         return false;
     }
 
-    private Destination destLookup(byte[] hash) throws IOException {
-        Record record = netDB.lookup(hash);
-        if (record == null || record.getRecordType() == Record.RecordType.ROUTERINFO ) { //could not find or is wrong type
-
-            //see if our peers have message
-            ArrayList<RouterInfo> peers = netDB.getKClosestRouterInfos(hash, 3);
-
-            for (RouterInfo peer : peers) {
-                I2NPHeader lookup = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
-                        System.currentTimeMillis() + 10, new DatabaseLookup(hash, router.getHash()));
-                routerSock.sendMessage(lookup, peer);
-            }
-            //wait for responses
-            try {
-                Thread.sleep(10);
-            }
-            catch(InterruptedException e) {
-                log.warn("Dest lookup wait interrupted" , e);
-            }
-            //attempt lookup again
-            record = netDB.lookup(hash);
-            if (record.getRecordType() == Record.RecordType.ROUTERINFO)
-                record = null; //bad type of record should be leaseset for destination
-        }
-        LeaseSet leaseSet = (LeaseSet) record;
-        return leaseSet.getDestination();
-    }
-
     private class ClientConnectionHandler implements Runnable {
         /**
          * Socket for client communication for this session
@@ -131,6 +102,14 @@ public class ClientServiceThread implements Runnable {
          * ID of session
          */
         private int sessionID;
+        /**
+         * Queue of destinations from the client received by the router
+         */
+        private ConcurrentLinkedQueue<I2CPMessage> messagesFromDest;
+        /**
+         * Create new connection for the client
+         * @param clientSock I2CP socket for communication with the client
+         */
         ClientConnectionHandler(I2CPSocket clientSock) {
             this.clientSock = clientSock;
         }
@@ -149,29 +128,56 @@ public class ClientServiceThread implements Runnable {
 
                 if (isTypeBad(recvMsg, CREATESESSION)){ //bad type we(router) will refuse connection
                     clientSock.sendMessage(new SessionStatus(recvMsg.getSessionID(), SessionStatus.Status.REFUSED));
-                    clientSock.close();
+                    clientSock.close();;
                     return;
                 }
 
+                //here we will handle creating inbound tunnels for destination
+                CreateSession createSession = (CreateSession) recvMsg;
                 //generate new id for session
                 sessionID = random.nextInt();
+                //create new queue of message for sessionID(messages for this client)
+                messagesFromDest = new ConcurrentLinkedQueue<>();
+                clientMessages.put(sessionID, messagesFromDest);
+
+                //todo sam plz help me create inbound tunnels for this destination
+                //we can store these inbound tunnels under the sessionID to identifiy them to this client
+                Destination clientDestination = createSession.getDestination();
+
                 //accept session
                 clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.CREATED));
 
                 //todo setup necessary information in router, hashmap with sessionIDs/destinations/messageQueues?
+                //give client leases to authorize
+                ArrayList<Lease> leases = new ArrayList<>();
+                leases.add(new Lease(router.getRouterID(),0)); //todo sam plz replace the tunnelID with proper one thanks you <3
+
+                RequestLeaseSet requestLeaseSet = new RequestLeaseSet(sessionID, leases);
+
+                //ask client to authorize leaseSets
+                clientSock.sendMessage(requestLeaseSet);
+                //get authorization
+                recvMsg = clientSock.getMessage();
+                isTypeBad(recvMsg, CREATELEASESET);
+
+                CreateLeaseSet createLeaseSet = (CreateLeaseSet) recvMsg;
+                LeaseSet leaseSet = createLeaseSet.getLeaseSet();
+                //this is the private key for elgamal stuff corresponding to public key in leaseset for encryption
+                PrivateKey privateKey = createLeaseSet.getPrivateKey();
+                //todo sam plz use da leaseset and private keys yuh
 
                 while(true) { //might be a better way to do this that avoids busy waiting
                     //wait until a new message on socket or a new message has arrived from router
-                    if (!clientSock.hasMessage() && clientMessage.isEmpty())
+                    if (!clientSock.hasMessage() && messagesFromDest.isEmpty())
                         continue;
 
                     //deal with client messages
                     if (clientSock.hasMessage()) {
-                        I2CPMessage message = clientSock.getMessage();
-                        log.debug("Handling message type " + message.getType());
-                        switch(message.getType()) {
+                        recvMsg = clientSock.getMessage();
+                        log.debug("Handling message type " + recvMsg.getType());
+                        switch(recvMsg.getType()) {
                             case SENDMESSAGE -> {
-                                SendMessage send = (SendMessage) message;
+                                SendMessage send = (SendMessage) recvMsg;
 
                                 clientSock.sendMessage(send); //for testing just echo message back
                                 //todo set up session information in router
@@ -184,19 +190,21 @@ public class ClientServiceThread implements Runnable {
                             }
                             case DESTROYSESSION -> {
                                 clientSock.close();
+                                clientMessages.remove(sessionID);
+                                //todo remove inbound tunnels?
                                 //todo handle any necessary session destroying in router
                                 return; //close thread
                             }
                             default -> {
-                                log.error("Bad type received from client only send and destroy allowed " + message.getType());
+                                log.error("Bad type received from client only send and destroy allowed " + recvMsg.getType());
                                 MessageStatus status = new MessageStatus(sessionID, 0, new byte[4], MessageStatus.Status.BADMESSAGE);
                                 clientSock.sendMessage(status);
                             }
                         }
                     }
 
-                    if (!clientMessage.isEmpty()) {
-                        I2CPMessage message = clientMessage.remove();
+                    if (!messagesFromDest.isEmpty()) {
+                        I2CPMessage message = messagesFromDest.remove();
                         //todo handle getting message from router and giving it back to the client
                         if (message.getType() != SENDMESSAGE) {
                             log.warn("Bad message from router");
@@ -223,6 +231,40 @@ public class ClientServiceThread implements Runnable {
                     log.warn("Could not close client sock", e);
                 }
             }
+        }
+
+        /**
+         * Look up destination, if we do not have it we will
+         * @param hash Hash of destination to lookup
+         * @return Destination if found null otherwise
+         * @throws IOException
+         */
+        private Destination destLookup(byte[] hash) throws IOException {
+            Record record = netDB.lookup(hash);
+            if (record == null || record.getRecordType() == Record.RecordType.ROUTERINFO ) { //could not find or is wrong type
+
+                //see if our peers have message
+                ArrayList<RouterInfo> peers = netDB.getKClosestRouterInfos(hash, 3);
+
+                for (RouterInfo peer : peers) {
+                    I2NPHeader lookup = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
+                            System.currentTimeMillis() + 10, new DatabaseLookup(hash, router.getHash()));
+                    routerSock.sendMessage(lookup, peer);
+                }
+                //wait for responses
+                try {
+                    Thread.sleep(10);
+                }
+                catch(InterruptedException e) {
+                    log.warn("Dest lookup wait interrupted" , e);
+                }
+                //attempt lookup again
+                record = netDB.lookup(hash);
+                if (record == null || record.getRecordType() == Record.RecordType.ROUTERINFO)
+                    return null; //bad type of record should be leaseset for destination
+            }
+            LeaseSet leaseSet = (LeaseSet) record;
+            return leaseSet.getDestination();
         }
     }
 }
