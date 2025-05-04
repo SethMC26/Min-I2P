@@ -56,6 +56,14 @@ public class I2NPSocket extends DatagramSocket {
         send(pkt);
     }
 
+    /**
+     * Send a message to a specific router
+     * @param message I2NP message to send
+     * @param host Host to send message to
+     * @param port Port to send message to
+     * @throws IOException if IO error occurs
+     * @apiNote {@code sendMessage(I2NPHeader message, InetSocketAddress address)} possibly more desirable
+     */
     public void sendMessage(I2NPHeader message, String host, int port) throws IOException {
         byte[] messageByte = message.serialize().getBytes(StandardCharsets.UTF_8);
         if (messageByte.length > MAX_SIZE)
@@ -64,6 +72,21 @@ public class I2NPSocket extends DatagramSocket {
         InetSocketAddress toSendAddress = new InetSocketAddress(host, port);
 
         DatagramPacket pkt = new DatagramPacket(messageByte, messageByte.length, toSendAddress);
+        send(pkt);
+    }
+
+    /**
+     * Send I2NP message to an InetSocketAddress
+     * @param message I2NP message to send
+     * @param address Address of message
+     * @throws IOException if IO error occurs while sending
+     */
+    public void sendMessage(I2NPHeader message, InetSocketAddress address) throws IOException {
+        byte[] messageByte = message.serialize().getBytes(StandardCharsets.UTF_8);
+        if (messageByte.length > MAX_SIZE)
+            throw new RuntimeException("Bytes is over max size! We will need to increase max size");
+
+        DatagramPacket pkt = new DatagramPacket(messageByte, messageByte.length, address);
         send(pkt);
     }
 
