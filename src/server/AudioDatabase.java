@@ -131,8 +131,8 @@ public class AudioDatabase implements JSONSerializable {
         JSONArray array = (JSONArray) jsonType;
 
         for (int i = 0; i < array.size(); i++) {
-            JSONType obj =  array.getObject(i);
-            if (!(obj instanceof JSONObject)) {
+            JSONObject obj =  array.getObject(i);
+            if (obj == null) {
                 throw new InvalidObjectException("Audio JSON is not a JSONObject");
             }
             Audio audio = new Audio(obj);

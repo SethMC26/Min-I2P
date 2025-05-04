@@ -119,6 +119,9 @@ public class UsersDatabase implements JSONSerializable {
 
         for (int i = 0; i < obj.size(); i++) {
             JSONObject userObj = obj.getObject(i);
+            if (userObj == null) {
+                throw new InvalidObjectException("User JSON is not a JSONObject");
+            }
             User newUser = new User(userObj);
             users.put(newUser.getUserName(), newUser);
         }
