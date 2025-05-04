@@ -1,15 +1,13 @@
 package common.I2P.router;
 
 import common.I2P.I2NP.*;
-import common.I2P.IDs.Destination;
 import common.I2P.IDs.RouterID;
-import common.I2P.NetworkDB.Lease;
-import common.I2P.NetworkDB.LeaseSet;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.Tunnel;
 import common.I2P.tunnels.TunnelManager;
 import common.Logger;
+import common.transport.I2CP.I2CPMessage;
 import common.transport.I2NPSocket;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
@@ -18,11 +16,13 @@ import javax.crypto.SecretKey;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
-import java.net.ServerSocket;
+import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.security.*;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -31,30 +31,31 @@ import java.util.concurrent.Executors;
  */
 public class Router implements Runnable {
     /**
+     * Port for Client Service Thread
+     */
+    private int CSTPort;
+    /**
+     * Address for bootstrap peer
+     */
+    private InetSocketAddress bootstrapAddress;
+    private int RSTPort;
+    /**
+     * Address of this router
+     */
+    private InetAddress address;
+    /**
      * TunnelManager is responsible for managing tunnels
      */
     private TunnelManager tunnelManager;
-
-    /**
-     * Socket is for connecting to client using I2CP protocol
-     */
-    private ServerSocket clientSock;
-
     /**
      * NetworkDB is the database of all routers in the network
      */
-    private NetDB netDB;;
+    private NetDB netDB;
 
     /**
      * RouterID is the ID of this router
      */
     private RouterID routerID;
-    // CHANGE THIS TO PRIVATE LATER!!!! I JUST NEEDED IT FOR A TEST
-
-    /**
-     * Port of the router
-     */
-    private int port;
 
     /**
      * RouterInfo is the information about this router
@@ -74,7 +75,9 @@ public class Router implements Runnable {
      * Secure random
      */
     private SecureRandom random = new SecureRandom();
-
+    /**
+     * Logger for use in Router
+     */
     private Logger log = Logger.getInstance();
 
     private int lastInboundTunnelID;
@@ -88,39 +91,39 @@ public class Router implements Runnable {
      */
     Router(File configFile) throws IOException {
         // todo add config parsing
-        int port = 7000; // hard coded for now we will fix later
-        this.port = port;
-        int boot = 8080;
-        setUp(port, boot); // change later
+        //int port = 7000; // hard coded for now we will fix later
+        //this.port = port;
+        //int boot = 8080;
     }
 
     /**
-     * Create router using a default config file
+     * Create new router which can will be fully setup in a new thread
+     * @param address Address of machine router is running on
+     * @param RSTport Port to Router Service thread for I2NP communication(Router<->Router)
+     * @param CSTPort Port to run Client Service thread for I2CP communication(Client<->Router)
+     * @param bootstrapPeer Address of bootstrap peer
      */
-    public Router(int port, int bootstrapPort) {
+    public Router(InetAddress address, int RSTport, int CSTPort, InetSocketAddress bootstrapPeer) {
         // todo add config parsing
-        this.port = port;
+        this.address = address;
+        this.RSTPort = RSTport;
+        this.CSTPort = CSTPort;
+        this.bootstrapAddress = bootstrapPeer;
         this.tunnelManager = new TunnelManager();
-        try {
-            setUp(port, bootstrapPort);
-        } catch (IOException e) {
-            log.error("Fatal could not setup router", e);
-            throw new RuntimeException(e);
-        }
     }
 
-    private void setUp(int port, int bootstrapPort) throws IOException {
+    private void setUp() throws IOException {
         // speciality floodfill router
         Security.addProvider(new BouncyCastleProvider()); // Add BouncyCastle provider for cryptography
 
         // Bind the socket to the router's port
-        I2NPSocket socket = new I2NPSocket(port, InetAddress.getLoopbackAddress());
+        I2NPSocket socket = new I2NPSocket();
 
         // Generate keys and create RouterInfo
         elgamalKeyPair = generateKeyPairElGamal();
         edKeyPair = generateKeyPairEd();
         routerID = new RouterID(elgamalKeyPair.getPublic(), edKeyPair.getPublic());
-        routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), "127.0.0.1", port, edKeyPair.getPrivate());
+        routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), address.getHostName(), RSTPort, edKeyPair.getPrivate());
 
         // Initialize NetDB
         netDB = new NetDB(routerInfo);
@@ -130,7 +133,7 @@ public class Router implements Runnable {
         int msgId = random.nextInt(); // random message id for now
         I2NPHeader msg = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, msgId, System.currentTimeMillis() + 500,
                 databaseStore);
-        socket.sendMessage(msg, "127.0.0.1", bootstrapPort);
+        socket.sendMessage(msg, bootstrapAddress);
 
         try {
             Thread.sleep(1000);
@@ -144,7 +147,7 @@ public class Router implements Runnable {
         I2NPHeader lookupMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
                 System.currentTimeMillis() + 500,
                 databaseLookup);
-        socket.sendMessage(lookupMsg, "127.0.0.1", bootstrapPort);
+        socket.sendMessage(lookupMsg, bootstrapAddress);
         // give enough time for all the routers to send their messages/turn on
         Thread t1 = new Thread(new Runnable() {
             public void run() {
@@ -154,7 +157,7 @@ public class Router implements Runnable {
                     I2NPHeader lookupMsg2 = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
                             System.currentTimeMillis() + 100,
                             databaseLookup2);
-                    socket.sendMessage(lookupMsg2, "127.0.0.1", bootstrapPort);
+                    socket.sendMessage(lookupMsg2, bootstrapAddress);
                     // netDB.getKClosestRouterInfos(routerID.getHash(), 10);
                 } catch (InterruptedException e) {
                     log.warn("Sleeping interrupted attempting to continue ", e);
@@ -187,17 +190,6 @@ public class Router implements Runnable {
         });
         t2.start();
 
-        // Start the router service thread to handle incoming messages
-        ExecutorService threadpool = Executors.newFixedThreadPool(5);
-        while (true) {
-            I2NPHeader message = socket.getMessage();
-            RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, tunnelManager,
-                    edKeyPair.getPrivate());
-            // To sam, this will turn on floodfill, from your favorite NetDB implementor
-            // Seth
-            // rst.setFloodFill(true);
-            threadpool.execute(rst);
-        }
     }
 
     /**
@@ -384,8 +376,55 @@ public class Router implements Runnable {
         }
     }
 
+    /**
+     * Start router
+     */
     @Override
     public void run() {
-        // todo move setup in here for when client needs to run their own router
+        //hashmap for RST to CST communication
+        HashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> clientMessages = new HashMap<>();
+
+        try {
+            //create and start RST
+            Thread rst = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    // Start the router service thread to handle incoming messages
+                    try {
+                        I2NPSocket socket = new I2NPSocket(RSTPort, address);
+                        ExecutorService threadpool = Executors.newFixedThreadPool(5);
+                        while (true) {
+                            I2NPHeader message = null;
+
+                            message = socket.getMessage();
+                            RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, tunnelManager,
+                                    edKeyPair.getPrivate());
+                            // To sam, this will turn on floodfill, from your favorite NetDB implementor
+                            // Seth
+                            // rst.setFloodFill(true);
+                            threadpool.execute(rst);
+                        }
+                    }
+                    catch(SocketException e) {
+                        log.error("Fatal could not setup socket for RST ", e);
+                        throw new RuntimeException(e);
+                    }
+                    catch(IOException e) {
+                        log.warn("RST: IO error while getting message", e);
+                    }
+                }
+            });
+            rst.start(); //start router service thread
+
+            setUp();
+
+            //create and start CST
+            Thread cst = new Thread(new ClientServiceThread(routerInfo, netDB, CSTPort, clientMessages));
+            cst.start();
+
+        } catch (IOException e) {
+            log.error("Fatal could not setup router", e);
+            throw new RuntimeException(e);
+        }
     }
 }
