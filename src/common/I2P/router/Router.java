@@ -112,17 +112,8 @@ public class Router implements Runnable {
     }
 
     private void setUp() throws IOException {
-        // Bind the socket to the router's port
+        // create socket to contact bootstrap peer
         I2NPSocket socket = new I2NPSocket();
-
-        // Generate keys and create RouterInfo
-        elgamalKeyPair = generateKeyPairElGamal();
-        edKeyPair = generateKeyPairEd();
-        routerID = new RouterID(elgamalKeyPair.getPublic(), edKeyPair.getPublic());
-        routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), address.getHostName(), RSTPort, edKeyPair.getPrivate());
-
-        // Initialize NetDB
-        netDB = new NetDB(routerInfo);
 
         // Send a DatabaseStore message to the bootstrap peer
         DatabaseStore databaseStore = new DatabaseStore(routerInfo); // reply token set to 0 for now yay!
@@ -148,7 +139,7 @@ public class Router implements Runnable {
         Thread t1 = new Thread(new Runnable() {
             public void run() {
                 try {
-                    Thread.sleep(5000); // 5 seconds to wait for the message to be sent while we turn them all on
+                    Thread.sleep(2000); // 5 seconds to wait for the message to be sent while we turn them all on
                     DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], routerInfo.getHash());
                     I2NPHeader lookupMsg2 = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
                             System.currentTimeMillis() + 100,
@@ -171,7 +162,7 @@ public class Router implements Runnable {
             public void run() {
                 try {
                     Logger.getInstance().debug("Net db " + netDB.logNetDB());
-                    Thread.sleep(10000);
+                    Thread.sleep(15000);
                     // create tunnel build for 3 hops
                     int tunnelID = random.nextInt(); // random tunnel id for now
                     createTunnelBuild(3, tunnelID, true); // make inbound
@@ -377,6 +368,15 @@ public class Router implements Runnable {
      */
     @Override
     public void run() {
+        // Generate keys and create RouterInfo
+        elgamalKeyPair = generateKeyPairElGamal();
+        edKeyPair = generateKeyPairEd();
+        routerID = new RouterID(elgamalKeyPair.getPublic(), edKeyPair.getPublic());
+        routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), address.getHostName(), RSTPort, edKeyPair.getPrivate());
+
+        // Initialize NetDB
+        netDB = new NetDB(routerInfo);
+
         //hashmap for RST to CST communication
         HashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> clientMessages = new HashMap<>();
 
@@ -388,7 +388,7 @@ public class Router implements Runnable {
                     // Start the router service thread to handle incoming messages
                     try {
                         I2NPSocket socket = new I2NPSocket(RSTPort, address);
-                        ExecutorService threadpool = Executors.newFixedThreadPool(5);
+                        ExecutorService threadpool = Executors.newFixedThreadPool(15);
                         while (true) {
                             I2NPHeader message = null;
 
@@ -411,6 +411,10 @@ public class Router implements Runnable {
                 }
             });
             rst.start(); //start router service thread
+
+            if (bootstrapAddress.getPort() == RSTPort) { //we are bootstrap peer no clients and no setup needed
+                return;
+            }
 
             setUp();
 
