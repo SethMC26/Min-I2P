@@ -14,7 +14,7 @@ import java.security.spec.PKCS8EncodedKeySpec;
 
 public class CreateLeaseSet extends I2CPMessage {
     /**
-     * Private key corresponding to public key in lease set
+     * Private key corresponding to public key encryption in lease set
      */
     private PrivateKey privateKey;
     /**
@@ -25,7 +25,7 @@ public class CreateLeaseSet extends I2CPMessage {
     /**
      * Message sent from Client to Router to create a lease set for the router to use
      * @param sessionID ID of session
-     * @param privateKey Private key signing key for ED25519 corresponding to public key in Lease Set
+     * @param privateKey Private key signing key for elgamal encryption corresponding to public key in Lease Set
      * @param leaseSet Lease set for use by the Router
      */
     public CreateLeaseSet(int sessionID, PrivateKey privateKey, LeaseSet leaseSet) {
@@ -44,17 +44,17 @@ public class CreateLeaseSet extends I2CPMessage {
         super.deserialize(jsonType); //super handle type check
         JSONObject json = (JSONObject) jsonType;
 
-        json.checkValidity(new String[]{"privateKey", "leaseSet"});
+        json.checkValidity(new String[]{"privKey", "leaseSet"});
         leaseSet = new LeaseSet(json.getObject("leaseSet"));
 
 
         //generate key from bytes
         byte[] privKeyBytes = Base64.decode(json.getString("privKey"));
         try {
-            privateKey = KeyFactory.getInstance("Ed25519").generatePrivate(
+            privateKey = KeyFactory.getInstance("ElGamal").generatePrivate(
                     new PKCS8EncodedKeySpec(privKeyBytes));
         }
-        catch (InvalidKeySpecException e) {throw new InvalidObjectException("private Key is not valid");}
+        catch (InvalidKeySpecException e) {throw new InvalidObjectException("private Key is not valid" + e.getMessage());}
         catch (NoSuchAlgorithmException e) {throw new RuntimeException(e);} //should never hit case
     }
 

@@ -2,14 +2,19 @@ package testPeers;
 
 import common.I2P.router.Router;
 import common.Logger;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.security.Security;
 
 public class rt1 {
     static InetSocketAddress bootstrapPeer = new InetSocketAddress("127.0.0.1", 8080);
 
     public static void main(String[] args) {
+        // speciality floodfill router
+        Security.addProvider(new BouncyCastleProvider()); // Add BouncyCastle provider for cryptography
+
         int numberOfRouters = 5; // Specify the number of routers to create
         Logger log = Logger.getInstance();
         log.setMinLevel(Logger.Level.DEBUG);

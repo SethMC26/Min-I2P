@@ -128,7 +128,7 @@ public class ClientServiceThread implements Runnable {
 
                 if (isTypeBad(recvMsg, CREATESESSION)){ //bad type we(router) will refuse connection
                     clientSock.sendMessage(new SessionStatus(recvMsg.getSessionID(), SessionStatus.Status.REFUSED));
-                    clientSock.close();
+                    clientSock.close();;
                     return;
                 }
 
@@ -162,6 +162,7 @@ public class ClientServiceThread implements Runnable {
 
                 CreateLeaseSet createLeaseSet = (CreateLeaseSet) recvMsg;
                 LeaseSet leaseSet = createLeaseSet.getLeaseSet();
+                //this is the private key for elgamal stuff corresponding to public key in leaseset for encryption
                 PrivateKey privateKey = createLeaseSet.getPrivateKey();
                 //todo sam plz use da leaseset and private keys yuh
 

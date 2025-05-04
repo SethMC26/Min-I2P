@@ -9,7 +9,6 @@ import common.I2P.tunnels.TunnelManager;
 import common.Logger;
 import common.transport.I2CP.I2CPMessage;
 import common.transport.I2NPSocket;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -113,9 +112,6 @@ public class Router implements Runnable {
     }
 
     private void setUp() throws IOException {
-        // speciality floodfill router
-        Security.addProvider(new BouncyCastleProvider()); // Add BouncyCastle provider for cryptography
-
         // Bind the socket to the router's port
         I2NPSocket socket = new I2NPSocket();
 
