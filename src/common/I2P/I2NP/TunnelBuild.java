@@ -231,7 +231,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
         }
 
         @Override
-        public JSONType toJSONType() {
+        public JSONObject toJSONType() {
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("toPeer", Base64.toBase64String(toPeer));
 

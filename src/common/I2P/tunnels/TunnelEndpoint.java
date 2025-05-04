@@ -2,8 +2,8 @@ package common.I2P.tunnels;
 
 import common.I2P.I2NP.I2NPMessage;
 import common.I2P.I2NP.TunnelDataMessage;
-import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.NetDB;
+import merrimackutil.json.types.JSONObject;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
@@ -43,11 +43,11 @@ public class TunnelEndpoint extends TunnelObject {
         }
 
         TunnelDataMessage tdm = (TunnelDataMessage) message;
-        I2NPMessage innerPayload = tdm.getPayload();
+        JSONObject innerPayload = tdm.getPayload();
         deliver(innerPayload);
     }
 
-    private void deliver(I2NPMessage message) {
+    private void deliver(JSONObject message) {
         // For now just print or log it
         System.out.println("TunnelEndpoint received final message: " + message);
 

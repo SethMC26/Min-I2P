@@ -12,7 +12,7 @@ public class p3 {
         int numberOfRouters = 5; // Specify the number of routers to create
         Logger log = Logger.getInstance();
         log.setMinLevel(Logger.Level.DEBUG);
-        Router router = new Router(routerPort, 8080, false);
+        Router router = new Router(routerPort, 8080);
     }
 }
 

@@ -1,9 +1,7 @@
 package testPeers;
 
-import java.io.IOException;
-
-import common.Logger;
 import common.I2P.router.Router;
+import common.Logger;
 
 public class rt1 {
     public static void main(String[] args) {
@@ -16,12 +14,8 @@ public class rt1 {
             int port2 = 8080;
 
             Thread routerThread = new Thread(() -> {
-                try {
-                    System.out.println("Router started on ports: " + port1 + " and " + port2);
-                    Router router = new Router(port1, port2, false);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                System.out.println("Router started on ports: " + port1 + " and " + port2);
+                Router router = new Router(port1, port2);
             });
 
             routerThread.start();

@@ -36,12 +36,8 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
         this.isSuccess = isSuccess;
     }
 
-    public TunnelBuildReplyMessage(JSONObject messageObj) {
-        try {
-            deserialize(messageObj);
-        } catch (InvalidObjectException e) {
-            e.printStackTrace();
-        }
+    public TunnelBuildReplyMessage(JSONObject messageObj) throws InvalidObjectException {
+        deserialize(messageObj);
     }
 
     @Override
@@ -51,6 +47,7 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
         }
 
         JSONObject jsonObject = (JSONObject) arg0;
+        jsonObject.checkValidity(new String[] {"tunnelID", "isSuccess"});
         //im commenting this out to avoid serialization error - seth
         //this.tunnelGateway = new RouterID(jsonObject.getObject("tunnelGateway"));
         this.tunnelID = jsonObject.getInt("tunnelID");
@@ -58,7 +55,7 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
     }
 
     @Override
-    public JSONType toJSONType() {
+    public JSONObject toJSONType() {
         JSONObject jsonObject = new JSONObject();
         //commenting out to avoid serialization error -seth
         //jsonObject.put("tunnelGateway", tunnelGateway.toJSONType()); // uhhhhhhh?

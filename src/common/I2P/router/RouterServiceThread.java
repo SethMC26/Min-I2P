@@ -12,7 +12,8 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.net.SocketException;
-import java.security.*;
+import java.security.PrivateKey;
+import java.security.SecureRandom;
 import java.util.*;
 
 /**
@@ -206,7 +207,7 @@ public class RouterServiceThread implements Runnable {
 
                     // Get session key, we skip bloom filter
 
-                    if (!isTimestampValid(record.getRequestTime())) {
+                    if (System.currentTimeMillis() > record.getRequestTime() + 60000) { //allow for 1 minute for tunnelBuild
                         log.warn("Invalid timestamp in tunnel request. Dropping record.");
                         continue;
                     }
@@ -232,23 +233,22 @@ public class RouterServiceThread implements Runnable {
                         I2NPSocket nextHopSocket = new I2NPSocket();
                         I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, random.nextInt(),
                                 System.currentTimeMillis() + 100, tunnelBuild);
-                        RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextIdent);
-                        if (nextRouter == null) { //try to find next router
-                            findPeerRecordForReply(100,nextIdent);
+                        RouterInfo nextRouter = validatePeerRouter(record.getNextIdent());
+                        if (nextRouter == null ) {
+                            log.error("Could not find endpoint " + Base64.getEncoder().encodeToString(record.getNextIdent()));
+                            return;
                         }
-                        String prettyprint = netDB.logNetDB();
                         nextHopSocket.sendMessage(header, nextRouter);
                         nextHopSocket.close();
                     }
                     // note to self - how do we adjust for recursive decryption on reply records?
 
-                } catch (Exception e) {
-                    log.error("Error processing TunnelBuild record: " + e.getMessage());
-                    e.printStackTrace();
+                } catch (IOException e) {
+                    log.debug("Most likely close is connecting to peer to send message to");
+                    log.error("Error processing TunnelBuild record: ", e);
                 }
             }
         }
-        return;
     }
 
     private void handleEndpointBehavior(TunnelBuild tunnelBuild, common.I2P.I2NP.TunnelBuild.Record record) {
@@ -256,7 +256,12 @@ public class RouterServiceThread implements Runnable {
         // realistically have a check here that all reply flags are set to true
         replyMessage = new TunnelBuildReplyMessage(record.getReceiveTunnel(), true);
         // query netdb for router info of next hop
-        RouterInfo nextRouter = (RouterInfo) netDB.lookup(record.getNextIdent()); // FOR THE LOVE OF GOD PLEASE BE SET PROPERLLY
+        RouterInfo nextRouter = validatePeerRouter(record.getNextIdent());
+        if (nextRouter == null ) {
+            log.error("Could not find endpoint " + Base64.getEncoder().encodeToString(record.getNextIdent()));
+            return;
+        }
+
         // realistically this will be fowarded to the client and client will handle lease set publishing
         // for now we have router act as client cause i dont want to set up a fucking client
         // forward message to next hop
@@ -334,15 +339,6 @@ public class RouterServiceThread implements Runnable {
         // new Record(toPeer, encData);
 
         return replyRecord;
-    }
-
-    private boolean isTimestampValid(long requestTime) {
-        long currentTime = System.currentTimeMillis() / 1000;
-        long requestHour = requestTime / 3600;
-        long currentHour = currentTime / 3600;
-
-        // Allow for clock skew (5 minutes ahead, 65 minutes behind)
-        return requestHour == currentHour || requestHour == currentHour - 1;
     }
 
     private void addTunnelToManager(TunnelBuild.Record record) {
@@ -619,6 +615,22 @@ public class RouterServiceThread implements Runnable {
             log.warn("Sleep was interrupted");
             peerSock.close();
         }
+    }
+
+    /**
+     * Verify that a peer exists in NetDB and they are a RouterInfo - will attempt to find them if they are not in netDB
+     * @param hash Hash of peer to validate
+     * @return RouterInfo of peer or null if they do not exist
+     */
+    private RouterInfo validatePeerRouter(byte[] hash) {
+        Record record = netDB.lookup(hash);
+        if (record == null || record.getRecordType() == Record.RecordType.LEASESET) {
+            findPeerRecordForReply(100, hash); //if record is bad ask our friends to find proper one
+            record = netDB.lookup(hash);
+        }
+        if (record == null || record.getRecordType() == Record.RecordType.LEASESET) //if still bad return null
+            return null;
+        return (RouterInfo) record;
     }
 
     /**
