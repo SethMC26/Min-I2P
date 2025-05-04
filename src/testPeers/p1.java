@@ -81,19 +81,21 @@ public class p1 {
 
         //basic testing loop
         Scanner input = new Scanner(System.in);
+        Destination currDest = null;
 
         while(true) {
-            Destination currDest = null;
             System.out.println("You are client for dest: " + Base64.toBase64String(clientDest.getHash()));
             System.out.println("Press 1 to lookup destination");
-            System.out.println("Press 2 to send message");
+            System.out.println("Press 2 to send message to ");
             System.out.println();
-
-            switch(input.nextInt()) {
+            int usercase = input.nextInt();
+            input.nextLine();
+            switch(usercase) {
                 case 1 -> {
-                    System.out.println("Please enter destination hash: ");
                     try {
-                        byte[] destKey = Base64.decode(input.nextLine());
+                        System.out.print("Please enter destination hash: ");
+                        String hash = input.nextLine();
+                        byte[] destKey = Base64.decode(hash);
                         socket.sendMessage(new DestinationLookup(sessionID, destKey));
                         recvMessage = socket.getMessage();
                         System.out.println("Got message from router");
@@ -102,6 +104,9 @@ public class p1 {
                             currDest = reply.getDestination();
                             System.out.println("Got destination! " + currDest);
                             System.out.println("You can now send there!");
+                        }
+                        else {
+                            System.out.println("Destination not found :(");
                         }
                     }
                     catch (Exception e) {
