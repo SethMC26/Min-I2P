@@ -71,11 +71,15 @@ public class Router implements Runnable {
      */
     private KeyPair edKeyPair;
     /**
-     *Secure random
+     * Secure random
      */
     private SecureRandom random = new SecureRandom();
 
     private Logger log = Logger.getInstance();
+
+    private int lastInboundTunnelID;
+
+    private RouterInfo lastInboundFirstPeer;
 
     /**
      * Create router from specified config file
@@ -131,13 +135,14 @@ public class Router implements Runnable {
         try {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
-           log.warn("Sleeping interrupted attempting to continue setup", e);
+            log.warn("Sleeping interrupted attempting to continue setup", e);
         } // wait for the message to be sent
 
         // send of self from self to bootstrap - get bootstrap info (if same get
         // boostrap info)
         DatabaseLookup databaseLookup = new DatabaseLookup(routerInfo.getHash(), routerInfo.getHash());
-        I2NPHeader lookupMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(), System.currentTimeMillis() + 500,
+        I2NPHeader lookupMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
+                System.currentTimeMillis() + 500,
                 databaseLookup);
         socket.sendMessage(lookupMsg, "127.0.0.1", bootstrapPort);
         // give enough time for all the routers to send their messages/turn on
@@ -154,7 +159,7 @@ public class Router implements Runnable {
                 } catch (InterruptedException e) {
                     log.warn("Sleeping interrupted attempting to continue ", e);
                 } catch (IOException e) {
-                    log.error("Could not setup/send message to learn about peers" , e);
+                    log.error("Could not setup/send message to learn about peers", e);
                     log.error("FATAL: step needed to establish connection with peers");
                     throw new RuntimeException(e);
                 }
@@ -172,6 +177,7 @@ public class Router implements Runnable {
                     int tunnelID = random.nextInt(); // random tunnel id for now
                     createTunnelBuild(3, tunnelID, true); // make inbound
                     Thread.sleep(1000); // wait for the message to be sent
+                    System.out.println("Creating outbound tunnel build");
                     createTunnelBuild(3, tunnelID, false); // make outbound
                     // double check this later
                 } catch (InterruptedException e) {
@@ -185,7 +191,8 @@ public class Router implements Runnable {
         ExecutorService threadpool = Executors.newFixedThreadPool(5);
         while (true) {
             I2NPHeader message = socket.getMessage();
-            RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, tunnelManager, edKeyPair.getPrivate());
+            RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, tunnelManager,
+                    edKeyPair.getPrivate());
             // To sam, this will turn on floodfill, from your favorite NetDB implementor
             // Seth
             // rst.setFloodFill(true);
@@ -224,7 +231,7 @@ public class Router implements Runnable {
             KeyPairGenerator keyGen = KeyPairGenerator.getInstance("Ed25519", "BC");
             return keyGen.generateKeyPair();
         } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
-            throw new RuntimeException(e); //should never hit case
+            throw new RuntimeException(e); // should never hit case
         }
     }
 
@@ -253,6 +260,10 @@ public class Router implements Runnable {
         if (isInbound) {
             System.out.println("Adding inbound tunnel: " + tunnelID);
             tunnelManager.addInboundTunnel(tunnelID, potentialTunnel);
+
+            // Save info for use by outbound tunnel
+            this.lastInboundTunnelID = tunnelID;
+            this.lastInboundFirstPeer = tempPeers.get(0); // inbound gateway
         } else {
             System.out.println("Adding outbound tunnel: " + tunnelID);
             tunnelManager.addOutboundTunnel(tunnelID, potentialTunnel);
@@ -263,11 +274,17 @@ public class Router implements Runnable {
 
         ArrayList<TunnelHopInfo> hopInfo = new ArrayList<>(); // this is for the hops in the tunnel
 
+        // Generate unique tunnel IDs per hop
+        int[] hopTunnelIDs = new int[tempPeers.size()];
+        for (int i = 0; i < tempPeers.size(); i++) {
+            hopTunnelIDs[i] = random.nextInt(); // Replace with a tunnelID allocator if needed
+        }
+
         for (int i = tempPeers.size() - 1; i >= 0; i--) {
             RouterInfo current = tempPeers.get(i);
 
             byte[] toPeer = Arrays.copyOf(current.getRouterID().getHash(), 16); // only first 16 bytes of the hash
-            int receiveTunnel = tunnelID; // tunnel id for the tunnel
+            int receiveTunnel = hopTunnelIDs[i]; // tunnel id for the tunnel
 
             SecretKey layerKey = generateAESKey(256);
             SecretKey ivKey = generateAESKey(256);
@@ -287,10 +304,12 @@ public class Router implements Runnable {
             TunnelBuild.Record.TYPE position = null;
 
             RouterInfo next;
+            int nextTunnel = 0; // this is the tunnel id for the next hop default to 0 for outbound creation
             if (i == 0) {
                 position = TunnelBuild.Record.TYPE.GATEWAY;
                 hopInfoInput = new ArrayList<>(hopInfo);
-                next = tempPeers.get(i+1);
+                next = tempPeers.get(i + 1);
+                nextTunnel = hopTunnelIDs[i + 1]; // tunnel id for the next hop
                 // set the hop info for the first hop
             } else if (i == tempPeers.size() - 1) {
                 position = TunnelBuild.Record.TYPE.ENDPOINT;
@@ -298,23 +317,15 @@ public class Router implements Runnable {
                     next = routerInfo; // set to client creating request if real for testing set to gateway router
                     // PELASE TREMEMBER TO CHANG ETHIS SAM OMG PLEAS JEHGEAH FG SGF
                 } else {
-                    //below code will not work we store our routerInfo under our routerID
-                    Destination dest = new Destination(edKeyPair.getPublic());
-                    common.I2P.NetworkDB.Record record = netDB.lookup(dest.getHash()); // get the lease set for the destination which is ourself
-                    LeaseSet leaseSet = (LeaseSet) record; // get the lease set for the destination
-                    // apparently it thinks this is a router info and not a lease set so uhhh well come back to this
-                    // this is the destination temp client would do this during creation instead
-
-                    HashSet<Lease> leases = leaseSet.getLeases(); // get the router info for the destination
-                    // just select the first lease for now cause theres only one
-                    Lease lease = leases.iterator().next();
-                    next = (RouterInfo) netDB.lookup(lease.getTunnelGW()); // get the router info for the destination
+                    // Forward reply through inbound tunnel gateway
+                    next = this.lastInboundFirstPeer;
+                    nextTunnel = this.lastInboundTunnelID;
                 }
             } else {
                 position = TunnelBuild.Record.TYPE.PARTICIPANT;
-                next = tempPeers.get(i+1);
+                next = tempPeers.get(i + 1);
+                nextTunnel = hopTunnelIDs[i + 1]; // tunnel id for the next hop
             }
-            int nextTunnel = tunnelID;
             byte[] nextIdent = next.getHash();
 
             TunnelBuild.Record record = new TunnelBuild.Record(
@@ -357,7 +368,7 @@ public class Router implements Runnable {
             buildSocket.close();
         } catch (IOException e) {
             if (buildSocket != null)
-                buildSocket.close(); //if possible close socket if created
+                buildSocket.close(); // if possible close socket if created
             log.error("Fatal: Could not send tunnel build message");
             log.info("Try restarting router");
         }
@@ -369,12 +380,12 @@ public class Router implements Runnable {
             keyGen.init(bits);
             return keyGen.generateKey();
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e); //should never hit case
+            throw new RuntimeException(e); // should never hit case
         }
     }
 
     @Override
     public void run() {
-        //todo move setup in here for when client needs to run their own router
+        // todo move setup in here for when client needs to run their own router
     }
 }

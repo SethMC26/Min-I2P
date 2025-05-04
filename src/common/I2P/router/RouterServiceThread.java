@@ -80,6 +80,7 @@ public class RouterServiceThread implements Runnable {
     @Override
     public void run() {
         if (!recievedMessage.isPayloadValid()) {
+            System.out.println("Received corrupted payload" + recievedMessage.toJSONType().getFormattedJSON());
             log.warn("Received corrupted payload");
             return;// corrupt message - may want to add response for reliable send in future
         }
@@ -184,7 +185,7 @@ public class RouterServiceThread implements Runnable {
 
             // publish lease set to netDB
             netDB.store(leaseSet);
-        }
+        } 
         
         return true;
     }
@@ -269,9 +270,20 @@ public class RouterServiceThread implements Runnable {
         try {
             nextHopSocket = new I2NPSocket();
             // create new header
-            I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILDREPLY, random.nextInt(),
+            
+            if (record.getNextTunnel() == 0) {
+                I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILDREPLY, random.nextInt(),
                     System.currentTimeMillis() + 100, replyMessage);
-            nextHopSocket.sendMessage(header, nextRouter);
+                nextHopSocket.sendMessage(header, nextRouter); // send directly to router 
+                // this may need to changed in final implementation for security reasons
+            } else {
+                // create tunnel data message to send to next hop if forwarding through tunnel
+                TunnelDataMessage tunnelDataMessage = new TunnelDataMessage(record.getNextTunnel(), replyMessage.toJSONType());
+                I2NPHeader tunnelDataHeader = new I2NPHeader(I2NPHeader.TYPE.TUNNELDATA, random.nextInt(),
+                        System.currentTimeMillis() + 100, tunnelDataMessage);
+                System.out.println("tunnelDataHeader: " + tunnelDataHeader.toJSONType().getFormattedJSON());
+                nextHopSocket.sendMessage(tunnelDataHeader, nextRouter);
+            }
             nextHopSocket.close();
         } catch (IOException e) {
             if (nextHopSocket != null)

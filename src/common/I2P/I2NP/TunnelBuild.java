@@ -59,7 +59,6 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
         for (Record record : records.values()) {
             jsonArray.add(record.toJSONType());
         }
-        System.out.println("TunnelBuild toJSONType: " + jsonArray.toString());
         return jsonArray;
     }
 
