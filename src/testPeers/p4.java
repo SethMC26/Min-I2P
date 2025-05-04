@@ -5,16 +5,21 @@ import common.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.security.Security;
 
 public class p4 {
     static int routerPort = 10004;
     static int servicePort = 20004;
+    static InetSocketAddress bootstrapPeer = new InetSocketAddress("127.0.0.1", 8080);
+
     public static void main(String[] args) throws IOException {
         Security.addProvider(new BouncyCastleProvider());
         Logger log = Logger.getInstance();
         log.setMinLevel(Logger.Level.DEBUG);
-        Router router = new Router(routerPort, 8080);
+        Thread router = new Thread(new Router(InetAddress.getLoopbackAddress(),routerPort, servicePort, bootstrapPeer));
+        router.start();
     }
 }
 
