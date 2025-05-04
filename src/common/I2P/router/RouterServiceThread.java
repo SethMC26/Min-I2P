@@ -7,6 +7,7 @@ import common.I2P.NetworkDB.*;
 import common.I2P.tunnels.*;
 import common.Logger;
 import common.transport.I2NPSocket;
+import merrimackutil.json.types.JSONObject;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -135,6 +136,7 @@ public class RouterServiceThread implements Runnable {
                 break;
             case TUNNELDATA:
                 TunnelDataMessage tunnelData = (TunnelDataMessage) recievedMessage.getMessage();
+                System.out.println("TunnelDataMessage: " + tunnelData.toJSONType().getFormattedJSON());
                 handleTunnelDataMessage(tunnelData);
                 break;
             default:
@@ -256,6 +258,7 @@ public class RouterServiceThread implements Runnable {
         TunnelBuildReplyMessage replyMessage;
         // realistically have a check here that all reply flags are set to true
         replyMessage = new TunnelBuildReplyMessage(record.getReceiveTunnel(), true);
+        System.out.println("replyMessage: " + replyMessage.toJSONType().getFormattedJSON());
         // query netdb for router info of next hop
         RouterInfo nextRouter = validatePeerRouter(record.getNextIdent());
         if (nextRouter == null ) {

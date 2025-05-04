@@ -5,7 +5,7 @@ import merrimackutil.json.types.JSONType;
 
 import java.io.InvalidObjectException;
 
-public class TunnelDataMessage extends I2NPMessage{
+public class TunnelDataMessage extends I2NPMessage {
     private int tunnelID;
     private JSONObject payload;
 
@@ -16,7 +16,7 @@ public class TunnelDataMessage extends I2NPMessage{
         this.payload = payload;
     }
 
-    public TunnelDataMessage(JSONObject messageObj) throws InvalidObjectException{
+    public TunnelDataMessage(JSONObject messageObj) throws InvalidObjectException {
         deserialize(messageObj);
     }
 
@@ -34,9 +34,12 @@ public class TunnelDataMessage extends I2NPMessage{
             throw new InvalidObjectException("Must be JSONObject");
         }
         JSONObject jsonObject = (JSONObject) arg0;
-        jsonObject.checkValidity(new String[] {"tunnelID", "payload"});
+        jsonObject.checkValidity(new String[] { "tunnelID", "payload" });
         this.tunnelID = jsonObject.getInt("tunnelID");
         this.payload = jsonObject.getObject("payload"); // pray this works
+        // Cast any Double values in the payload to Integer
+        this.payload = castDoublesToIntegers(this.payload);
+        System.out.println("TunnelDataMessage deserializes to: " + tunnelID + " " + payload);
     }
 
     @Override
@@ -44,6 +47,21 @@ public class TunnelDataMessage extends I2NPMessage{
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("tunnelID", tunnelID);
         jsonObject.put("payload", payload);
+
+        return jsonObject;
+    }
+
+    private JSONObject castDoublesToIntegers(JSONObject jsonObject) {
+        for (String key : jsonObject.keySet()) {
+            Object value = jsonObject.get(key);
+            if (value instanceof Double) {
+                // Cast Double to Integer
+                jsonObject.put(key, ((Double) value).intValue());
+            } else if (value instanceof JSONObject) {
+                // Recursively process nested JSONObjects`
+                castDoublesToIntegers((JSONObject) value);
+            }
+        }
         return jsonObject;
     }
 }
