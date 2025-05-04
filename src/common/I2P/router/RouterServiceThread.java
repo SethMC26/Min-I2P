@@ -16,6 +16,7 @@ import java.net.SocketException;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Handle incoming I2NP messages
@@ -148,6 +149,12 @@ public class RouterServiceThread implements Runnable {
     private void handleTunnelDataMessage(TunnelDataMessage tunnelData) {
         // get tunnel id from message
         int tunnelID = tunnelData.getTunnelID();
+        System.out.println("Tunnel ID from message: " + tunnelID);
+        System.out.println("Existing tunnel object ids: ");
+        ConcurrentHashMap<Integer, TunnelObject> tunnelObjects = tunnelManager.getTunnelObjects();
+        for (Map.Entry<Integer, TunnelObject> entry : tunnelObjects.entrySet()) {
+            System.out.println("Tunnel ID: " + entry.getKey() + ", Tunnel Object: " + entry.getValue());
+        }
 
         // get the tunnel from the tunnel manager
         TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelID);
@@ -237,8 +244,9 @@ public class RouterServiceThread implements Runnable {
                         I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, random.nextInt(),
                                 System.currentTimeMillis() + 100, tunnelBuild);
                         RouterInfo nextRouter = validatePeerRouter(record.getNextIdent());
+                        System.out.println("nextRouter: " + nextRouter.toJSONType().getFormattedJSON());
                         if (nextRouter == null ) {
-                            log.error("Could not find endpoint " + Base64.getEncoder().encodeToString(record.getNextIdent()));
+                            log.error("Could not find gateway " + Base64.getEncoder().encodeToString(record.getNextIdent()));
                             return;
                         }
                         nextHopSocket.sendMessage(header, nextRouter);

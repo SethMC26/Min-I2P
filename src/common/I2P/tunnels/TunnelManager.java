@@ -56,4 +56,8 @@ public class TunnelManager {
         tunnelObjects.remove(tunnelID);
     }
 
+    public ConcurrentHashMap<Integer, TunnelObject> getTunnelObjects() {
+        return tunnelObjects;
+    }
+
 }

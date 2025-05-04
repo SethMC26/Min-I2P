@@ -24,6 +24,10 @@ public class TunnelDataMessage extends I2NPMessage {
         return tunnelID;
     }
 
+    public void setTunnelID(int tunnelID) {
+        this.tunnelID = tunnelID;
+    }
+
     public JSONObject getPayload() {
         return payload;
     }

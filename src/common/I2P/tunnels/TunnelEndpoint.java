@@ -31,23 +31,22 @@ public class TunnelEndpoint extends TunnelObject {
     public TunnelEndpoint(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey,
             SecretKey replyKey, byte[] replyIV, byte[] replyRouter, Integer replyTunnelID, NetDB netDB) {
         super(TYPE.ENDPOINT, tunnelID, tunnelEncryptionKey, tunnelIVKey, replyKey, replyIV);
-        this.replyRouter = replyRouter;
+        this.replyRouter = replyRouter; // uhhhh
         this.replyTunnelID = replyTunnelID;
         this.netDB = netDB; // Initialize with actual NetDB instance if needed
     }
 
     @Override
-    public void handleMessage(I2NPMessage message) throws IOException {
+    public void handleMessage(TunnelDataMessage message) throws IOException {
         if (!(message instanceof TunnelDataMessage)) {
             throw new IOException("Expected TunnelDataMessage but received: " + message.getClass().getSimpleName());
         }
-
-        TunnelDataMessage tdm = (TunnelDataMessage) message;
-        JSONObject innerPayload = tdm.getPayload();
-        deliver(innerPayload);
+        System.out.println("TunnelEndpoint received message: " + message);
+        
+        deliver(message);
     }
 
-    private void deliver(JSONObject message) {
+    private void deliver(I2NPMessage message) {
         // For now just print or log it
         System.out.println("TunnelEndpoint received final message: " + message);
 

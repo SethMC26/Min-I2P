@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Class represents Core Router module of I2P
@@ -174,9 +175,12 @@ public class Router implements Runnable {
                     Logger.getInstance().debug("Net db " + netDB.logNetDB());
                     Thread.sleep(10000);
                     // create tunnel build for 3 hops
-                    int tunnelID = random.nextInt(); // random tunnel id for now
+                    // temp usage of thread local random
+                    // switch to secure random later
+                    int tunnelID = ThreadLocalRandom.current().nextInt(); // random tunnel id for now
                     createTunnelBuild(3, tunnelID, true); // make inbound
                     Thread.sleep(1000); // wait for the message to be sent
+                    tunnelID = ThreadLocalRandom.current().nextInt(); // random tunnel id for now
                     System.out.println("Creating outbound tunnel build");
                     createTunnelBuild(3, tunnelID, false); // make outbound
                     // double check this later
@@ -276,8 +280,13 @@ public class Router implements Runnable {
 
         // Generate unique tunnel IDs per hop
         int[] hopTunnelIDs = new int[tempPeers.size()];
+
         for (int i = 0; i < tempPeers.size(); i++) {
-            hopTunnelIDs[i] = random.nextInt(); // Replace with a tunnelID allocator if needed
+            if (i == 0) {
+                hopTunnelIDs[i] = tunnelID; // first hop is the tunnel id
+            } else {
+                hopTunnelIDs[i] = ThreadLocalRandom.current().nextInt(); // Replace with a tunnelID allocator if needed
+            }
         }
 
         for (int i = tempPeers.size() - 1; i >= 0; i--) {
@@ -313,6 +322,8 @@ public class Router implements Runnable {
                 // set the hop info for the first hop
             } else if (i == tempPeers.size() - 1) {
                 position = TunnelBuild.Record.TYPE.ENDPOINT;
+                // this actually needs to be changed to next = null
+                // the endpoint should read off the message where to send it to
                 if (isInbound) {
                     next = routerInfo; // set to client creating request if real for testing set to gateway router
                     // PELASE TREMEMBER TO CHANG ETHIS SAM OMG PLEAS JEHGEAH FG SGF

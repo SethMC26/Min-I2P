@@ -49,23 +49,25 @@ public class TunnelParticipant extends TunnelObject{
     }
 
     @Override
-    public void handleMessage(I2NPMessage message) throws IOException {
+    public void handleMessage(TunnelDataMessage message) throws IOException {
         if (!(message instanceof TunnelDataMessage)) {
             throw new IOException("Expected TunnelDataMessage but received: " + message.getClass().getSimpleName());
         }
+        System.out.println("attempting to send message to next hop: " + message + " with tunnel ID: " + nextTunnelID);
 
-        TunnelDataMessage tdm = (TunnelDataMessage) message;
-        JSONObject innerPayload = tdm.getPayload();
-        sendToNextHop(innerPayload);
+        // JSONObject innerPayload = tdm.getPayload();
+        message.setTunnelID(nextTunnelID);
+        sendToNextHop(message);
     }
 
-    private void sendToNextHop(JSONObject message) throws IOException {
+    private void sendToNextHop(I2NPMessage message) throws IOException {
         int msgID = new SecureRandom().nextInt();
         //recasting to a new TunnelDataMessage here might be fine or might cause errors - seth
-        I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELDATA, msgID, System.currentTimeMillis(),new TunnelDataMessage(message));
+        I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELDATA, msgID, System.currentTimeMillis() + 100,message);
 
         I2NPSocket socket = new I2NPSocket();
         RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextHop); //this is a dangerous cast we could crash here -seth
+        System.out.println("Sending message to next hop: " + nextRouter.getHash() + " with tunnel ID: " + nextTunnelID);
         socket.sendMessage(header, nextRouter);
         socket.close();
     }

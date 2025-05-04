@@ -62,37 +62,21 @@ public class TunnelGateway extends TunnelObject{
     }
 
     @Override
-    public void handleMessage(I2NPMessage message) {
+    public void handleMessage(TunnelDataMessage message) {
         // decrypt the message initially client -> router
         // get router info for each hop in the path
         // recursively encrypt the messaege for each hop in the path with the pk
         // skip for now
 
         // temporary just forward the message to the next hop
-        I2NPMessage encryptedMessage = encryptMessage(message);
+        //I2NPMessage encryptedMessage = encryptMessage(message);
+        message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
 
-        sendToNextHop(encryptedMessage);
+        sendToNextHop(message);
     }
 
     private I2NPMessage encryptMessage(I2NPMessage message) {
         I2NPMessage currentPayload = message;
-
-        // Reverse the hop list: we wrap from last hop to first
-        for (int i = hops.size() - 1; i >= 0; i--) {
-            TunnelHopInfo hop = hops.get(i);
-            Integer tunnelId = hop.getSendTunnelId(); // use the tunnel ID for this hop
-    
-            // Wrap the current payload in a new TunnelDataMessage for this hop
-            if (!((currentPayload.toJSONType()) instanceof JSONObject)) {
-                Logger.getInstance().error("We should be a JSONObject here if we want to have payload be JSON," +
-                        " Seth likely fucked up the codebase(many such cases)");
-                throw new IllegalArgumentException("Should be JSONObject or Seth fucked up Sam's codebase");
-            }
-
-            currentPayload = new TunnelDataMessage(tunnelId, (JSONObject) currentPayload.toJSONType());
-        }
-    
-        // Outer layer goes to the first hop in the tunnel
         return currentPayload;
     }
 
@@ -100,6 +84,7 @@ public class TunnelGateway extends TunnelObject{
         try {
             int msgID = new SecureRandom().nextInt(); // generate a random message ID, with secure random
 
+            
             // create header for the message
             I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELDATA, msgID, System.currentTimeMillis() + 10, encryptedMessage);
             I2NPSocket socket = new I2NPSocket();
