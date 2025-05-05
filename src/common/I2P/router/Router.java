@@ -1,10 +1,11 @@
 package common.I2P.router;
 
-import common.I2P.I2NP.*;
+import common.I2P.I2NP.DatabaseLookup;
+import common.I2P.I2NP.DatabaseStore;
+import common.I2P.I2NP.I2NPHeader;
 import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
-import common.I2P.tunnels.Tunnel;
 import common.I2P.tunnels.TunnelManager;
 import common.Logger;
 import common.transport.I2CP.I2CPMessage;
@@ -19,8 +20,10 @@ import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.security.*;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Class represents Core Router module of I2P
@@ -231,8 +234,11 @@ public class Router implements Runnable {
     public void run() {
         // Generate keys and create RouterInfo
         elgamalKeyPair = generateKeyPairElGamal();
+        System.err.println("Generated elgamal key");
+
         edKeyPair = generateKeyPairEd();
         routerID = new RouterID(elgamalKeyPair.getPublic(), edKeyPair.getPublic());
+        System.err.println("key used in router id");
         routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), address.getHostName(), RSTPort, edKeyPair.getPrivate());
 
         // Initialize NetDB

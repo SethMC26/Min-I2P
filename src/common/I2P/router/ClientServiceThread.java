@@ -185,7 +185,7 @@ public class ClientServiceThread implements Runnable {
                     System.err.println(currInboundTunnelID);
                     System.err.println("Seth made a mistake");
                     //todo seth needs to handle this
-                    return;
+                    //return;
                 }
 
                 if (routerMsg.getType() != REQUESTLEASESET) {
@@ -211,7 +211,6 @@ public class ClientServiceThread implements Runnable {
                 netDB.store(leaseSet);
 
                 buildTunnel(clientDestination, router, false); // outbound
-
                 while (true) { // might be a better way to do this that avoids busy waiting
                     // wait until a new message on socket or a new message has arrived from router
                     if (!(clientSock.hasMessage() || !msgQueue.isEmpty()))
@@ -462,7 +461,11 @@ public class ClientServiceThread implements Runnable {
                         hopInfoInput,
                         replyFlag); // pass the hop info to the record
 
+
                 records.add(record);
+                for (TunnelBuild.Record currRecord : records) {
+                    //currRecord.encryptAES(replyKey);
+                }
             }
 
             // send tunnel build message to the first peer in the list

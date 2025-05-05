@@ -9,7 +9,6 @@ import java.io.InvalidObjectException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
-import java.util.Arrays;
 
 /**
  * Class to uniquely identify router
@@ -26,6 +25,7 @@ public class RouterID implements JSONSerializable {
      * @param edSignPublicKey 32-byte Ed25519 public key for EdDSA signatures
      */
     public RouterID(PublicKey elgamalPublicKey, PublicKey edSignPublicKey) {
+        System.err.println("Created router id with elgamal key " + Base64.toBase64String(elgamalPublicKey.getEncoded()));
         keys = new KeysAndCerts(elgamalPublicKey, edSignPublicKey);
     }
 

@@ -1,14 +1,18 @@
 package common.I2P.I2NP;
 
 import merrimackutil.json.JSONSerializable;
+import merrimackutil.json.JsonIO;
 import merrimackutil.json.types.JSONArray;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
 import org.bouncycastle.util.encoders.Base64;
 
-import javax.crypto.SecretKey;
+import javax.crypto.*;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.InvalidObjectException;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -60,6 +64,29 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             jsonArray.add(record.toJSONType());
         }
         return jsonArray;
+    }
+
+    public void decryptAES(SecretKey secretKey) {
+        for (Record record : records.values()) {
+            try {
+                Cipher dec = Cipher.getInstance("AES/GCM/NoPadding");
+                GCMParameterSpec gcmSpec = new GCMParameterSpec(128, record.replyIv);
+                dec.init(Cipher.DECRYPT_MODE, secretKey,gcmSpec);
+
+                byte[] decByte = dec.doFinal(record.getEncData());
+                record.setEncData(decByte);
+
+            } catch (InvalidAlgorithmParameterException | NoSuchPaddingException |
+                     NoSuchAlgorithmException | IllegalBlockSizeException | BadPaddingException e) {
+                throw new RuntimeException(e); //should not hit case
+            } catch (InvalidKeyException e) {
+                throw new IllegalArgumentException("bad key " + e);
+            }
+        }
+    }
+
+    public Record getRecord(String key) {
+        return records.get(key);
     }
 
     public List<Record> getRecords() {
@@ -115,7 +142,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
          * encypted public key data under elgamal public key of peer
          */
         private byte[] encData; // not part of regular record but enc record
-
+        private byte[] encData2;
         /**
          * Type of tunnel object requested constructor
          */
@@ -190,16 +217,66 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             this.encData = encData;
         }
 
+        public void encryptAES(SecretKey key) {
+            try {
+                Cipher enc = Cipher.getInstance("AES/GCM/NoPadding");
+                GCMParameterSpec gcmSpec = new GCMParameterSpec(128, this.replyIv);
+                enc.init(Cipher.ENCRYPT_MODE,key,gcmSpec);
+                encData = enc.doFinal(this.serialize().getBytes(StandardCharsets.UTF_8));
+            } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | IllegalBlockSizeException |
+                     NoSuchAlgorithmException | BadPaddingException e) {
+                throw new RuntimeException(e); //should not hit case
+            } catch (InvalidKeyException e) {
+                throw new IllegalArgumentException("bad key " + e);
+            }
+        }
+
+        public void elgamalEncrypt(PublicKey pubKey) {
+            try {
+                Cipher elgamal = Cipher.getInstance("ElGamal/None/NoPadding");
+                elgamal.init(Cipher.ENCRYPT_MODE, pubKey);
+                String msg = Base64.toBase64String(this.serialize().getBytes(StandardCharsets.UTF_8));
+                System.out.println(msg.getBytes(StandardCharsets.UTF_8).length);
+                encData = elgamal.doFinal(msg.getBytes(StandardCharsets.UTF_8));
+            } catch (NoSuchPaddingException | BadPaddingException | NoSuchAlgorithmException e) {
+                throw new RuntimeException(e); //should not hit case
+            } catch (IllegalBlockSizeException e) {
+                throw new IllegalArgumentException("Bad block size might need to change implementation");
+            } catch (InvalidKeyException e) {
+                throw new IllegalArgumentException("Bad key " + e);
+            }
+        }
+
+        public void elgamalDecrypt(PrivateKey privKey) throws InvalidObjectException {
+            try {
+                Cipher elgamal = Cipher.getInstance("ElGamal/None/PKCS1Padding");
+                elgamal.init(Cipher.DECRYPT_MODE, privKey);
+
+                byte[] decBytes = elgamal.doFinal(encData);
+                JSONObject json = JsonIO.readObject(new String(decBytes, StandardCharsets.UTF_8));
+
+                this.encData = null;
+                deserialize(json);
+            } catch (NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException |
+                     BadPaddingException e) {
+                throw new RuntimeException(e); //should not hit case in prod
+            } catch (InvalidKeyException e) {
+                throw new IllegalArgumentException("Bad key given" + e);
+            }
+
+        }
+
         @Override
         public void deserialize(JSONType jsonType) throws InvalidObjectException {
             if (!(jsonType instanceof JSONObject))
                 throw new InvalidObjectException("Must be JSONObject");
 
             JSONObject json = (JSONObject) jsonType;
-            json.checkValidity(new String[] { "toPeer", "encData" });
+            json.checkValidity(new String[] { "toPeer", "encData", "replyIV", "replyKey"});
 
             this.toPeer = Base64.decode(json.getString("toPeer"));
-
+            this.replyIv = Base64.decode(json.getString("replyIV"));
+            this.replyKey = new SecretKeySpec(Base64.decode(json.getString("replyKey")), "AES");
             // Check if encData is a JSON object or a Base64 string
             if (json.get("encData") instanceof JSONObject) {
                 JSONObject encDataJSON = json.getObject("encData");
@@ -210,8 +287,6 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 this.nextIdent = Base64.decode(encDataJSON.getString("nextIdent"));
                 this.layerKey = new SecretKeySpec(Base64.decode(encDataJSON.getString("layerKey")), "AES");
                 this.ivKey = new SecretKeySpec(Base64.decode(encDataJSON.getString("IVKey")), "AES");
-                this.replyKey = new SecretKeySpec(Base64.decode(encDataJSON.getString("replyKey")), "AES");
-                this.replyIv = Base64.decode(encDataJSON.getString("replyIV"));
                 this.requestTime = encDataJSON.getLong("requestTime");
                 this.sendMsgID = encDataJSON.getInt("sendMsgID");
                 this.type = TYPE.values()[encDataJSON.getInt("type")];
@@ -229,11 +304,16 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             }
         }
 
+        private void setEncData(byte[] encData) {
+            this.encData = encData;
+        }
+
         @Override
         public JSONObject toJSONType() {
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("toPeer", Base64.toBase64String(toPeer));
-
+            jsonObject.put("replyIV", Base64.toBase64String(replyIv));
+            jsonObject.put("replyKey", Base64.toBase64String(replyKey.getEncoded()));
             if (encData == null) {
                 JSONObject encDataJSON = new JSONObject();
 
@@ -243,8 +323,6 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 encDataJSON.put("nextIdent", Base64.toBase64String(nextIdent));
                 encDataJSON.put("layerKey", Base64.toBase64String(layerKey.getEncoded()));
                 encDataJSON.put("IVKey", Base64.toBase64String(ivKey.getEncoded()));
-                encDataJSON.put("replyKey", Base64.toBase64String(replyKey.getEncoded()));
-                encDataJSON.put("replyIV", Base64.toBase64String(replyIv));
                 encDataJSON.put("requestTime", requestTime);
                 encDataJSON.put("sendMsgID", sendMsgID);
                 encDataJSON.put("type", type.ordinal());
