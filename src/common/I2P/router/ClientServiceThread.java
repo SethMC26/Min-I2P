@@ -410,8 +410,9 @@ public class ClientServiceThread implements Runnable {
                         next = router; // set to client creating request if real for testing set to gateway router
                         ConcurrentLinkedQueue<I2CPMessage> queue = new ConcurrentLinkedQueue<>();
                         queue.add(clientInfo);
-                        currInboundTunnelID = tunnelID;
-                        clientMessages.put(tunnelID, queue);
+                        currInboundTunnelID = receiveTunnel;
+                        clientMessages.put(receiveTunnel, queue);
+                        System.err.println("CST storing conn under " + currInboundTunnelID);
 
                     } else {
                         // Forward reply through inbound tunnel gateway

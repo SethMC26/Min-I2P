@@ -188,7 +188,7 @@ public class RouterServiceThread implements Runnable {
         // PLEASE SAM CHANGE THIS ITS ONLY FOR TESTING UNTIL WE HAVE CLIENT LEASE SETS
         // SAMMMMMMM - love past sam <3
         // this is only for inbound tunnel
-        System.err.println(tunnelBuildReply.getTunnelID());
+        System.err.println("end point id" + tunnelBuildReply.getTunnelID());
 
         // find the tunnelid of the tunnel in the tunnel manager that contains an object with this tunnel id
         int tunnelID = tunnelManager.findAssociatedTunnel(tunnelBuildReply.getTunnelID());
@@ -200,7 +200,6 @@ public class RouterServiceThread implements Runnable {
         if (tunnelManager.getInboundTunnel(tunnelID) != null) {
             //get message queue for client
             ConcurrentLinkedQueue<I2CPMessage> cstMsg = cstMessages.get(tunnelBuildReply.getTunnelID());
-            System.err.println("HERERERERERERERERERERERERER");
             if (cstMsg == null) {
                 log.error("Wrong message from client cannot create inbound tunnels");
                 return false;
