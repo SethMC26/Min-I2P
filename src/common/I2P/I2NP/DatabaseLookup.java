@@ -81,7 +81,7 @@ public class DatabaseLookup extends I2NPMessage{
     }
 
     @Override
-    public JSONType toJSONType() {
+    public JSONObject toJSONType() {
         JSONObject jsonObj = new JSONObject();
         jsonObj.put("key", Base64.toBase64String(key));
         jsonObj.put("from", Base64.toBase64String(fromHash));

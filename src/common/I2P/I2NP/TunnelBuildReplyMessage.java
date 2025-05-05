@@ -1,62 +1,86 @@
 package common.I2P.I2NP;
 
-import java.io.InvalidObjectException;
-import java.util.Base64;
-import java.util.List;
-
-import common.I2P.I2NP.TunnelBuild.Record;
-import merrimackutil.json.types.JSONArray;
+import common.I2P.IDs.RouterID;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
 
-public class TunnelBuildReplyMessage extends I2NPMessage {
-    private List<TunnelBuild.Record> records;
+import java.io.InvalidObjectException;
 
-    public TunnelBuildReplyMessage(List<TunnelBuild.Record> records) {
-        this.records = records;
+public class TunnelBuildReplyMessage extends I2NPMessage {
+
+    /**
+     * The router id of the tunnel gateway
+     */
+    private int nextTunnel;
+
+    /**
+     * Tunnel id of a node in the originating tunnel
+     * (the one that sent the message to the tunnel gateway)
+     */
+    private int tunnelID;
+
+    /**
+     * Boolean value for successful creation or not
+     */
+    boolean isSuccess;
+
+    /**
+     * Reply message for tunnel build, all info to create lease
+     * 
+     * @param tunnelGateway
+     * @param tunnelID
+     * @param isSuccess
+     */
+    public TunnelBuildReplyMessage(int nextTunnel, int tunnelID, boolean isSuccess) {
+        // this.tunnelGateway = tunnelGateway; // i think you can get this in the return router
+        this.nextTunnel = nextTunnel;
+        this.tunnelID = tunnelID;
+        this.isSuccess = isSuccess;
+    }
+
+    public TunnelBuildReplyMessage(JSONObject messageObj) throws InvalidObjectException {
+        deserialize(messageObj);
     }
 
     @Override
-    public void deserialize(JSONType jsonType) throws InvalidObjectException {
-        if (!(jsonType instanceof JSONObject)) {
-            throw new InvalidObjectException("Expected a JSONObject for TunnelBuildReplyMessage");
+    public void deserialize(JSONType arg0) throws InvalidObjectException {
+        if (!(arg0 instanceof JSONObject)) {
+            throw new InvalidObjectException("Must be JSONObject");
         }
 
-        JSONObject jsonObject = (JSONObject) jsonType;
-
-        // Ensure the JSON object contains the records key
-        if (!jsonObject.containsKey("records")) {
-            throw new InvalidObjectException("Missing 'records' key in TunnelBuildReplyMessage JSON");
-        }
-
-        // Extract the records array
-        JSONArray recordsArray = jsonObject.getArray("records");
-
-        // Clear the current records list
-        records.clear();
-
-        // Deserialize each record in the array
-        for (int i = 0; i < recordsArray.size(); i++) {
-            JSONObject recordJSON = recordsArray.getObject(i);
-            TunnelBuild.Record record = new TunnelBuild.Record(recordJSON);
-            records.add(record);
-        }
+        JSONObject jsonObject = (JSONObject) arg0;
+        jsonObject.checkValidity(new String[] {"nextTunnel", "tunnelID", "isSuccess"});
+        //im commenting this out to avoid serialization error - seth
+        //this.tunnelGateway = new RouterID(jsonObject.getObject("tunnelGateway"));
+        this.nextTunnel = jsonObject.getInt("nextTunnel");
+        this.tunnelID = jsonObject.getInt("tunnelID");
+        this.isSuccess = jsonObject.getBoolean("isSuccess");
     }
 
-    // yeah this is probably valid
     @Override
     public JSONObject toJSONType() {
-        JSONArray jsonArray = new JSONArray();
-        for (TunnelBuild.Record record : records) {
-            jsonArray.add(record.toJSONType());
-        }
         JSONObject jsonObject = new JSONObject();
-        jsonObject.put("records", jsonArray);
+        //commenting out to avoid serialization error -seth
+        //jsonObject.put("tunnelGateway", tunnelGateway.toJSONType()); // uhhhhhhh?
+        jsonObject.put("nextTunnel", nextTunnel);
+        jsonObject.put("tunnelID", tunnelID);
+        jsonObject.put("isSuccess", isSuccess);
         return jsonObject;
     }
 
-    public List<TunnelBuild.Record> getRecords() {
-        return records;
+    public int getNextTunnel() {
+        return nextTunnel;
     }
 
+    public int getTunnelID() {
+        return tunnelID;
+    }
+
+    public boolean getIsSuccess() {
+        return isSuccess;
+    }
+
+    public void setNextTunnel(int nextTunnel) {
+        this.nextTunnel = nextTunnel;
+    }
 }

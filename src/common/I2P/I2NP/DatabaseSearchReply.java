@@ -66,7 +66,7 @@ public class DatabaseSearchReply extends I2NPMessage{
     }
 
     @Override
-    public JSONType toJSONType() {
+    public JSONObject toJSONType() {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("key", Base64.toBase64String(key));
         jsonObject.put("from", Base64.toBase64String(fromHash));

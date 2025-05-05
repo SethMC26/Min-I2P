@@ -1,22 +1,26 @@
 package common.I2P.tunnels;
 
-import common.I2P.I2NP.DatabaseLookup;
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.I2NPMessage;
+import common.I2P.I2NP.TunnelBuildReplyMessage;
+import common.I2P.I2NP.TunnelDataMessage;
 import common.I2P.I2NP.TunnelHopInfo;
-import common.I2P.IDs.RouterID;
+import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
+import common.Logger;
 import common.transport.I2NPSocket;
+import merrimackutil.json.types.JSONObject;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
+import java.net.SocketException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
-import java.util.Random;
 
 /**
  * This class represents a gateway in a tunnel
  */
-public class TunnelGateway extends TunnelObject{
+public class TunnelGateway extends TunnelObject {
     /**
      * what router is the next one in the path
      */
@@ -36,71 +40,104 @@ public class TunnelGateway extends TunnelObject{
      */
     private ArrayList<TunnelHopInfo> hops;
 
+    private NetDB netDB;
+
     /**
      * Create TunnelGateway
-     * @param tunnelID Integer ID of tunnel
+     * 
+     * @param tunnelID            Integer ID of tunnel
      * @param tunnelEncryptionKey AES key for encrypting messages
-     * @param tunnelIVKey AES key for IV encryption
-     * @param replyKey AES key for encrypting reply
-     * @param replyIV byte[] reply IV
-     * @param nextHop RouterID hash for next Router in path
-     * @param nextTunnelID Integer TunnelID on next hop
+     * @param tunnelIVKey         AES key for IV encryption
+     * @param replyKey            AES key for encrypting reply
+     * @param replyIV             byte[] reply IV
+     * @param nextHop             RouterID hash for next Router in path
+     * @param nextTunnelID        Integer TunnelID on next hop
      */
     public TunnelGateway(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey, SecretKey replyKey,
-                            byte[] replyIV, byte[] nextHop, Integer nextTunnelID, RouterInfo routerInfo, ArrayList<TunnelHopInfo> hops) {
+            byte[] replyIV, byte[] nextHop, Integer nextTunnelID, RouterInfo routerInfo, ArrayList<TunnelHopInfo> hops,
+            NetDB netDB) {
         super(TYPE.GATEWAY, tunnelID, tunnelEncryptionKey, tunnelIVKey, replyKey, replyIV);
         this.nextHop = nextHop;
         this.nextTunnelID = nextTunnelID;
         this.routerInfo = routerInfo;
         this.hops = hops;
+        this.netDB = netDB;
     }
 
     @Override
-    public void handleMessage(I2NPMessage message) throws IOException {
+    public void handleMessage(I2NPMessage message) {
         // decrypt the message initially client -> router
         // get router info for each hop in the path
         // recursively encrypt the messaege for each hop in the path with the pk
         // skip for now
 
+        if (message instanceof TunnelDataMessage) {
+            System.out.println("TunnelGateway received TunnelDataMessage");
+            handleTunnelDataMessage((TunnelDataMessage) message);
+        } else if (message instanceof TunnelBuildReplyMessage) {
+            System.out.println("TunnelGateway received TunnelBuildReplyMessage");
+            handleTunnelBuildReplyMessage((TunnelBuildReplyMessage) message);
+        } else {
+            System.out.println("TunnelGateway received unknown message type: " + message.getClass().getSimpleName());
+            return;
+        }
+
         // temporary just forward the message to the next hop
-        I2NPHeader encryptedMessage = encryptMessage(message);
+        // I2NPMessage encryptedMessage = encryptMessage(message);
+        // message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
 
-        sendToNextHop(encryptedMessage);
+        // sendToNextHop(message);
     }
 
-    private I2NPHeader encryptMessage(I2NPMessage message) {
-        // Implement encryption using tunnelEncryptionKey and tunnelIVKey
-        return null; // placeholder
-    }
+    private void handleTunnelBuildReplyMessage(TunnelBuildReplyMessage message) {
+        System.out.println("this is what the gateway thinks the next tunnel id is: " + nextTunnelID);
+        message.setNextTunnel(nextTunnelID); // set the tunnel ID for the next hop
 
-    private void sendToNextHop(I2NPHeader encryptedMessage) {
+        int msgID = new SecureRandom().nextInt(); // generate a random message ID, with secure random
+        I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILDREPLY, msgID, System.currentTimeMillis() + 100, message);
         try {
-            // query net db for next hop router info using the hash (nexthop)
-            // create lookup message to send to net db
-            DatabaseLookup lookupMessage = new DatabaseLookup(nextHop, routerInfo.getHash());
-            Random rand = new Random();
-            int msgID = rand.nextInt(Integer.MAX_VALUE);
-
-            I2NPHeader lookupHeader = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, msgID, System.currentTimeMillis() + 10000, lookupMessage);
-
-            // oh wait fuck we need to send this down a tunnel
             I2NPSocket socket = new I2NPSocket();
-            socket.sendMessage(lookupHeader, routerInfo);
-
-            // question will this bypass service thread???
-            I2NPHeader recvMessage = socket.getMessage(); // wait for the response
-            if (recvMessage.getType() != I2NPHeader.TYPE.DATABASESTORE) {
-                System.err.println("Invalid response from next hop: " + recvMessage.getType());
-                return;
-            }
-            //wait uuuuhhhh dont do below we query our own netdb
-
-            // get the router info from the response
-            // RouterInfo nextRouterInfo = (RouterInfo) recvMessage.getMessage();
-
-            socket.close();
+            RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextHop); // this is a dangerous cast could crash here
+            socket.sendMessage(header, nextRouter);
+            socket.close(); // make sure to close socket
+        } catch (SocketException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
         } catch (IOException e) {
-            System.err.println("Failed to send message to next hop: " + e.getMessage());
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        
+    }
+
+    private void handleTunnelDataMessage(TunnelDataMessage message) {
+        message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
+        sendDataToNextHop(message);
+    }
+
+    private I2NPMessage encryptMessage(I2NPMessage message) {
+        I2NPMessage currentPayload = message;
+        return currentPayload;
+    }
+
+    private void sendDataToNextHop(I2NPMessage encryptedMessage) {
+        try {
+            int msgID = new SecureRandom().nextInt(); // generate a random message ID, with secure random
+
+            // create header for the message
+            I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELDATA, msgID, System.currentTimeMillis() + 100,
+                    encryptedMessage);
+            I2NPSocket socket = new I2NPSocket();
+            RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextHop); // this is a dangerous cast could crash here
+                                                                        // should be fixed -seth
+            socket.sendMessage(header, nextRouter);
+
+            socket.close(); // make sure to close socket
+        } catch (SocketException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }

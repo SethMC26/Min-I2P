@@ -1,6 +1,7 @@
 package common.I2P.tunnels;
 
 import common.I2P.I2NP.I2NPMessage;
+import common.I2P.I2NP.TunnelDataMessage;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;

@@ -1,25 +1,27 @@
 package common.I2P.router;
 
 import common.I2P.I2NP.*;
+import common.I2P.I2NP.I2NPHeader.TYPE;
+import common.I2P.NetworkDB.Lease;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.Record;
 import common.I2P.NetworkDB.RouterInfo;
-import common.I2P.tunnels.TunnelEndpoint;
-import common.I2P.tunnels.TunnelGateway;
-import common.I2P.tunnels.TunnelManager;
-import common.I2P.tunnels.TunnelParticipant;
+import common.I2P.tunnels.*;
 import common.Logger;
+import common.transport.I2CP.I2CPMessage;
+import common.transport.I2CP.PayloadMessage;
+import common.transport.I2CP.RequestLeaseSet;
 import common.transport.I2NPSocket;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.net.SocketException;
+import java.security.PrivateKey;
 import java.security.SecureRandom;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Random;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Handle incoming I2NP messages
@@ -56,6 +58,12 @@ public class RouterServiceThread implements Runnable {
     private TunnelManager tunnelManager;
 
     /**
+     * Signing private key for this router
+     */
+    private PrivateKey signingPrivateKey;
+    private ConcurrentHashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> cstMessages;
+
+    /**
      * Create thread to handle router I2NP message
      * 
      * @param networkDatabase Network database of router
@@ -63,13 +71,17 @@ public class RouterServiceThread implements Runnable {
      * @param recievedMessage I2NP message received
      */
     public RouterServiceThread(NetDB networkDatabase, RouterInfo router, I2NPHeader recievedMessage,
-            TunnelManager tunnelManager) {
+            ConcurrentHashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> cstMessages,
+            TunnelManager tunnelManager, PrivateKey signingPrivateKey) {
         this.netDB = networkDatabase;
         this.router = router;
         this.recievedMessage = recievedMessage;
         this.random = new SecureRandom();
         this.log = Logger.getInstance();
         this.isFloodFill = false;
+        this.tunnelManager = tunnelManager;
+        this.cstMessages = cstMessages;
+        this.signingPrivateKey = signingPrivateKey;
     }
 
     /**
@@ -78,8 +90,14 @@ public class RouterServiceThread implements Runnable {
     @Override
     public void run() {
         if (!recievedMessage.isPayloadValid()) {
+            System.out.println("Received corrupted payload" + recievedMessage.toJSONType().getFormattedJSON());
             log.warn("Received corrupted payload");
-            return;// corrupt message - may want to add response for reliable send in future
+            // return;// corrupt message - may want to add response for reliable send in
+            // future
+        }
+
+        if (recievedMessage.getType() == TYPE.TUNNELBUILDREPLY) {
+            System.out.println("Received TunnelBuildReplyMessage: " + recievedMessage.toJSONType().getFormattedJSON());
         }
 
         if (recievedMessage.getExpiration() < System.currentTimeMillis()) {
@@ -90,23 +108,25 @@ public class RouterServiceThread implements Runnable {
 
         switch (recievedMessage.getType()) {
             case DATABASELOOKUP:
-                //To avoid trivial DDOS attacks let make sure no one sets the expiration very high for recursive searches
-                if (recievedMessage.getExpiration() > System.currentTimeMillis() + 1000 ) {
+                // To avoid trivial DDOS attacks let make sure no one sets the expiration very
+                // high for recursive searches
+                if (recievedMessage.getExpiration() > System.currentTimeMillis() + 1000) {
                     log.warn("Received message expiration is too high ignoring");
                     return;
                 }
-                //handle lookup
+                // handle lookup
                 DatabaseLookup lookup = (DatabaseLookup) recievedMessage.getMessage();
                 log.debug("Handling lookup message ");
                 handleLookup(lookup);
                 break;
             case DATABASESEARCHREPLY:
-                //To avoid trivial DDOS attacks let make sure no one sets the expiration very high for recursive searches
-                if (recievedMessage.getExpiration() > System.currentTimeMillis() + 1000 ) {
+                // To avoid trivial DDOS attacks let make sure no one sets the expiration very
+                // high for recursive searches
+                if (recievedMessage.getExpiration() > System.currentTimeMillis() + 1000) {
                     log.warn("Received message expiration is too high ignoring");
                     return;
                 }
-                //handle search reply
+                // handle search reply
                 DatabaseSearchReply searchReply = (DatabaseSearchReply) recievedMessage.getMessage();
                 log.debug("Handling search reply ");
                 handleSearchReply(searchReply);
@@ -122,12 +142,19 @@ public class RouterServiceThread implements Runnable {
                 // todo implement delivery status
                 break;
             case TUNNELBUILD:
+                // handle tunnel build message
                 TunnelBuild tunnelBuild = (TunnelBuild) recievedMessage.getMessage();
                 handleTunnelBuildMessage(tunnelBuild);
                 break;
             case TUNNELBUILDREPLY:
+                System.out.println("TunnelBuildReplyMessage: " + recievedMessage.toJSONType().getFormattedJSON());
                 TunnelBuildReplyMessage tunnelBuildReply = (TunnelBuildReplyMessage) recievedMessage.getMessage();
                 handleTunnelBuildReplyMessage(tunnelBuildReply);
+                break;
+            case TUNNELDATA:
+                TunnelDataMessage tunnelData = (TunnelDataMessage) recievedMessage.getMessage();
+                System.out.println("TunnelDataMessage: " + tunnelData.toJSONType().getFormattedJSON());
+                handleTunnelDataMessage(tunnelData);
                 break;
             default:
                 throw new RuntimeException("Bad message type " + recievedMessage.getType()); // should never hit case in
@@ -135,29 +162,107 @@ public class RouterServiceThread implements Runnable {
         }
     }
 
-    private boolean handleTunnelBuildReplyMessage(TunnelBuildReplyMessage tunnelBuildReply) {
-        // logically know which ones are dummy data and skip over them implement later
-        // as this does not exist
-        // for now we just iterate through all the records
-        // check if each record has 0x0 at the end of the bytes
-        // we do not need to decrypt the data as i havent implemented this
-
-        for (TunnelBuild.Record record : tunnelBuildReply.getRecords()) {
-            int replyValue = record.getSendMsgID();
-            if (replyValue == 0) {
-                log.debug("Success!");
-                // keep tunnel in the TunnelManager
-            } else {
-                // remove the tunnel from the TunnelManager cause it was not successful
-                // impelmenet this later cause idk how to get tunnel id from the record
-            }
+    private void handleTunnelDataMessage(TunnelDataMessage tunnelData) {
+        // get tunnel id from message
+        int tunnelID = tunnelData.getTunnelID();
+        System.out.println("Tunnel ID from message: " + tunnelID);
+        System.out.println("Existing tunnel object ids: ");
+        ConcurrentHashMap<Integer, TunnelObject> tunnelObjects = tunnelManager.getTunnelObjects();
+        for (Map.Entry<Integer, TunnelObject> entry : tunnelObjects.entrySet()) {
+            System.out.println("Tunnel ID: " + entry.getKey() + ", Tunnel Object: " + entry.getValue());
         }
+
+        // get the tunnel from the tunnel manager
+        TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelID);
+        if (cstMessages.containsKey(tunnelID)) {
+            System.err.println("Found client message hurray! adding to queueu under " + tunnelID);
+            ConcurrentLinkedQueue<I2CPMessage> queue = cstMessages.get(tunnelID);
+            queue.add(new PayloadMessage(0, 0, tunnelData.getPayload()));
+            System.out.println(queue.size());
+            return;
+        }
+        System.err.println("Tunnel ID " + tunnelID + " not this inbound endpoint");
+        if (tunnelObject == null) {
+            log.warn("Tunnel object not found for tunnel ID: " + tunnelID);
+            return; // Tunnel not found, handle error appropriately
+        }
+
+        // handle the message in the tunnel object
+        try {
+            tunnelObject.handleMessage(tunnelData);
+        } catch (IOException e) {
+            log.error("Error handling TunnelDataMessage: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private boolean handleTunnelBuildReplyMessage(TunnelBuildReplyMessage tunnelBuildReply) {
+        // next tunnel id is the id of the gateway/participant/endpoint we want to send
+        // it to
+        // while tunnelID is the endpoint of the previous tunnel so we can search for
+        // the tunnel
+        // and create a lease set for it - only if it is an inbound tunnel of course
+
+        System.err.println("end point id " + tunnelBuildReply.getTunnelID());
+
+        System.out.println("nextTunnelId: " + tunnelBuildReply.getNextTunnel());
+
+        if (tunnelManager.getTunnelObject(tunnelBuildReply.getNextTunnel()) != null) {
+            System.out.println("Build reply is for this inbound tunnel");
+            TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelBuildReply.getNextTunnel());
+            try {
+                System.out.println("TunnelBuildReplyMessage: " + tunnelBuildReply.toJSONType().getFormattedJSON());
+                tunnelObject.handleMessage(tunnelBuildReply);
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            return true;
+        } else {
+            System.out.println("Build reply is not for this inbound tunnel");
+            // return false; // Build reply is not for this inbound tunnel
+        }
+
+        // find the tunnelid of the tunnel in the tunnel manager that contains an object
+        // with this tunnel id
+        // this is bad if this happens there are no inbound or outbound tunnels for a
+        // client on this router that contain this id
+        int tunnelID = tunnelManager.findAssociatedTunnel(tunnelBuildReply.getTunnelID());
+        if (tunnelID == -1) {
+            log.error(
+                    "Tunnel ID not found in tunnel manager for tunnel build reply: " + tunnelBuildReply.getTunnelID());
+            return false; // Tunnel ID not found, handle error appropriately
+        }
+
+        if (tunnelManager.getInboundTunnel(tunnelID) != null) {
+
+            // search tunnel manager for the router info of the associated tunnel id
+            Tunnel inboundTunnel = tunnelManager.getInboundTunnel(tunnelID);
+
+            // get the router info of the tunnel id
+            // RouterInfo routerInfo =
+            // inboundTunnel.getTunnelObject(tunnelBuildReply.getTunnelID());
+            RouterInfo routerInfo = inboundTunnel.getTunnelObject(tunnelID);
+
+            // get message queue for client
+            ConcurrentLinkedQueue<I2CPMessage> cstMsg = cstMessages.get(tunnelBuildReply.getTunnelID());
+            if (cstMsg == null) {
+                log.error("Client did not create queue under the right ID");
+                return false;
+            }
+            Lease lease = new Lease(routerInfo.getRouterID(), inboundTunnel.getGatewayTunnelID());
+
+            ArrayList<Lease> leases = new ArrayList<>();
+            leases.add(lease);
+            // give client lease for this inbound tunnel
+            RequestLeaseSet requestLeaseSet = new RequestLeaseSet(0, leases);
+            cstMsg.add(requestLeaseSet);
+        }
+
         return true;
     }
 
     private void handleTunnelBuildMessage(TunnelBuild tunnelBuild) {
-        System.out.println("TunnelBuild message received: " + tunnelBuild.toJSONType().getFormattedJSON());
-
         // iterate through all the records and compare the first 16 bytes of the hash
         // to the toPeer field of the record, if they match we have found the correct
         // record for us
@@ -165,25 +270,32 @@ public class RouterServiceThread implements Runnable {
         for (TunnelBuild.Record record : tunnelBuild.getRecords()) {
             byte[] toPeer = Arrays.copyOf(record.getToPeer(), 16); // only first 16 bytes of the hash
             // check if first 16 byte of hash matches our first 16 bytes of hash
-            if (Arrays.equals(toPeer, Arrays.copyOf(router.getHash(), 16))) {
+            // SAM PLEASE FOR THE LOVE OF GOD DOUBLE CHECK ROUTERID VS ROUTERINFO THIS IS
+            // LIKE THE FIFTH TIME IVE DONE THIS
+            // with love - current same <3
+            if (Arrays.equals(toPeer, Arrays.copyOf(router.getRouterID().getHash(), 16))) {
                 // we have found the correct record for us, now we can send the reply back to
                 // the peer
                 try {
-                    // Decrypt the ElGamal block
+                    // Decrypt the ElGamal
 
                     // Get session key, we skip bloom filter
 
-                    if (!isTimestampValid(record.getRequestTime())) {
+                    if (System.currentTimeMillis() > record.getRequestTime() + 60000) { // allow for 1 minute for
+                                                                                        // tunnelBuild
                         log.warn("Invalid timestamp in tunnel request. Dropping record.");
                         continue;
                     }
-                    
+
                     // byte[] replyBlock = createReplyBlock(record);
                     // record.setEncData(replyBlock);
 
+                    byte[] nextIdent = record.getNextIdent();
+
                     // temp before enc
                     common.I2P.I2NP.TunnelBuild.Record replyRecord = createReplyBlock(record);
-                    record = replyRecord; // replace the record with the reply block
+                    // hey sam seth here we are doing this then checking if it's an endpoint?
+                    // record = replyRecord; // replace the record with the reply block
 
                     // Add the tunnel to the TunnelManager
                     addTunnelToManager(record);
@@ -196,27 +308,40 @@ public class RouterServiceThread implements Runnable {
                         I2NPSocket nextHopSocket = new I2NPSocket();
                         I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, random.nextInt(),
                                 System.currentTimeMillis() + 100, tunnelBuild);
-                        RouterInfo nextRouter = (RouterInfo) netDB.lookup(record.getNextIdent());
+                        RouterInfo nextRouter = validatePeerRouter(record.getNextIdent());
+
+                        if (nextRouter == null) {
+                            log.error("Could not find gateway "
+                                    + Base64.getEncoder().encodeToString(record.getNextIdent()));
+                            return;
+                        }
+
                         nextHopSocket.sendMessage(header, nextRouter);
                         nextHopSocket.close();
                     }
                     // note to self - how do we adjust for recursive decryption on reply records?
 
-                } catch (Exception e) {
-                    log.error("Error processing TunnelBuild record: " + e.getMessage());
-                    e.printStackTrace();
+                } catch (IOException e) {
+                    log.debug("Most likely close is connecting to peer to send message to");
+                    log.error("Error processing TunnelBuild record: ", e);
                 }
             }
         }
-        return;
     }
 
     private void handleEndpointBehavior(TunnelBuild tunnelBuild, common.I2P.I2NP.TunnelBuild.Record record) {
-        TunnelBuildReplyMessage replyMessage = new TunnelBuildReplyMessage(tunnelBuild.getRecords());
-
-        System.out.println("TunnelBuildReply message created: " + replyMessage.toJSONType().getFormattedJSON());
+        TunnelBuildReplyMessage replyMessage;
+        // realistically have a check here that all reply flags are set to true
+        replyMessage = new TunnelBuildReplyMessage(record.getNextTunnel(), record.getReceiveTunnel(), true);
+        System.out.println("TunnelBuildReplyMessage: " + replyMessage.toJSONType().getFormattedJSON());
+        System.out.println("replyMessage: " + replyMessage.toJSONType().getFormattedJSON());
         // query netdb for router info of next hop
-        RouterInfo nextRouter = (RouterInfo) netDB.lookup(record.getOurIdent()); // gets router info record right?
+        RouterInfo nextRouter = validatePeerRouter(record.getNextIdent());
+        if (nextRouter == null) {
+            log.error("Could not find endpoint " + Base64.getEncoder().encodeToString(record.getNextIdent()));
+            return;
+        }
+
         // forward message to next hop
         I2NPSocket nextHopSocket = null;
         try {
@@ -224,16 +349,19 @@ public class RouterServiceThread implements Runnable {
             // create new header
             I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILDREPLY, random.nextInt(),
                     System.currentTimeMillis() + 100, replyMessage);
-            nextHopSocket.sendMessage(header, nextRouter);
+            nextHopSocket.sendMessage(header, nextRouter); // send directly to router
+            // this may need to changed in final implementation for security reasons
             nextHopSocket.close();
         } catch (IOException e) {
             if (nextHopSocket != null)
                 nextHopSocket.close();
             log.error("Error sending TunnelBuildReply message: " + e.getMessage());
         }
+        return;
     }
 
-    // switch thsi from bytes to record and have sendmsgid be the reply bit yyyyyasudyasukdghasjhdgashjdgha
+    // switch thsi from bytes to record and have sendmsgid be the reply bit
+    // yyyyyasudyasukdghasjhdgashjdgha
     private common.I2P.I2NP.TunnelBuild.Record createReplyBlock(common.I2P.I2NP.TunnelBuild.Record record) {
         // go through the record and replace everything with a random value
         // however, make sendmsgid be 0
@@ -256,7 +384,7 @@ public class RouterServiceThread implements Runnable {
         // next ident byte
         byte[] nextIdent = new byte[32];
         random.nextBytes(nextIdent);
-        
+
         // layer key secret
         SecretKey layerKey = new SecretKeySpec(new byte[32], "AES");
         random.nextBytes(layerKey.getEncoded());
@@ -268,7 +396,7 @@ public class RouterServiceThread implements Runnable {
         // reply key secret
         SecretKey replyKey = new SecretKeySpec(new byte[32], "AES");
         random.nextBytes(replyKey.getEncoded());
-       
+
         // reply iv bytes
         byte[] replyIv = new byte[16];
         random.nextBytes(replyIv);
@@ -293,15 +421,6 @@ public class RouterServiceThread implements Runnable {
         return replyRecord;
     }
 
-    private boolean isTimestampValid(long requestTime) {
-        long currentTime = System.currentTimeMillis() / 1000;
-        long requestHour = requestTime / 3600;
-        long currentHour = currentTime / 3600;
-
-        // Allow for clock skew (5 minutes ahead, 65 minutes behind)
-        return requestHour == currentHour || requestHour == currentHour - 1;
-    }
-
     private void addTunnelToManager(TunnelBuild.Record record) {
         if (record.getPosition() == TunnelBuild.Record.TYPE.GATEWAY) {
             TunnelGateway tunnelGateway = new TunnelGateway(
@@ -313,7 +432,8 @@ public class RouterServiceThread implements Runnable {
                     record.getNextIdent(),
                     record.getNextTunnel(),
                     router,
-                    record.getHopInfo());
+                    record.getHopInfo(),
+                    netDB);
             tunnelManager.addTunnelObject(record.getReceiveTunnel(), tunnelGateway);
             log.info("Added tunnel gateway for tunnel ID: " + record.getReceiveTunnel());
         } else if (record.getPosition() == TunnelBuild.Record.TYPE.ENDPOINT) {
@@ -324,7 +444,8 @@ public class RouterServiceThread implements Runnable {
                     record.getReplyKey(),
                     record.getReplyIv(),
                     router.getHash(),
-                    router.getPort());
+                    router.getPort(),
+                    netDB);
             tunnelManager.addTunnelObject(record.getReceiveTunnel(), tunnelEndpoint);
             log.info("Added tunnel endpoint for tunnel ID: " + record.getReceiveTunnel());
         } else {
@@ -335,7 +456,8 @@ public class RouterServiceThread implements Runnable {
                     record.getReplyKey(),
                     record.getReplyIv(),
                     record.getNextIdent(),
-                    record.getNextTunnel());
+                    record.getNextTunnel(),
+                    netDB);
             tunnelManager.addTunnelObject(record.getReceiveTunnel(), tunnelParticipant);
             log.info("Added tunnel participant for tunnel ID: " + record.getReceiveTunnel());
         }
@@ -404,7 +526,8 @@ public class RouterServiceThread implements Runnable {
             for (RouterInfo currPeer : netDB.getKClosestRouterInfos(lookup.getKey(), 3)) {
                 closestPeersHashes.add(currPeer.getHash());
             }
-            // create message to send to requesting router make sure to decrease expiration so search will timeout
+            // create message to send to requesting router make sure to decrease expiration
+            // so search will timeout
             result = new I2NPHeader(I2NPHeader.TYPE.DATABASESEARCHREPLY, recievedMessage.getMsgID(),
                     recievedMessage.getExpiration() - 10,
                     new DatabaseSearchReply(lookup.getKey(), closestPeersHashes, router.getHash()));
@@ -461,7 +584,7 @@ public class RouterServiceThread implements Runnable {
                     RouterInfo peerRouterInfo = (RouterInfo) peerRecord;
 
                     try {
-                        //we will decrease expiration so recursive search expires
+                        // we will decrease expiration so recursive search expires
                         I2NPHeader lookupMessage = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
                                 recievedMessage.getExpiration() - 10,
                                 new DatabaseLookup(searchReply.getKey(), router.getHash()));
@@ -480,35 +603,34 @@ public class RouterServiceThread implements Runnable {
     }
 
     private void handleStore(DatabaseStore store) {
-        // if we do not have record we use floodfill record by sending it to 3 friends(Routers)
+        // if we do not have record we use floodfill record by sending it to 3
+        // friends(Routers)
         if (isFloodFill && (netDB.lookup(store.getKey()) == null)) {
-            ArrayList<RouterInfo> closestPeers=
-                    netDB.getKClosestRouterInfos(store.getKey(), 3);
+            ArrayList<RouterInfo> closestPeers = netDB.getKClosestRouterInfos(store.getKey(), 3);
             I2NPSocket floodSock = null;
             try {
-                //create socket to send store request to peers
+                // create socket to send store request to peers
                 floodSock = new I2NPSocket();
-            }
-            catch (SocketException e) {
+            } catch (SocketException e) {
                 System.err.println("Could not connect to peers " + e.getMessage());
             }
 
-            //send store request to nearest peers
+            // send store request to nearest peers
             for (RouterInfo peer : closestPeers) {
                 log.trace("Sending flood store to peer: " + peer.getPort());
-                //create send store request, we will say store request valid for 100 ms(store request ok to live longer)
+                // create send store request, we will say store request valid for 100 ms(store
+                // request ok to live longer)
                 I2NPHeader peerMSG = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, random.nextInt(),
                         System.currentTimeMillis() + 100, new DatabaseStore(store.getRecord()));
-                //send message to peer
+                // send message to peer
                 try {
                     floodSock.sendMessage(peerMSG, peer);
-                }
-                catch (IOException e) {
+                } catch (IOException e) {
                     log.error("RST: Issue in floodfill connecting to peer ", e);
                 }
             }
-            //close socket if created
-            if (floodSock != null )
+            // close socket if created
+            if (floodSock != null)
                 floodSock.close();
 
         }
@@ -517,7 +639,8 @@ public class RouterServiceThread implements Runnable {
 
         if (store.getReplyToken() > 0) {
             DeliveryStatus deliveryStatus = new DeliveryStatus(recievedMessage.getMsgID(), System.currentTimeMillis());
-            int tunnelID = store.getReplyTunnelID(); // this is set in setReply but setReply is never called so this is null
+            int tunnelID = store.getReplyTunnelID(); // this is set in setReply but setReply is never called so this is
+                                                     // null
             byte[] replyGatewayHash = store.getReplyGateway(); // see prev comment
             try {
                 I2NPSocket replySock = new I2NPSocket();
@@ -525,9 +648,9 @@ public class RouterServiceThread implements Runnable {
                         System.currentTimeMillis() + 100, deliveryStatus);
                 // send delivery status directly to the router, no tunnels (chicken and egg?)
                 // uhhhhh i think i can make tunnels before this? maybe? idk
-                // well actually were doing a direct query to this router anyways so a direct reply is fine
+                // well actually were doing a direct query to this router anyways so a direct
+                // reply is fine
 
-                
             } catch (SocketException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
@@ -576,6 +699,24 @@ public class RouterServiceThread implements Runnable {
     }
 
     /**
+     * Verify that a peer exists in NetDB and they are a RouterInfo - will attempt
+     * to find them if they are not in netDB
+     *
+     * @param hash Hash of peer to validate
+     * @return RouterInfo of peer or null if they do not exist
+     */
+    private RouterInfo validatePeerRouter(byte[] hash) {
+        Record record = netDB.lookup(hash);
+        if (record == null || record.getRecordType() == Record.RecordType.LEASESET) {
+            findPeerRecordForReply(100, hash); // if record is bad ask our friends to find proper one
+            record = netDB.lookup(hash);
+        }
+        if (record == null || record.getRecordType() == Record.RecordType.LEASESET) // if still bad return null
+            return null;
+        return (RouterInfo) record;
+    }
+
+    /**
      * Get the received message - temp method for testing
      * 
      * @return I2NPHeader message received
@@ -586,6 +727,7 @@ public class RouterServiceThread implements Runnable {
 
     /**
      * Turn on floodfill algorithm for new store requests to this router
+     *
      * @param isFloodFill Boolean to turn floodfill on/off
      */
     public void setFloodFill(boolean isFloodFill) {

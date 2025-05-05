@@ -24,8 +24,24 @@ public class TunnelManager {
         inboundTunnels.put(tunnelID, tunnel);
     }
 
+    /**
+     * Add an outbound tunnel to the list of outbound tunnels
+     * @param tunnelID
+     * @param tunnel
+     */
     public void addOutboundTunnel(Integer tunnelID, Tunnel tunnel) {
         outboundTunnels.put(tunnelID, tunnel);
+    }
+
+    public int findAssociatedTunnel(int tunnelObjectID) {
+        // return the tunnelID of the tunnel that contains the tunnelObjectID
+        for (Integer tunnelID : inboundTunnels.keySet()) {
+            Tunnel tunnel = inboundTunnels.get(tunnelID);
+            if (tunnel.getTunnelObject(tunnelObjectID) != null) {
+                return tunnelID;
+            }
+        }
+        return -1; // not found
     }
 
     public Tunnel getInboundTunnel(Integer tunnelID) {
@@ -34,6 +50,10 @@ public class TunnelManager {
 
     public Tunnel getOutboundTunnel(Integer tunnelID) {
         return outboundTunnels.get(tunnelID);
+    }
+
+    public ConcurrentHashMap<Integer, Tunnel> getOutboundTunnels() {
+        return outboundTunnels;
     }
 
     public void removeInboundTunnel(Integer tunnelID) {
@@ -54,6 +74,10 @@ public class TunnelManager {
 
     public void removeTunnelObject(Integer tunnelID) {
         tunnelObjects.remove(tunnelID);
+    }
+
+    public ConcurrentHashMap<Integer, TunnelObject> getTunnelObjects() {
+        return tunnelObjects;
     }
 
 }

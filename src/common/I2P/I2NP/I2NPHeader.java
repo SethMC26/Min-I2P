@@ -21,7 +21,8 @@ public class I2NPHeader implements JSONSerializable {
         DATABASESEARCHREPLY(3),
         DELIVERYSTATUS(10),
         TUNNELBUILD(21),
-        TUNNELBUILDREPLY(22);
+        TUNNELBUILDREPLY(22),
+        TUNNELDATA(23);
 
         //below code courtesy of chatGPT
         private final int value;
@@ -107,6 +108,7 @@ public class I2NPHeader implements JSONSerializable {
             throw new InvalidObjectException("jsontype must be JSONObject");
         JSONObject messageJSON = (JSONObject) jsonType;
 
+        // update thsi for header eventually
         messageJSON.checkValidity(new String[] {"type", "msgID", "expiration", "chks", "message"});
 
         //get enum from int value
@@ -116,23 +118,27 @@ public class I2NPHeader implements JSONSerializable {
         //decode bytes in base64 strings
         chks = Base64.decode(messageJSON.getString("chks"));
 
-        JSONObject messageObj = messageJSON.getObject("message");
-
         switch (type) {
             case TYPE.DATABASESTORE:
-                message = new DatabaseStore(messageObj);
+                message = new DatabaseStore(messageJSON.getObject("message"));
                 break;
             case TYPE.DATABASELOOKUP:
-                message = new DatabaseLookup(messageObj);
+                message = new DatabaseLookup(messageJSON.getObject("message"));
                 break;
             case TYPE.DATABASESEARCHREPLY:
-                message = new DatabaseSearchReply(messageObj);
+                message = new DatabaseSearchReply(messageJSON.getObject("message"));
                 break;
             case TYPE.DELIVERYSTATUS:
-                message = new DeliveryStatus(messageObj);
+                message = new DeliveryStatus(messageJSON.getObject("message"));
                 break;
             case TYPE.TUNNELBUILD:
-                message = new TunnelBuild(messageObj);
+                message = new TunnelBuild(messageJSON.getArray("message"));
+                break;
+            case TYPE.TUNNELBUILDREPLY:
+                message = new TunnelBuildReplyMessage(messageJSON.getObject("message"));
+                break;
+            case TYPE.TUNNELDATA:
+                message = new TunnelDataMessage(messageJSON.getObject("message"));
                 break;
             default:
                 throw new InvalidObjectException("Bad type: " + type);
