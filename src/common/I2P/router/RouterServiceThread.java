@@ -1,7 +1,6 @@
 package common.I2P.router;
 
 import common.I2P.I2NP.*;
-import common.I2P.I2NP.I2NPHeader.TYPE;
 import common.I2P.NetworkDB.Lease;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.Record;
@@ -12,11 +11,13 @@ import common.transport.I2CP.I2CPMessage;
 import common.transport.I2CP.PayloadMessage;
 import common.transport.I2CP.RequestLeaseSet;
 import common.transport.I2NPSocket;
+import merrimackutil.util.NonceCache;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.net.SocketException;
+import java.nio.ByteBuffer;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.util.*;
@@ -61,6 +62,7 @@ public class RouterServiceThread implements Runnable {
      * Signing private key for this router
      */
     private PrivateKey signingPrivateKey;
+    private NonceCache nonceCache;
     private ConcurrentHashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> cstMessages;
 
     /**
@@ -82,6 +84,7 @@ public class RouterServiceThread implements Runnable {
         this.tunnelManager = tunnelManager;
         this.cstMessages = cstMessages;
         this.signingPrivateKey = signingPrivateKey;
+        this.nonceCache = new NonceCache(Integer.BYTES, 60);
     }
 
     /**
@@ -95,13 +98,16 @@ public class RouterServiceThread implements Runnable {
             // return;// corrupt message - may want to add response for reliable send in
             // future
         }
-
-        if (recievedMessage.getType() == TYPE.TUNNELBUILDREPLY) {
-            System.out.println("Received TunnelBuildReplyMessage: " + recievedMessage.toJSONType().getFormattedJSON());
+        //get messageID as bytes
+        byte[] msgID = ByteBuffer.allocate(Integer.BYTES).putInt(recievedMessage.getMsgID()).array();
+        if (nonceCache.containsNonce(msgID)) {
+            log.warn("Received repeated message ID dropping message");
+            return;
         }
+        nonceCache.addNonce(msgID);
 
         if (recievedMessage.getExpiration() < System.currentTimeMillis()) {
-            log.warn("Received expired message");
+            log.info("Received expired message");
             return; // message has expired throw away
         }
         log.trace("Received message " + recievedMessage.toJSONType().getFormattedJSON());
@@ -147,13 +153,11 @@ public class RouterServiceThread implements Runnable {
                 handleTunnelBuildMessage(tunnelBuild);
                 break;
             case TUNNELBUILDREPLY:
-                System.out.println("TunnelBuildReplyMessage: " + recievedMessage.toJSONType().getFormattedJSON());
                 TunnelBuildReplyMessage tunnelBuildReply = (TunnelBuildReplyMessage) recievedMessage.getMessage();
                 handleTunnelBuildReplyMessage(tunnelBuildReply);
                 break;
             case TUNNELDATA:
                 TunnelDataMessage tunnelData = (TunnelDataMessage) recievedMessage.getMessage();
-                System.out.println("TunnelDataMessage: " + tunnelData.toJSONType().getFormattedJSON());
                 handleTunnelDataMessage(tunnelData);
                 break;
             default:
