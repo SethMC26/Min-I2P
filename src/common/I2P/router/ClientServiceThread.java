@@ -5,6 +5,7 @@ import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.TunnelBuild;
 import common.I2P.I2NP.TunnelHopInfo;
 import common.I2P.IDs.Destination;
+import common.I2P.NetworkDB.Lease;
 import common.I2P.NetworkDB.LeaseSet;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.Record;
@@ -26,6 +27,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -397,7 +399,7 @@ public class ClientServiceThread implements Runnable {
 
                 TunnelBuild.Record.TYPE position = null;
 
-                RouterInfo next;
+                RouterInfo next = null;
                 int nextTunnel = 0; // this is the tunnel id for the next hop default to 0 for outbound creation
                 if (i == 0) {
                     position = TunnelBuild.Record.TYPE.GATEWAY;
@@ -410,14 +412,21 @@ public class ClientServiceThread implements Runnable {
                         next = router; // set to client creating request if real for testing set to gateway router
                         ConcurrentLinkedQueue<I2CPMessage> queue = new ConcurrentLinkedQueue<>();
                         queue.add(clientInfo);
-                        currInboundTunnelID = receiveTunnel;
-                        clientMessages.put(receiveTunnel, queue);
-                        System.err.println("CST storing conn under " + currInboundTunnelID);
+                        currInboundTunnelID = tunnelID;
+                        clientMessages.put(tunnelID, queue);
 
                     } else {
                         // Forward reply through inbound tunnel gateway
-                        next = this.lastInboundFirstPeer;
-                        nextTunnel = this.lastInboundTunnelID;
+                        LeaseSet leaseSet = (LeaseSet) netDB.lookup(clientInfo.getDestination().getHash());
+                        if (leaseSet == null) {
+                            log.warn("LeaseSet not found for destination " + clientInfo.getDestination().getHash());
+                            throw new IllegalStateException("LeaseSet not found for destination " + clientInfo.getDestination().getHash());
+                        }
+                        HashSet<Lease> leases = leaseSet.getLeases(); // get the first lease from the leaseset
+                        Lease lease = leases.iterator().next(); // get the first lease from the leaseset
+                        byte[] gatewayHash = lease.getTunnelGW();
+                        next = (RouterInfo) netDB.lookup(gatewayHash); // get the router info for the gateway
+                        nextTunnel = lease.getTunnelID(); // get the tunnel id for the gateway
                     }
                 } else {
                     position = TunnelBuild.Record.TYPE.PARTICIPANT;

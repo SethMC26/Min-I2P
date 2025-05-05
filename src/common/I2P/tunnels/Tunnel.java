@@ -24,7 +24,7 @@ public class Tunnel {
         routers.put(tunnelID, router);
     }
 
-    public Object getTunnelObject(int tunnelObjectID) {
+    public RouterInfo getTunnelObject(int tunnelObjectID) {
         // Get the TunnelObject from the tunnel
         return routers.get(tunnelObjectID);
     }
