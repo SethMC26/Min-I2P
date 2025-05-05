@@ -1,4 +1,4 @@
-package server;
+package server.databases;
 
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.JsonIO;
@@ -18,7 +18,7 @@ public class UsersDatabase implements JSONSerializable {
     private ConcurrentHashMap<String, User> users = new ConcurrentHashMap<>();
     private File file;
 
-    UsersDatabase(String path) {
+    public UsersDatabase(String path) {
         this.file = new File(path);
         if (!file.exists()) {
             try {

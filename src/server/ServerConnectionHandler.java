@@ -6,6 +6,9 @@ import common.message.Message;
 import common.message.Request;
 import common.message.Response;
 import org.bouncycastle.util.encoders.Base64;
+import server.databases.AudioDatabase;
+import server.databases.User;
+import server.databases.UsersDatabase;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;

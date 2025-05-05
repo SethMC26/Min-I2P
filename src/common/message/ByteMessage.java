@@ -9,6 +9,7 @@ import java.io.InvalidObjectException;
 public class ByteMessage extends Message {
 
     private byte[] data;
+    private int id;
 
     /**
      * Constructor for the user to send a byte message
@@ -16,9 +17,10 @@ public class ByteMessage extends Message {
      * @param type - String type of message
      * @param data - byte[] data of the message
      */
-    public ByteMessage(String type, byte[] data) {
+    public ByteMessage(String type, byte[] data, int id) {
         super(type);
         this.data = data;
+        this.id = id;
     }
 
     /**
@@ -39,9 +41,10 @@ public class ByteMessage extends Message {
 
         JSONObject obj = (JSONObject) jsonType;
 
-        obj.checkValidity(new String[]{"data"});
+        obj.checkValidity(new String[]{"data", "id"});
 
         String temp = obj.getString("data");
+        this.id = obj.getInt("id");
         data = Base64.decode(temp);
     }
 
@@ -50,11 +53,16 @@ public class ByteMessage extends Message {
         JSONObject obj = super.toJSONType();
 
         obj.put("data", Base64.toBase64String(data));
+        obj.put("id", id);
 
         return obj;
     }
 
     public byte[] getData() {
         return data;
+    }
+
+    public int getId() {
+        return id;
     }
 }

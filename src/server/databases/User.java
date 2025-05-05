@@ -1,4 +1,4 @@
-package server;
+package server.databases;
 
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.types.JSONObject;

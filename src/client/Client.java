@@ -321,11 +321,11 @@ public class Client {
 
             LinkedBlockingQueue<byte[]> queue = new LinkedBlockingQueue<>();
 
-            EnqueueThread enqueueThread = new EnqueueThread(queue, socket);
+            EnqueueClient enqueueThread = new EnqueueClient(queue, socket);
             Thread enqueue = new Thread(enqueueThread);
             enqueue.start();
 
-            DequeueThread dequeueThread = new DequeueThread(queue);
+            DequeueClient dequeueThread = new DequeueClient(queue);
             Thread dequeue = new Thread(dequeueThread);
             dequeue.start();
         }

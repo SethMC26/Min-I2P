@@ -8,7 +8,7 @@ import common.message.Response;
 import java.nio.ByteBuffer;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class EnqueueThread implements Runnable {
+public class EnqueueClient implements Runnable {
 
     private final LinkedBlockingQueue<byte[]> QUEUE;
     private final MessageSocket SOCKET;
@@ -19,7 +19,7 @@ public class EnqueueThread implements Runnable {
      * @param queue - ConcurrentLinkedQueue of byte arrays
      * @param socket - MessageSocket object to communicate with the server
      */
-    public EnqueueThread(LinkedBlockingQueue<byte[]> queue, MessageSocket socket) {
+    public EnqueueClient(LinkedBlockingQueue<byte[]> queue, MessageSocket socket) {
         this.QUEUE = queue;
         this.SOCKET = socket;
     }

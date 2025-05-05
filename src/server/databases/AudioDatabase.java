@@ -1,4 +1,4 @@
-package server;
+package server.databases;
 
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.JsonIO;
@@ -18,7 +18,7 @@ public class AudioDatabase implements JSONSerializable {
     private File file;
     private String audioFilePath;
 
-    AudioDatabase(String path, String audioFilePath) {
+    public AudioDatabase(String path, String audioFilePath) {
         this.audioFilePath = audioFilePath;
         this.file = new File(path);
         if (!file.exists()) {

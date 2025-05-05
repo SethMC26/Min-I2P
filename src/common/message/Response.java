@@ -44,6 +44,7 @@ public class Response extends Message {
         JSONObject messageJSON = (JSONObject) jsonType;
 
         messageJSON.checkValidity(new String[] { "status", "payload" });
+
         status = messageJSON.getBoolean("status");
         payload = messageJSON.getString("payload");
     }

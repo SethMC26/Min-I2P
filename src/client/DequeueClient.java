@@ -3,7 +3,7 @@ package client;
 import javax.sound.sampled.*;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class DequeueThread implements Runnable {
+public class DequeueClient implements Runnable {
 
     private final LinkedBlockingQueue<byte[]> QUEUE;
 
@@ -12,7 +12,7 @@ public class DequeueThread implements Runnable {
      *
      * @param queue - LinkedBlockingQueue of byte arrays
      */
-    public DequeueThread(LinkedBlockingQueue<byte[]> queue) {
+    public DequeueClient(LinkedBlockingQueue<byte[]> queue) {
         this.QUEUE = queue;
     }
 
