@@ -71,14 +71,14 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             try {
                 Cipher dec = Cipher.getInstance("AES/GCM/NoPadding");
                 GCMParameterSpec gcmSpec = new GCMParameterSpec(128, record.replyIv);
-                dec.init(Cipher.DECRYPT_MODE, secretKey,gcmSpec);
+                dec.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec);
 
                 byte[] decByte = dec.doFinal(record.getEncData());
                 record.setEncData(decByte);
 
-            } catch (InvalidAlgorithmParameterException | NoSuchPaddingException |
-                     NoSuchAlgorithmException | IllegalBlockSizeException | BadPaddingException e) {
-                throw new RuntimeException(e); //should not hit case
+            } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | NoSuchAlgorithmException
+                    | IllegalBlockSizeException | BadPaddingException e) {
+                throw new RuntimeException(e); // should not hit case
             } catch (InvalidKeyException e) {
                 throw new IllegalArgumentException("bad key " + e);
             }
@@ -143,6 +143,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
          */
         private byte[] encData; // not part of regular record but enc record
         private byte[] encData2;
+
         /**
          * Type of tunnel object requested constructor
          */
@@ -191,6 +192,10 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
          * @param replyIv       The 16-byte IV used for reply messages.
          * @param requestTime   The epoch time (in seconds) when the request was made.
          * @param sendMsgID     The ID of the sent message.
+         * @param type          The type of the tunnel object requested.
+         * @param hopInfo       An ArrayList of TunnelHopInfo objects representing the
+         *                      hops in the tunnel.
+         * @param replyFlag     A flag indicating if this is a reply message.
          */
         public Record(byte[] toPeer, int receiveTunnel, byte[] ourIdent, int nextTunnel, byte[] nextIdent,
                 SecretKey layerKey,
@@ -212,40 +217,245 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             this.replyFlag = replyFlag;
         }
 
+        /**
+         * Constructs a new {@code Record} instance with the specified toPeer and
+         * encData.
+         *
+         * @param toPeer  The first 16 bytes of the SHA-256 hash of the peer's
+         *                RouterIdentity.
+         * @param encData The encrypted data associated with this record.
+         */
         public Record(byte[] toPeer, byte[] encData) {
             this.toPeer = toPeer;
             this.encData = encData;
         }
 
-        public void encryptAES(SecretKey key) {
+        /**
+         * Encrypts the record using a hybrid encryption scheme. It uses ElGamal to
+         * encrypt the toPeer, replyKey, and replyIV fields, and AES to encrypt the rest
+         * of the record.
+         * 
+         * @param elgamalPublicKey
+         * @param aesKey
+         */
+        public void hybridEncrypt(PublicKey elgamalPublicKey, SecretKey aesKey) {
+            try {
+                // Encrypt the toPeer, replyKey, and replyIV fields using ElGamal
+                Cipher elgamalCipher = Cipher.getInstance("ElGamal/None/NoPadding");
+                elgamalCipher.init(Cipher.ENCRYPT_MODE, elgamalPublicKey);
+
+                byte[] encryptedToPeer = elgamalCipher.doFinal(this.toPeer);
+                byte[] encryptedReplyKey = elgamalCipher.doFinal(this.replyKey.getEncoded());
+                byte[] encryptedReplyIv = elgamalCipher.doFinal(this.replyIv);
+
+                // Encrypt the remaining fields using AES
+                Cipher aesCipher = Cipher.getInstance("AES/GCM/NoPadding");
+                GCMParameterSpec gcmSpec = new GCMParameterSpec(128, this.replyIv);
+                aesCipher.init(Cipher.ENCRYPT_MODE, aesKey, gcmSpec);
+
+                JSONObject remainingFeilds = new JSONObject();
+                remainingFeilds.put("receiveTunnel", receiveTunnel);
+                remainingFeilds.put("ourIdent", Base64.toBase64String(ourIdent));
+                remainingFeilds.put("nextTunnel", nextTunnel);
+                remainingFeilds.put("nextIdent", Base64.toBase64String(nextIdent));
+                remainingFeilds.put("layerKey", Base64.toBase64String(layerKey.getEncoded()));
+                remainingFeilds.put("IVKey", Base64.toBase64String(ivKey.getEncoded()));
+                remainingFeilds.put("requestTime", requestTime);
+                remainingFeilds.put("sendMsgID", sendMsgID);
+                remainingFeilds.put("type", type.ordinal());
+                remainingFeilds.put("replyFlag", replyFlag);
+
+                JSONArray hopInfoArray = new JSONArray();
+                if (hopInfo != null) {
+                    for (TunnelHopInfo hop : hopInfo) {
+                        hopInfoArray.add(hop.toJSONType());
+                    }
+                }
+                remainingFeilds.put("hopInfo", hopInfoArray);
+
+                byte[] aesEncryptedData = aesCipher
+                        .doFinal(remainingFeilds.toString().getBytes(StandardCharsets.UTF_8));
+
+                // Create a JSON object to hold the encrypted data
+                JSONObject encryptedData = new JSONObject();
+                encryptedData.put("encryptedToPeer", Base64.toBase64String(encryptedToPeer));
+                encryptedData.put("encryptedReplyKey", Base64.toBase64String(encryptedReplyKey));
+                encryptedData.put("encryptedReplyIv", Base64.toBase64String(encryptedReplyIv));
+                encryptedData.put("encryptedData", Base64.toBase64String(aesEncryptedData));
+
+                // Store the encrypted data as a byte array
+                this.encData = encryptedData.toString().getBytes(StandardCharsets.UTF_8);
+            } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException
+                    | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
+                throw new RuntimeException("Encryption error: " + e.getMessage(), e);
+            }
+        }
+
+        // More or less an example for seth, should we have individual encrypt and decrypt
+        // method for each chunk?
+        /**
+         * Elgamal encrypts only the toPeer, replyKey, and replyIV fields.
+         *
+         * @param elgamalPublicKey The public key to use for ElGamal encryption.
+         */
+        public void elgamalEncrypt(PublicKey elgamalPublicKey) {
+            try {
+                // Encrypt the toPeer, replyKey, and replyIV fields using ElGamal
+                Cipher elgamalCipher = Cipher.getInstance("ElGamal/None/NoPadding");
+                elgamalCipher.init(Cipher.ENCRYPT_MODE, elgamalPublicKey);
+
+                byte[] encryptedToPeer = elgamalCipher.doFinal(this.toPeer);
+                byte[] encryptedReplyKey = elgamalCipher.doFinal(this.replyKey.getEncoded());
+                byte[] encryptedReplyIv = elgamalCipher.doFinal(this.replyIv);
+
+                // Store the encrypted data in a JSON object
+                JSONObject encryptedData = new JSONObject();
+                encryptedData.put("encryptedToPeer", Base64.toBase64String(encryptedToPeer));
+                encryptedData.put("encryptedReplyKey", Base64.toBase64String(encryptedReplyKey));
+                encryptedData.put("encryptedReplyIv", Base64.toBase64String(encryptedReplyIv));
+
+                // Save to enc data as a byte array
+                this.encData = encryptedData.toString().getBytes(StandardCharsets.UTF_8);
+            } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException
+                    | IllegalBlockSizeException | BadPaddingException e) {
+                throw new RuntimeException("Encryption error: " + e.getMessage(), e);
+            }
+        }
+        
+        /**
+         * Encrypts the record using AES encryption with the provided key and IV.
+         *
+         * @param aesKey The AES key to use for encryption.
+         * @param iv     The IV to use for encryption.
+         */
+
+
+        /**
+         * Decrypts the record using a hybrid decryption scheme. It uses ElGamal to
+         * decrypt the toPeer, replyKey, and replyIV fields, and AES to decrypt the rest
+         * of the record. Extracts the AES key and IV from the encrypted data.
+         *
+         * @param elgamalPrivateKey The private key to use for ElGamal decryption.
+         */
+        public void hybridDecrypt(PrivateKey elgamalPrivateKey) {
+            try {
+                JSONObject encryptedData = JsonIO.readObject(new String(encData, StandardCharsets.UTF_8));
+                Cipher elgamalCipher = Cipher.getInstance("ElGamal/None/NoPadding");
+                elgamalCipher.init(Cipher.DECRYPT_MODE, elgamalPrivateKey);
+
+                this.toPeer = elgamalCipher.doFinal(Base64.decode(encryptedData.getString("encryptedToPeer")));
+                this.replyKey = new SecretKeySpec(
+                        elgamalCipher.doFinal(Base64.decode(encryptedData.getString("encryptedReplyKey"))), "AES");
+                this.replyIv = elgamalCipher.doFinal(Base64.decode(encryptedData.getString("encryptedReplyIv")));
+
+                Cipher aesCipher = Cipher.getInstance("AES/GCM/NoPadding");
+                GCMParameterSpec gcmSpec = new GCMParameterSpec(128, this.replyIv);
+                aesCipher.init(Cipher.DECRYPT_MODE, this.replyKey, gcmSpec);
+
+                byte[] aesDecryptedData = aesCipher.doFinal(Base64.decode(encryptedData.getString("encryptedData")));
+                JSONObject remainingFields = JsonIO.readObject(new String(aesDecryptedData, StandardCharsets.UTF_8));
+
+                this.receiveTunnel = remainingFields.getInt("receiveTunnel");
+                this.ourIdent = Base64.decode(remainingFields.getString("ourIdent"));
+                this.nextTunnel = remainingFields.getInt("nextTunnel");
+                this.nextIdent = Base64.decode(remainingFields.getString("nextIdent"));
+                this.layerKey = new SecretKeySpec(
+                        Base64.decode(remainingFields.getString("layerKey")), "AES");
+                this.ivKey = new SecretKeySpec(Base64.decode(remainingFields.getString("IVKey")), "AES");
+                this.requestTime = remainingFields.getLong("requestTime");
+                this.sendMsgID = remainingFields.getInt("sendMsgID");
+                this.type = TYPE.values()[remainingFields.getInt("type")];
+                this.replyFlag = remainingFields.getBoolean("replyFlag");
+
+                this.hopInfo = new ArrayList<>();
+                JSONArray hopInfoArray = remainingFields.getArray("hopInfo");
+                for (int i = 0; i < hopInfoArray.size(); i++) {
+                    this.hopInfo.add(new TunnelHopInfo(hopInfoArray.getObject(i)));
+                }
+
+                this.encData = null; // Clear the encData field after decryption just in case
+
+            } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException
+                    | BadPaddingException | InvalidAlgorithmParameterException e) {
+                e.printStackTrace();
+            }
+
+        }
+
+        // examples for seth incomplete
+        // can we put these in deserialize/serialize methods?
+        public void layeredEncrypt(SecretKey key) {
             try {
                 Cipher enc = Cipher.getInstance("AES/GCM/NoPadding");
                 GCMParameterSpec gcmSpec = new GCMParameterSpec(128, this.replyIv);
-                enc.init(Cipher.ENCRYPT_MODE,key,gcmSpec);
+                enc.init(Cipher.ENCRYPT_MODE, key, gcmSpec);
                 encData = enc.doFinal(this.serialize().getBytes(StandardCharsets.UTF_8));
-            } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | IllegalBlockSizeException |
-                     NoSuchAlgorithmException | BadPaddingException e) {
-                throw new RuntimeException(e); //should not hit case
+            } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | IllegalBlockSizeException
+                    | NoSuchAlgorithmException | BadPaddingException e) {
+                throw new RuntimeException(e); // should not hit case
             } catch (InvalidKeyException e) {
                 throw new IllegalArgumentException("bad key " + e);
             }
         }
 
-        public void elgamalEncrypt(PublicKey pubKey) {
+        public void layeredDecrypt(SecretKey key) {
             try {
-                Cipher elgamal = Cipher.getInstance("ElGamal/None/NoPadding");
-                elgamal.init(Cipher.ENCRYPT_MODE, pubKey);
-                String msg = Base64.toBase64String(this.serialize().getBytes(StandardCharsets.UTF_8));
-                System.out.println(msg.getBytes(StandardCharsets.UTF_8).length);
-                encData = elgamal.doFinal(msg.getBytes(StandardCharsets.UTF_8));
-            } catch (NoSuchPaddingException | BadPaddingException | NoSuchAlgorithmException e) {
-                throw new RuntimeException(e); //should not hit case
-            } catch (IllegalBlockSizeException e) {
-                throw new IllegalArgumentException("Bad block size might need to change implementation");
+                Cipher dec = Cipher.getInstance("AES/GCM/NoPadding");
+                GCMParameterSpec gcmSpec = new GCMParameterSpec(128, this.replyIv);
+                dec.init(Cipher.DECRYPT_MODE, key, gcmSpec);
+                byte[] decByte = dec.doFinal(encData);
+                encData = null;
+                deserialize(JsonIO.readObject(new String(decByte, StandardCharsets.UTF_8)));
+            } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | IllegalBlockSizeException
+                    | NoSuchAlgorithmException | BadPaddingException e) {
+                throw new RuntimeException(e); // should not hit case
             } catch (InvalidKeyException e) {
-                throw new IllegalArgumentException("Bad key " + e);
+                throw new IllegalArgumentException("bad key " + e);
+            } catch (InvalidObjectException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
             }
         }
+
+        // public void encryptAES(SecretKey key) {
+        // try {
+        // Cipher enc = Cipher.getInstance("AES/GCM/NoPadding");
+        // GCMParameterSpec gcmSpec = new GCMParameterSpec(128, this.replyIv);
+        // enc.init(Cipher.ENCRYPT_MODE, key, gcmSpec);
+        // encData = enc.doFinal(this.serialize().getBytes(StandardCharsets.UTF_8));
+        // } catch (InvalidAlgorithmParameterException | NoSuchPaddingException |
+        // IllegalBlockSizeException
+        // | NoSuchAlgorithmException | BadPaddingException e) {
+        // throw new RuntimeException(e); // should not hit case
+        // } catch (InvalidKeyException e) {
+        // throw new IllegalArgumentException("bad key " + e);
+        // }
+        // }
+
+        /**
+         * Encrypts the record using ElGamal encryption with the provided public key.
+         * WARNING: Message is too large
+         *
+         * @param pubKey The public key to use for ElGamal encryption.
+         */
+        // public void elgamalEncrypt(PublicKey pubKey) {
+        // try {
+        // Cipher elgamal = Cipher.getInstance("ElGamal/None/NoPadding");
+        // elgamal.init(Cipher.ENCRYPT_MODE, pubKey);
+        // String msg =
+        // Base64.toBase64String(this.serialize().getBytes(StandardCharsets.UTF_8));
+        // System.out.println(msg.getBytes(StandardCharsets.UTF_8).length);
+        // encData = elgamal.doFinal(msg.getBytes(StandardCharsets.UTF_8));
+        // } catch (NoSuchPaddingException | BadPaddingException |
+        // NoSuchAlgorithmException e) {
+        // throw new RuntimeException(e); // should not hit case
+        // } catch (IllegalBlockSizeException e) {
+        // throw new IllegalArgumentException("Bad block size might need to change
+        // implementation");
+        // } catch (InvalidKeyException e) {
+        // throw new IllegalArgumentException("Bad key " + e);
+        // }
+        // }
 
         public void elgamalDecrypt(PrivateKey privKey) throws InvalidObjectException {
             try {
@@ -257,9 +467,9 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
 
                 this.encData = null;
                 deserialize(json);
-            } catch (NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException |
-                     BadPaddingException e) {
-                throw new RuntimeException(e); //should not hit case in prod
+            } catch (NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException
+                    | BadPaddingException e) {
+                throw new RuntimeException(e); // should not hit case in prod
             } catch (InvalidKeyException e) {
                 throw new IllegalArgumentException("Bad key given" + e);
             }
@@ -272,7 +482,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 throw new InvalidObjectException("Must be JSONObject");
 
             JSONObject json = (JSONObject) jsonType;
-            json.checkValidity(new String[] { "toPeer", "encData", "replyIV", "replyKey"});
+            json.checkValidity(new String[] { "toPeer", "encData", "replyIV", "replyKey" });
 
             this.toPeer = Base64.decode(json.getString("toPeer"));
             this.replyIv = Base64.decode(json.getString("replyIV"));
