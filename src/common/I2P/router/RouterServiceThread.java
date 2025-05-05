@@ -1,6 +1,7 @@
 package common.I2P.router;
 
 import common.I2P.I2NP.*;
+import common.I2P.I2NP.I2NPHeader.TYPE;
 import common.I2P.NetworkDB.Lease;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.Record;
@@ -91,7 +92,12 @@ public class RouterServiceThread implements Runnable {
         if (!recievedMessage.isPayloadValid()) {
             System.out.println("Received corrupted payload" + recievedMessage.toJSONType().getFormattedJSON());
             log.warn("Received corrupted payload");
-            //return;// corrupt message - may want to add response for reliable send in future
+            // return;// corrupt message - may want to add response for reliable send in
+            // future
+        }
+
+        if (recievedMessage.getType() == TYPE.TUNNELBUILDREPLY) {
+            System.out.println("Received TunnelBuildReplyMessage: " + recievedMessage.toJSONType().getFormattedJSON());
         }
 
         if (recievedMessage.getExpiration() < System.currentTimeMillis()) {
@@ -141,6 +147,7 @@ public class RouterServiceThread implements Runnable {
                 handleTunnelBuildMessage(tunnelBuild);
                 break;
             case TUNNELBUILDREPLY:
+                System.out.println("TunnelBuildReplyMessage: " + recievedMessage.toJSONType().getFormattedJSON());
                 TunnelBuildReplyMessage tunnelBuildReply = (TunnelBuildReplyMessage) recievedMessage.getMessage();
                 handleTunnelBuildReplyMessage(tunnelBuildReply);
                 break;
@@ -170,7 +177,7 @@ public class RouterServiceThread implements Runnable {
         if (cstMessages.containsKey(tunnelID)) {
             System.err.println("Found client message hurray! adding to queueu under " + tunnelID);
             ConcurrentLinkedQueue<I2CPMessage> queue = cstMessages.get(tunnelID);
-            queue.add(new PayloadMessage(0,0,tunnelData.getPayload()));
+            queue.add(new PayloadMessage(0, 0, tunnelData.getPayload()));
             System.out.println(queue.size());
             return;
         }
@@ -190,20 +197,36 @@ public class RouterServiceThread implements Runnable {
     }
 
     private boolean handleTunnelBuildReplyMessage(TunnelBuildReplyMessage tunnelBuildReply) {
-        // logically know which ones are dummy data and skip over them implement later
-        // as this does not exist
-        // for now we just iterate through all the records
-        // check if each record has 0x0 at the end of the bytes
-        // we do not need to decrypt the data as i havent implemented this
+        // next tunnel id is the id of the gateway/participant/endpoint we want to send
+        // it to
+        // while tunnelID is the endpoint of the previous tunnel so we can search for
+        // the tunnel
+        // and create a lease set for it - only if it is an inbound tunnel of course
 
-        // THIS NEEDS TO BE IN CLIENT IN REALITY FORWARD TO CLIENT
-        // PLEASE SAM CHANGE THIS ITS ONLY FOR TESTING UNTIL WE HAVE CLIENT LEASE SETS
-        // SAMMMMMMM - love past sam <3
-        // this is only for inbound tunnel
-        System.err.println("end point id" + tunnelBuildReply.getTunnelID());
+        System.err.println("end point id " + tunnelBuildReply.getTunnelID());
+
+        System.out.println("nextTunnelId: " + tunnelBuildReply.getNextTunnel());
+
+        if (tunnelManager.getTunnelObject(tunnelBuildReply.getNextTunnel()) != null) {
+            System.out.println("Build reply is for this inbound tunnel");
+            TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelBuildReply.getNextTunnel());
+            try {
+                System.out.println("TunnelBuildReplyMessage: " + tunnelBuildReply.toJSONType().getFormattedJSON());
+                tunnelObject.handleMessage(tunnelBuildReply);
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            return true;
+        } else {
+            System.out.println("Build reply is not for this inbound tunnel");
+            // return false; // Build reply is not for this inbound tunnel
+        }
 
         // find the tunnelid of the tunnel in the tunnel manager that contains an object
         // with this tunnel id
+        // this is bad if this happens there are no inbound or outbound tunnels for a
+        // client on this router that contain this id
         int tunnelID = tunnelManager.findAssociatedTunnel(tunnelBuildReply.getTunnelID());
         if (tunnelID == -1) {
             log.error(
@@ -217,7 +240,8 @@ public class RouterServiceThread implements Runnable {
             Tunnel inboundTunnel = tunnelManager.getInboundTunnel(tunnelID);
 
             // get the router info of the tunnel id
-            //RouterInfo routerInfo = inboundTunnel.getTunnelObject(tunnelBuildReply.getTunnelID());
+            // RouterInfo routerInfo =
+            // inboundTunnel.getTunnelObject(tunnelBuildReply.getTunnelID());
             RouterInfo routerInfo = inboundTunnel.getTunnelObject(tunnelID);
 
             // get message queue for client
@@ -310,7 +334,8 @@ public class RouterServiceThread implements Runnable {
     private void handleEndpointBehavior(TunnelBuild tunnelBuild, common.I2P.I2NP.TunnelBuild.Record record) {
         TunnelBuildReplyMessage replyMessage;
         // realistically have a check here that all reply flags are set to true
-        replyMessage = new TunnelBuildReplyMessage(record.getReceiveTunnel(), true);
+        replyMessage = new TunnelBuildReplyMessage(record.getNextTunnel(), record.getReceiveTunnel(), true);
+        System.out.println("TunnelBuildReplyMessage: " + replyMessage.toJSONType().getFormattedJSON());
         System.out.println("replyMessage: " + replyMessage.toJSONType().getFormattedJSON());
         // query netdb for router info of next hop
         RouterInfo nextRouter = validatePeerRouter(record.getNextIdent());
@@ -319,30 +344,15 @@ public class RouterServiceThread implements Runnable {
             return;
         }
 
-        // realistically this will be fowarded to the client and client will handle
-        // lease set publishing
-        // for now we have router act as client cause i dont want to set up a fucking
-        // client
         // forward message to next hop
         I2NPSocket nextHopSocket = null;
         try {
             nextHopSocket = new I2NPSocket();
             // create new header
-
-            if (record.getNextTunnel() == 0) {
-                I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILDREPLY, random.nextInt(),
-                        System.currentTimeMillis() + 100, replyMessage);
-                nextHopSocket.sendMessage(header, nextRouter); // send directly to router
-                // this may need to changed in final implementation for security reasons
-            } else {
-                // create tunnel data message to send to next hop if forwarding through tunnel
-                TunnelDataMessage tunnelDataMessage = new TunnelDataMessage(record.getNextTunnel(),
-                        replyMessage.toJSONType());
-                I2NPHeader tunnelDataHeader = new I2NPHeader(I2NPHeader.TYPE.TUNNELDATA, random.nextInt(),
-                        System.currentTimeMillis() + 100, tunnelDataMessage);
-                System.out.println("tunnelDataHeader: " + tunnelDataHeader.toJSONType().getFormattedJSON());
-                nextHopSocket.sendMessage(tunnelDataHeader, nextRouter);
-            }
+            I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILDREPLY, random.nextInt(),
+                    System.currentTimeMillis() + 100, replyMessage);
+            nextHopSocket.sendMessage(header, nextRouter); // send directly to router
+            // this may need to changed in final implementation for security reasons
             nextHopSocket.close();
         } catch (IOException e) {
             if (nextHopSocket != null)
