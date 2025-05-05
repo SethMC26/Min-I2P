@@ -1,11 +1,6 @@
 package common.I2P.router;
 
-import common.I2P.I2NP.DatabaseLookup;
-import common.I2P.I2NP.EndpointPayload;
-import common.I2P.I2NP.I2NPHeader;
-import common.I2P.I2NP.TunnelBuild;
-import common.I2P.I2NP.TunnelDataMessage;
-import common.I2P.I2NP.TunnelHopInfo;
+import common.I2P.I2NP.*;
 import common.I2P.IDs.Destination;
 import common.I2P.NetworkDB.Record;
 import common.I2P.NetworkDB.*;
@@ -13,7 +8,6 @@ import common.I2P.tunnels.Tunnel;
 import common.I2P.tunnels.TunnelManager;
 import common.Logger;
 import common.transport.I2CP.*;
-import merrimackutil.json.types.JSONObject;
 import common.transport.I2NPSocket;
 import org.bouncycastle.util.encoders.Base64;
 
@@ -27,7 +21,6 @@ import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -348,7 +341,7 @@ public class ClientServiceThread implements Runnable {
             int tunnelID = random.nextInt(1, Integer.MAX_VALUE);
 
             // generate random number of hops from 3 to 5
-            int numHops = random.nextInt(3) + 3; // 3 to 5 hops
+            int numHops = 3; // 3 to 5 hops
 
             // search netDB by hash of routerID for all closest router to form tunnel with
             ArrayList<RouterInfo> tempPeers = netDB.getKClosestRouterInfos(router.getHash(), numHops + 1);

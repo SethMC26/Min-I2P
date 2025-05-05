@@ -63,7 +63,11 @@ public class EndpointPayload implements JSONSerializable {
         }
         JSONObject jsonObject = (JSONObject) arg0;
         jsonObject.checkValidity(new String[] { "tunnelID", "routerID", "payload" });
-        this.tunnelID = jsonObject.getInt("tunnelID");
+        //todo wtf why did this fix our issues
+        System.err.println(jsonObject.getFormattedJSON());
+        Object test = jsonObject.get("tunnelID");
+        System.out.println(test);
+        this.tunnelID = (Integer) test;
         this.routerID = new RouterID(jsonObject.getObject("routerID"));
         this.jsonObject = jsonObject.getObject("payload"); // pray this works
     }

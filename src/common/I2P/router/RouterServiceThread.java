@@ -8,7 +8,6 @@ import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.*;
 import common.Logger;
 import common.transport.I2CP.I2CPMessage;
-import common.transport.I2CP.PayloadMessage;
 import common.transport.I2CP.RequestLeaseSet;
 import common.transport.I2NPSocket;
 
@@ -169,9 +168,8 @@ public class RouterServiceThread implements Runnable {
         TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelID);
         if (cstMessages.containsKey(tunnelID)) {
             System.err.println("Found client message hurray!");
-            ConcurrentLinkedQueue<I2CPMessage> queue = cstMessages.get(tunnelID);
-            queue.add(new PayloadMessage(0,0,tunnelData.getPayload()));
-            return;
+            //ConcurrentLinkedQueue<I2CPMessage> queue = cstMessages.get(tunnelID);
+           // queue.add(new PayloadMessage(0,0,tunnelData.getPayload()));
         }
         System.err.println("Tunnel ID " + tunnelID + " not this inbound endpoint");
         if (tunnelObject == null) {
@@ -216,6 +214,7 @@ public class RouterServiceThread implements Runnable {
             Tunnel inboundTunnel = tunnelManager.getInboundTunnel(tunnelID);
 
             // get the router info of the tunnel id
+            //RouterInfo routerInfo = inboundTunnel.getTunnelObject(tunnelBuildReply.getTunnelID());
             RouterInfo routerInfo = inboundTunnel.getTunnelObject(tunnelID);
 
             // get message queue for client
