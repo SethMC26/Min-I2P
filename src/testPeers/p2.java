@@ -31,6 +31,9 @@ public class p2 {
         log.setMinLevel(Logger.Level.DEBUG);
         Thread router = new Thread(new Router(InetAddress.getLoopbackAddress(),routerPort, servicePort, bootstrapPeer));
         router.start();
+        if (true) {
+            return;
+        }
 
         try {
             Thread.sleep(20000); //wait until router setup
