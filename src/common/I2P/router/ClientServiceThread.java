@@ -126,6 +126,8 @@ public class ClientServiceThread implements Runnable {
          * Queue of destinations from the client received by the router
          */
         private ConcurrentLinkedQueue<I2CPMessage> messagesFromDest;
+        private int lastInboundTunnelID;
+        private RouterInfo lastInboundFirstPeer;
 
         /**
          * Create new connection for the client
@@ -316,8 +318,14 @@ public class ClientServiceThread implements Runnable {
             // save this list of peers to the tunnel manager for easy access later
             Tunnel potentialTunnel = new Tunnel(tempPeers);
             if (isInbound) {
+                System.out.println("Adding inbound tunnel: " + tunnelID);
                 tunnelManager.addInboundTunnel(tunnelID, potentialTunnel);
+    
+                // Save info for use by outbound tunnel
+                this.lastInboundTunnelID = tunnelID;
+                this.lastInboundFirstPeer = tempPeers.get(0); // inbound gateway
             } else {
+                System.out.println("Adding outbound tunnel: " + tunnelID);
                 tunnelManager.addOutboundTunnel(tunnelID, potentialTunnel);
             }
 
@@ -369,7 +377,13 @@ public class ClientServiceThread implements Runnable {
                     nextTunnel = hopTunnelIDs[i + 1]; // tunnel id for the next hop
                 } else if (i == tempPeers.size() - 1) {
                     position = TunnelBuild.Record.TYPE.ENDPOINT;
-                    next = null; // this needs to change.. should we forward to router or destination?
+                    if (isInbound) {
+                        next = router; // set to client creating request if real for testing set to gateway router
+                    } else {
+                        // Forward reply through inbound tunnel gateway
+                        next = this.lastInboundFirstPeer;
+                        nextTunnel = this.lastInboundTunnelID;
+                    }
                 } else {
                     position = TunnelBuild.Record.TYPE.PARTICIPANT;
                     next = tempPeers.get(i + 1);
