@@ -1,6 +1,5 @@
 package testPeers;
 
-import common.I2P.I2NP.EndpointPayload;
 import common.I2P.IDs.Destination;
 import common.I2P.NetworkDB.Lease;
 import common.I2P.NetworkDB.LeaseSet;
@@ -100,7 +99,7 @@ public class p1 {
                         byte[] destKey = Base64.decode(hash);
                         socket.sendMessage(new DestinationLookup(sessionID, destKey));
                         recvMessage = socket.getMessage();
-                        System.out.println("Got message from router");
+                        System.out.println("Got message from router" + recvMessage.toJSONType().getFormattedJSON());
                         DestinationReply reply = (DestinationReply) recvMessage;
                         if (reply.getDestination() != null) {
                             currDest = reply.getDestination();

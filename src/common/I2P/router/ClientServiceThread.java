@@ -118,13 +118,9 @@ public class ClientServiceThread implements Runnable {
          * ID of session
          */
         private int sessionID;
-        /**
-         * Queue of destinations from the client received by the router
-         */
-        private ConcurrentLinkedQueue<I2CPMessage> messagesFromDest;
         private int lastInboundTunnelID;
         private RouterInfo lastInboundFirstPeer;
-
+        private ConcurrentLinkedQueue<I2CPMessage> msgQueue;
         /**
          * Create new connection for the client
          * 
@@ -158,9 +154,6 @@ public class ClientServiceThread implements Runnable {
                 CreateSession createSession = (CreateSession) recvMsg;
                 // generate new id for session
                 sessionID = random.nextInt();
-                // create new queue of message for sessionID(messages for this client)
-                messagesFromDest = new ConcurrentLinkedQueue<>();
-                clientMessages.put(sessionID, messagesFromDest);
 
                 // todo sam plz help me create inbound tunnels for this destination
                 // we can store these inbound tunnels under the sessionID to identifiy them to
@@ -187,13 +180,8 @@ public class ClientServiceThread implements Runnable {
                 }
 
                 I2CPMessage routerMsg;
-                if (currInboundTunnelID == 0) {
-                    System.err.println("FUCK");
-                    //todo seth needs to handle this error
-                    return;
-                }
 
-                if ((routerMsg = clientMessages.get(currInboundTunnelID).remove()) == null) {
+                if ((routerMsg = msgQueue.remove()) == null) {
                     System.err.println(currInboundTunnelID);
                     System.err.println("Seth made a mistake");
                     //todo seth needs to handle this
@@ -226,8 +214,8 @@ public class ClientServiceThread implements Runnable {
 
                 while (true) { // might be a better way to do this that avoids busy waiting
                     // wait until a new message on socket or a new message has arrived from router
-                    if (!clientSock.hasMessage() && messagesFromDest.isEmpty())
-                        continue;
+                    if (!(clientSock.hasMessage() || !msgQueue.isEmpty()))
+                        //continue;
 
                     // deal with client messages
                     if (clientSock.hasMessage()) {
@@ -294,15 +282,15 @@ public class ClientServiceThread implements Runnable {
                         }
                     }
 
-                    if (!messagesFromDest.isEmpty()) {
-                        I2CPMessage message = messagesFromDest.remove();
+                    if (!msgQueue.isEmpty()) {
+                        I2CPMessage message = msgQueue.remove();
                         // todo handle getting message from router and giving it back to the client
-                        if (message.getType() != SENDMESSAGE) {
-                            log.warn("Bad message from router");
+                        if (message.getType() != PAYLOADMESSAGE) {
+                            log.warn("Bad message from router" + message.toJSONType().getFormattedJSON());
                             continue;
                         }
-
-                        clientSock.sendMessage(message);
+                        System.out.println("CST got message " + message.toJSONType().getFormattedJSON());
+                        //clientSock.sendMessage(message);
                     }
                 }
             } catch (InvalidObjectException e) {
@@ -432,10 +420,11 @@ public class ClientServiceThread implements Runnable {
                 } else if (i == tempPeers.size() - 1) {
                     position = TunnelBuild.Record.TYPE.ENDPOINT;
                     if (isInbound) {
+                        System.err.println("queue under " + receiveTunnel);
                         next = router; // set to client creating request if real for testing set to gateway router
-                        ConcurrentLinkedQueue<I2CPMessage> queue = new ConcurrentLinkedQueue<>();
-                        currInboundTunnelID = receiveTunnel;
-                        clientMessages.put(receiveTunnel, queue);
+                        msgQueue = new ConcurrentLinkedQueue<>();
+                        //currInboundTunnelID = receiveTunnel;
+                        clientMessages.put(receiveTunnel, msgQueue);
 
                     } else {
                         // Forward reply through inbound tunnel gateway

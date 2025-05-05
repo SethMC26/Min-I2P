@@ -8,6 +8,7 @@ import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.*;
 import common.Logger;
 import common.transport.I2CP.I2CPMessage;
+import common.transport.I2CP.PayloadMessage;
 import common.transport.I2CP.RequestLeaseSet;
 import common.transport.I2NPSocket;
 
@@ -167,9 +168,11 @@ public class RouterServiceThread implements Runnable {
         // get the tunnel from the tunnel manager
         TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelID);
         if (cstMessages.containsKey(tunnelID)) {
-            System.err.println("Found client message hurray!");
-            //ConcurrentLinkedQueue<I2CPMessage> queue = cstMessages.get(tunnelID);
-           // queue.add(new PayloadMessage(0,0,tunnelData.getPayload()));
+            System.err.println("Found client message hurray! adding to queueu under " + tunnelID);
+            ConcurrentLinkedQueue<I2CPMessage> queue = cstMessages.get(tunnelID);
+            queue.add(new PayloadMessage(0,0,tunnelData.getPayload()));
+            System.out.println(queue.size());
+            return;
         }
         System.err.println("Tunnel ID " + tunnelID + " not this inbound endpoint");
         if (tunnelObject == null) {
@@ -223,7 +226,7 @@ public class RouterServiceThread implements Runnable {
                 log.error("Client did not create queue under the right ID");
                 return false;
             }
-            Lease lease = new Lease(routerInfo.getRouterID(), tunnelBuildReply.getTunnelID());
+            Lease lease = new Lease(routerInfo.getRouterID(), inboundTunnel.getGatewayTunnelID());
 
             ArrayList<Lease> leases = new ArrayList<>();
             leases.add(lease);
