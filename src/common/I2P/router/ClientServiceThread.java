@@ -213,8 +213,8 @@ public class ClientServiceThread implements Runnable {
                 buildTunnel(clientDestination, router, false); // outbound
                 while (true) { // might be a better way to do this that avoids busy waiting
                     // wait until a new message on socket or a new message has arrived from router
-                    if (!(clientSock.hasMessage() || !msgQueue.isEmpty()))
-                        //continue;
+                    if (!clientSock.hasMessage() && msgQueue.isEmpty())
+                        continue;
 
                     // deal with client messages
                     if (clientSock.hasMessage()) {
@@ -289,7 +289,7 @@ public class ClientServiceThread implements Runnable {
                             continue;
                         }
                         System.out.println("CST got message " + message.toJSONType().getFormattedJSON());
-                        //clientSock.sendMessage(message);
+                        clientSock.sendMessage(message);
                     }
                 }
             } catch (InvalidObjectException e) {
