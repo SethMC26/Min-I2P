@@ -216,6 +216,7 @@ public class ClientServiceThread implements Runnable {
 
                 // get authorization
                 recvMsg = clientSock.getMessage();
+
                 isTypeBad(recvMsg, CREATELEASESET);
 
                 CreateLeaseSet createLeaseSet = (CreateLeaseSet) recvMsg;
@@ -223,7 +224,6 @@ public class ClientServiceThread implements Runnable {
                 // this is the private key for elgamal stuff corresponding to public key in
                 // leaseset for encryption
                 PrivateKey privateKey = createLeaseSet.getPrivateKey();
-                System.err.println("Storing leases " + leaseSet.getLeases().size() + " under " + Base64.toBase64String(leaseSet.getHash()));
                 netDB.store(leaseSet);
 
                 buildTunnel(clientDestination, router, false); // outbound
