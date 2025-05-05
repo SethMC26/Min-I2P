@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.*;
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 public class p1 {
@@ -72,7 +72,8 @@ public class p1 {
         }
 
         RequestLeaseSet requestLeaseSet = (RequestLeaseSet) recvMessage;
-        HashSet<Lease> leases = new HashSet<>();
+        System.out.println("leases are" + requestLeaseSet.getLeases().size());
+        ArrayList<Lease> leases = new ArrayList<>();
         leases.addAll(requestLeaseSet.getLeases());
 
         LeaseSet leaseSet = new LeaseSet(leases, clientDest, destElgamalKey.getPublic(), destEd25519Key.getPrivate());

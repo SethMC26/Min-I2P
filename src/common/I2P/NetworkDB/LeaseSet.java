@@ -12,7 +12,7 @@ import java.nio.ByteBuffer;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.HashSet;
+import java.util.ArrayList;
 
 public class LeaseSet extends Record implements JSONSerializable {
     /**
@@ -30,7 +30,7 @@ public class LeaseSet extends Record implements JSONSerializable {
     /**
      * Leases in lease set
      */
-    HashSet<Lease> leases;
+    ArrayList<Lease> leases;
     // seth told me this is really efficient which is really cool - sam
 
     /**
@@ -40,7 +40,7 @@ public class LeaseSet extends Record implements JSONSerializable {
      * @param encryptionKey elgamal public key for encryption
      * @param signingKey PrivateKey to use to sign this LeaseSet - should be signed by destination
      */
-    public LeaseSet(HashSet<Lease> leases, Destination destination, PublicKey encryptionKey, PrivateKey signingKey) {
+    public LeaseSet(ArrayList<Lease> leases, Destination destination, PublicKey encryptionKey, PrivateKey signingKey) {
         super(RecordType.LEASESET);
         this.leases = leases;
         this.destination = destination;
@@ -140,7 +140,7 @@ public class LeaseSet extends Record implements JSONSerializable {
 
         //add all Leases in under "leases"
         JSONArray leasesArray = json.getArray("leases");
-        leases = new HashSet<>();
+        leases = new ArrayList<>();
         for (int i = 0; i < leasesArray.size(); i++ ) {
             leases.add(new Lease(leasesArray.getObject(i)));
         }
@@ -168,7 +168,7 @@ public class LeaseSet extends Record implements JSONSerializable {
         return json;
     }
 
-    public HashSet<Lease> getLeases() {
+    public ArrayList<Lease> getLeases() {
         return leases;
     }
 

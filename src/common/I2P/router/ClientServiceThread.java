@@ -5,16 +5,14 @@ import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.TunnelBuild;
 import common.I2P.I2NP.TunnelHopInfo;
 import common.I2P.IDs.Destination;
-import common.I2P.NetworkDB.Lease;
-import common.I2P.NetworkDB.LeaseSet;
-import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.Record;
-import common.I2P.NetworkDB.RouterInfo;
+import common.I2P.NetworkDB.*;
 import common.I2P.tunnels.Tunnel;
 import common.I2P.tunnels.TunnelManager;
 import common.Logger;
 import common.transport.I2CP.*;
 import common.transport.I2NPSocket;
+import org.bouncycastle.util.encoders.Base64;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -27,7 +25,6 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -175,7 +172,7 @@ public class ClientServiceThread implements Runnable {
                 Destination clientDestination = createSession.getDestination();
 
                 // This will generate the inbound and outbound tunnels for the client
-                buildTunnel(createSession, router, true); // inbound
+                buildTunnel(clientDestination, router, true); // inbound
                 try {
                     Thread.sleep(1000); // wait for tunnel to be created for a second
                 } catch (InterruptedException e) {
@@ -183,8 +180,6 @@ public class ClientServiceThread implements Runnable {
                     // this likely wont happen but if it does we will just ignore it
                     log.warn("CST-CCH: Tunnel creation wait interrupted", e);
                 }
-                buildTunnel(createSession, router, false); // outbound
-
                 // accept session
                 clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.CREATED));
 
@@ -228,8 +223,10 @@ public class ClientServiceThread implements Runnable {
                 // this is the private key for elgamal stuff corresponding to public key in
                 // leaseset for encryption
                 PrivateKey privateKey = createLeaseSet.getPrivateKey();
-
+                System.err.println("Storing leases " + leaseSet.getLeases().size() + " under " + Base64.toBase64String(leaseSet.getHash()));
                 netDB.store(leaseSet);
+
+                buildTunnel(clientDestination, router, false); // outbound
 
                 while (true) { // might be a better way to do this that avoids busy waiting
                     // wait until a new message on socket or a new message has arrived from router
@@ -244,10 +241,12 @@ public class ClientServiceThread implements Runnable {
                             case SENDMESSAGE -> {
                                 SendMessage send = (SendMessage) recvMsg;
 
-                                clientSock.sendMessage(send); // for testing just echo message back
+                                Record record = netDB.lookup(send.getDestination().getHash());
+                                LeaseSet destLease = (LeaseSet) record;
+                                //todo send message to destLease
                                 // todo set up session information in router
-                                // routerSock.send(router, new I2NPHeader()) //send tunnel data to router to
-                                // send on outbound tunnel
+                                System.err.println(destLease.getLeases().size());
+
                             }
                             case DESTLOOKUP -> {
                                 DestinationLookup lookup = (DestinationLookup) recvMsg;
@@ -304,10 +303,10 @@ public class ClientServiceThread implements Runnable {
         /**
          * Create inbound tunnel for the client destination
          * 
-         * @param clientInfo Destination of the client
+         * @param destination Destination of the client
          * @param router            RouterInfo of this router
          */
-        private void buildTunnel(CreateSession clientInfo, RouterInfo router, boolean isInbound) {
+        private void buildTunnel(Destination destination, RouterInfo router, boolean isInbound) {
             // note: client destination is not hard set to endpoint of tunnel
             // it is tacked on to the messge itself so the endpoint knows where to forward
 
@@ -399,7 +398,7 @@ public class ClientServiceThread implements Runnable {
 
                 TunnelBuild.Record.TYPE position = null;
 
-                RouterInfo next = null;
+                RouterInfo next;
                 int nextTunnel = 0; // this is the tunnel id for the next hop default to 0 for outbound creation
                 if (i == 0) {
                     position = TunnelBuild.Record.TYPE.GATEWAY;
@@ -411,19 +410,18 @@ public class ClientServiceThread implements Runnable {
                     if (isInbound) {
                         next = router; // set to client creating request if real for testing set to gateway router
                         ConcurrentLinkedQueue<I2CPMessage> queue = new ConcurrentLinkedQueue<>();
-                        queue.add(clientInfo);
-                        currInboundTunnelID = tunnelID;
-                        clientMessages.put(tunnelID, queue);
+                        currInboundTunnelID = receiveTunnel;
+                        clientMessages.put(receiveTunnel, queue);
 
                     } else {
                         // Forward reply through inbound tunnel gateway
-                        LeaseSet leaseSet = (LeaseSet) netDB.lookup(clientInfo.getDestination().getHash());
+                        LeaseSet leaseSet = (LeaseSet) netDB.lookup(destination.getHash());
                         if (leaseSet == null) {
-                            log.warn("LeaseSet not found for destination " + clientInfo.getDestination().getHash());
-                            throw new IllegalStateException("LeaseSet not found for destination " + clientInfo.getDestination().getHash());
+                            log.warn("LeaseSet not found for destination " + Base64.toBase64String(destination.getHash()));
+                            throw new IllegalStateException("LeaseSet not found for destination ");
                         }
-                        HashSet<Lease> leases = leaseSet.getLeases(); // get the first lease from the leaseset
-                        Lease lease = leases.iterator().next(); // get the first lease from the leaseset
+                        ArrayList<Lease> leases = leaseSet.getLeases(); // get the first lease from the leaseset
+                        Lease lease = leases.getFirst(); // get the first lease from the leaseset
                         byte[] gatewayHash = lease.getTunnelGW();
                         next = (RouterInfo) netDB.lookup(gatewayHash); // get the router info for the gateway
                         nextTunnel = lease.getTunnelID(); // get the tunnel id for the gateway

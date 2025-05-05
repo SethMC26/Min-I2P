@@ -191,7 +191,7 @@ public class RouterServiceThread implements Runnable {
         // PLEASE SAM CHANGE THIS ITS ONLY FOR TESTING UNTIL WE HAVE CLIENT LEASE SETS
         // SAMMMMMMM - love past sam <3
         // this is only for inbound tunnel
-        System.err.println(tunnelBuildReply.getTunnelID());
+        System.err.println("end point id" + tunnelBuildReply.getTunnelID());
 
         // find the tunnelid of the tunnel in the tunnel manager that contains an object
         // with this tunnel id
@@ -212,13 +212,12 @@ public class RouterServiceThread implements Runnable {
 
             // get message queue for client
             ConcurrentLinkedQueue<I2CPMessage> cstMsg = cstMessages.get(tunnelBuildReply.getTunnelID());
-            System.err.println("HERERERERERERERERERERERERER");
             if (cstMsg == null) {
-                log.error("Wrong message from client cannot create inbound tunnels");
+                log.error("Client did not create queue under the right ID");
                 return false;
             }
-            cstMsg.remove();
             Lease lease = new Lease(routerInfo.getRouterID(), tunnelBuildReply.getTunnelID());
+
             ArrayList<Lease> leases = new ArrayList<>();
             leases.add(lease);
             // give client lease for this inbound tunnel
@@ -682,7 +681,7 @@ public class RouterServiceThread implements Runnable {
     /**
      * Verify that a peer exists in NetDB and they are a RouterInfo - will attempt
      * to find them if they are not in netDB
-     * 
+     *
      * @param hash Hash of peer to validate
      * @return RouterInfo of peer or null if they do not exist
      */
@@ -708,7 +707,7 @@ public class RouterServiceThread implements Runnable {
 
     /**
      * Turn on floodfill algorithm for new store requests to this router
-     * 
+     *
      * @param isFloodFill Boolean to turn floodfill on/off
      */
     public void setFloodFill(boolean isFloodFill) {
