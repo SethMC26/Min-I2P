@@ -1,12 +1,17 @@
 package common.I2P.tunnels;
 
+import common.I2P.I2NP.EndpointPayload;
+import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.I2NPMessage;
 import common.I2P.I2NP.TunnelDataMessage;
 import common.I2P.NetworkDB.NetDB;
+import common.I2P.NetworkDB.RouterInfo;
+import common.transport.I2NPSocket;
 import merrimackutil.json.types.JSONObject;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
+import java.security.SecureRandom;
 
 /**
  * This class represents a TunnelEndpoint
@@ -42,14 +47,21 @@ public class TunnelEndpoint extends TunnelObject {
             throw new IOException("Expected TunnelDataMessage but received: " + message.getClass().getSimpleName());
         }
         System.out.println("TunnelEndpoint received message: " + message);
+
+        // assume it is an endpoint payload
+        EndpointPayload payload = new EndpointPayload(message.getPayload());
+
+        // reminder, the message.getpayload would be another endpoint payload (maybe?)
+
+        TunnelDataMessage tdm = new TunnelDataMessage(payload.getTunnelID(), payload.getJsonObject());
         
-        deliver(message);
-    }
+         int msgID = new SecureRandom().nextInt();
+        //recasting to a new TunnelDataMessage here might be fine or might cause errors - seth
+        I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELDATA, msgID, System.currentTimeMillis() + 100, tdm);
 
-    private void deliver(I2NPMessage message) {
-        // For now just print or log it
-        System.out.println("TunnelEndpoint received final message: " + message);
+        I2NPSocket socket = new I2NPSocket();
+        RouterInfo routerInfo = (RouterInfo) netDB.lookup(payload.getRouterID().getHash());
+        socket.sendMessage(header, routerInfo);
 
-        // deliver to local client or hand off to next tunnel
     }
 }

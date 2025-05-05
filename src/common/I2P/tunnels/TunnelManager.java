@@ -24,6 +24,11 @@ public class TunnelManager {
         inboundTunnels.put(tunnelID, tunnel);
     }
 
+    /**
+     * Add an outbound tunnel to the list of outbound tunnels
+     * @param tunnelID
+     * @param tunnel
+     */
     public void addOutboundTunnel(Integer tunnelID, Tunnel tunnel) {
         outboundTunnels.put(tunnelID, tunnel);
     }
@@ -45,6 +50,10 @@ public class TunnelManager {
 
     public Tunnel getOutboundTunnel(Integer tunnelID) {
         return outboundTunnels.get(tunnelID);
+    }
+
+    public ConcurrentHashMap<Integer, Tunnel> getOutboundTunnels() {
+        return outboundTunnels;
     }
 
     public void removeInboundTunnel(Integer tunnelID) {

@@ -1,5 +1,6 @@
 package testPeers;
 
+import common.I2P.I2NP.EndpointPayload;
 import common.I2P.IDs.Destination;
 import common.I2P.NetworkDB.Lease;
 import common.I2P.NetworkDB.LeaseSet;
@@ -121,7 +122,7 @@ public class p1 {
                     }
                     JSONObject obj = new JSONObject();
                     obj.put("To:", Base64.toBase64String(currDest.getHash()));
-                    obj.put("Message", "You will find moonlit nights stangley empty");
+                    obj.put("Message", "You will find moonlit nights strangely empty..."); // learn to spell seth
                     obj.put("From: ", Base64.toBase64String(clientDest.getHash()));
 
                     socket.sendMessage(new SendMessage(sessionID, currDest, new byte[4], obj));

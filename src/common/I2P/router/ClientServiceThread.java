@@ -1,8 +1,10 @@
 package common.I2P.router;
 
 import common.I2P.I2NP.DatabaseLookup;
+import common.I2P.I2NP.EndpointPayload;
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.TunnelBuild;
+import common.I2P.I2NP.TunnelDataMessage;
 import common.I2P.I2NP.TunnelHopInfo;
 import common.I2P.IDs.Destination;
 import common.I2P.NetworkDB.Record;
@@ -11,6 +13,7 @@ import common.I2P.tunnels.Tunnel;
 import common.I2P.tunnels.TunnelManager;
 import common.Logger;
 import common.transport.I2CP.*;
+import merrimackutil.json.types.JSONObject;
 import common.transport.I2NPSocket;
 import org.bouncycastle.util.encoders.Base64;
 
@@ -243,10 +246,38 @@ public class ClientServiceThread implements Runnable {
 
                                 Record record = netDB.lookup(send.getDestination().getHash());
                                 LeaseSet destLease = (LeaseSet) record;
+                                if (destLease == null) {
+                                    log.warn("LeaseSet not found for destination " + Base64.toBase64String(send.getDestination().getHash()));
+                                    throw new IllegalStateException("LeaseSet not found for destination ");
+                                }
+                                // get leases from the leaseset
+                                ArrayList<Lease> leasesfromset = destLease.getLeases(); // get the first lease from the leaseset
+                                // select first lease from the lease set cause we only actually make one
+                                Lease lease = leasesfromset.getFirst(); // get the first lease from the leaseset
+
+                                byte[] gatewayHash = lease.getTunnelGW(); // get the router info for the gateway
+                                RouterInfo gateway = (RouterInfo) netDB.lookup(gatewayHash); // get the router info for the gateway
+                    
                                 //todo send message to destLease
                                 // todo set up session information in router
                                 System.err.println(destLease.getLeases().size());
 
+                                // REMINDER: WE NEED AN INTERNAL PAYLOAD FOR THE MESSAGE TO SEND TO THE DESTINATION FROM THE SECOND ENDPOINT
+
+                                EndpointPayload payload = new EndpointPayload(lease.getTunnelID(), gateway.getRouterID(), send.getPayload());
+
+                                ConcurrentHashMap<Integer, Tunnel> outboundTunnels = tunnelManager.getOutboundTunnels();
+                                // select a random outbound tunnel to send the message through
+                                int tunnelID = (int) outboundTunnels.keySet().toArray()[random.nextInt(outboundTunnels.size())];
+                                Tunnel outboundTunnel = tunnelManager.getOutboundTunnel(tunnelID);
+                                RouterInfo outboundGateway = outboundTunnel.getGateway(); // get the gateway for the outbound tunnel
+                                
+                                TunnelDataMessage tunnelDataMessage = new TunnelDataMessage(outboundTunnel.getGatewayTunnelID(), payload.toJSONType());
+
+                                // send the message to the router
+                                I2NPHeader message = new I2NPHeader(I2NPHeader.TYPE.TUNNELDATA, random.nextInt(),
+                                        System.currentTimeMillis() + 100, tunnelDataMessage);
+                                routerSock.sendMessage(message, outboundGateway);
                             }
                             case DESTLOOKUP -> {
                                 DestinationLookup lookup = (DestinationLookup) recvMsg;
@@ -350,14 +381,14 @@ public class ClientServiceThread implements Runnable {
             }
 
             // create a map of the peers in the tunnel to their router ids
-            HashMap<Integer, RouterInfo> peerIDMap = new HashMap<>();
+            Tunnel potentialTunnel = new Tunnel();
+
             for (int i = 0; i < tempPeers.size(); i++) {
                 RouterInfo current = tempPeers.get(i);
-                peerIDMap.put(hopTunnelIDs[i], current); // map the router id to the tunnel id
+                potentialTunnel.addTunnelObject(hopTunnelIDs[i], current); // map the router id to the tunnel id
             }
 
             // save this list of peers to the tunnel manager for easy access later
-            Tunnel potentialTunnel = new Tunnel(peerIDMap);
             if (isInbound) {
                 System.out.println("Adding inbound tunnel: " + tunnelID);
                 tunnelManager.addInboundTunnel(tunnelID, potentialTunnel);
