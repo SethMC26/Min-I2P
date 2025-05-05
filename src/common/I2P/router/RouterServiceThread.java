@@ -190,7 +190,14 @@ public class RouterServiceThread implements Runnable {
         // this is only for inbound tunnel
         System.err.println(tunnelBuildReply.getTunnelID());
 
-        if (tunnelManager.getInboundTunnel(tunnelBuildReply.getTunnelID()) != null) {
+        // find the tunnelid of the tunnel in the tunnel manager that contains an object with this tunnel id
+        int tunnelID = tunnelManager.findAssociatedTunnel(tunnelBuildReply.getTunnelID());
+        if (tunnelID == -1) {
+            log.error("Tunnel ID not found in tunnel manager for tunnel build reply: " + tunnelBuildReply.getTunnelID());
+            return false; // Tunnel ID not found, handle error appropriately
+        }
+
+        if (tunnelManager.getInboundTunnel(tunnelID) != null) {
             //get message queue for client
             ConcurrentLinkedQueue<I2CPMessage> cstMsg = cstMessages.get(tunnelBuildReply.getTunnelID());
             System.err.println("HERERERERERERERERERERERERER");

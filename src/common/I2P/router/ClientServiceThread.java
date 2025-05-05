@@ -25,6 +25,7 @@ import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -336,8 +337,26 @@ public class ClientServiceThread implements Runnable {
                 tempPeers.set(0, router);
             }
 
+            // Generate unique tunnel IDs per hop
+            int[] hopTunnelIDs = new int[tempPeers.size()];
+
+            for (int i = 0; i < tempPeers.size(); i++) {
+                if (i == 0) {
+                    hopTunnelIDs[i] = tunnelID; // first hop is the tunnel id
+                } else {
+                    hopTunnelIDs[i] = random.nextInt(1, Integer.MAX_VALUE); // random id for the rest of the hops
+                }
+            }
+
+            // create a map of the peers in the tunnel to their router ids
+            HashMap<Integer, RouterInfo> peerIDMap = new HashMap<>();
+            for (int i = 0; i < tempPeers.size(); i++) {
+                RouterInfo current = tempPeers.get(i);
+                peerIDMap.put(hopTunnelIDs[i], current); // map the router id to the tunnel id
+            }
+
             // save this list of peers to the tunnel manager for easy access later
-            Tunnel potentialTunnel = new Tunnel(tempPeers);
+            Tunnel potentialTunnel = new Tunnel(peerIDMap);
             if (isInbound) {
                 System.out.println("Adding inbound tunnel: " + tunnelID);
                 tunnelManager.addInboundTunnel(tunnelID, potentialTunnel);
@@ -352,17 +371,6 @@ public class ClientServiceThread implements Runnable {
 
             int sendMessageID = random.nextInt(1, Integer.MAX_VALUE); // unique message id for this message
             long requestTime = System.currentTimeMillis(); // time of request
-
-            // Generate unique tunnel IDs per hop
-            int[] hopTunnelIDs = new int[tempPeers.size()];
-
-            for (int i = 0; i < tempPeers.size(); i++) {
-                if (i == 0) {
-                    hopTunnelIDs[i] = tunnelID; // first hop is the tunnel id
-                } else {
-                    hopTunnelIDs[i] = random.nextInt(1, Integer.MAX_VALUE); // random id for the rest of the hops
-                }
-            }
 
             ArrayList<TunnelHopInfo> hopInfo = new ArrayList<>(); // this is for the hops in the tunnel
 

@@ -28,6 +28,17 @@ public class TunnelManager {
         outboundTunnels.put(tunnelID, tunnel);
     }
 
+    public int findAssociatedTunnel(int tunnelObjectID) {
+        // return the tunnelID of the tunnel that contains the tunnelObjectID
+        for (Integer tunnelID : inboundTunnels.keySet()) {
+            Tunnel tunnel = inboundTunnels.get(tunnelID);
+            if (tunnel.getTunnelObject(tunnelObjectID) != null) {
+                return tunnelID;
+            }
+        }
+        return -1; // not found
+    }
+
     public Tunnel getInboundTunnel(Integer tunnelID) {
         return inboundTunnels.get(tunnelID);
     }

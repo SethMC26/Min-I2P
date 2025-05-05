@@ -9,18 +9,23 @@ import common.I2P.NetworkDB.RouterInfo;
 
 public class Tunnel {
     // array list of router info
-    private ArrayList<RouterInfo> routers;
+    private HashMap<Integer, RouterInfo> routers;
 
     public Tunnel() {
-        this.routers = new ArrayList<>();
+        this.routers = new HashMap<>();
     }
 
-    public Tunnel(ArrayList<RouterInfo> routers) {
+    public Tunnel(HashMap<Integer, RouterInfo> routers) {
         this.routers = routers;
     }
 
-    public void addTunnelObject(RouterInfo router) {
+    public void addTunnelObject(Integer tunnelID, RouterInfo router) {
         // Add a TunnelObject to the tunnel
-        routers.add(router);
+        routers.put(tunnelID, router);
+    }
+
+    public Object getTunnelObject(int tunnelObjectID) {
+        // Get the TunnelObject from the tunnel
+        return routers.get(tunnelObjectID);
     }
 }
