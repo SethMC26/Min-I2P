@@ -111,6 +111,9 @@ public class ClientState {
 
     // -------- Other Methods -------- //
 
+    /**
+     * Cleans the client state so it can be reused
+     */
     public void clean() {
         this.clientName = null;
         this.clientPassword = null;
@@ -119,6 +122,15 @@ public class ClientState {
         this.songData = null;
         this.commandType = null;
         this.songSize = -1;
+        this.byteID = -1;
+    }
+
+    /**
+     * Cleans the song data so it can be reused
+     */
+    public void cleanSongData() {
+        this.songData = null;
+        this.commandType = null;
         this.byteID = -1;
     }
 

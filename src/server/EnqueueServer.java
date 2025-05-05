@@ -34,7 +34,6 @@ public class EnqueueServer implements Runnable {
             // Checks if there is a message in the socket
             if (SOCKET.hasMessage()) {
                 try {
-
                     // Get the message from the socket
                     I2CPMessage message = SOCKET.getMessage();
 
@@ -219,8 +218,6 @@ public class EnqueueServer implements Runnable {
 
                         // The user is requesting the list of songs
                         case "List" -> {
-                            Request request = new Request(json);
-
                             ClientState client;
 
                             // Check if the client is already in the map
@@ -255,7 +252,7 @@ public class EnqueueServer implements Runnable {
                             // Check if the client is already in the map
                             if (MAP.containsKey(destHash)) {
                                 ClientState existingClient = MAP.get(destHash);
-                                existingClient.clean();
+                                existingClient.cleanSongData();
 
                                 existingClient.setSongData(songData);
                                 existingClient.setByteID(id);
@@ -280,7 +277,7 @@ public class EnqueueServer implements Runnable {
                             // Check if the client is already in the map
                             if (MAP.containsKey(destHash)) {
                                 ClientState existingClient = MAP.get(destHash);
-                                existingClient.clean();
+                                existingClient.cleanSongData();
 
                                 existingClient.setCommandType(CommandType.END);
 

@@ -157,4 +157,8 @@ public class UsersDatabase implements JSONSerializable {
     public String serialize() {
         return this.toJSONType().getFormattedJSON();
     }
+
+    public User getUser(String userName) {
+        return users.getOrDefault(userName, null);
+    }
 }

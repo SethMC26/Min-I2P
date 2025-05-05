@@ -111,13 +111,13 @@ public class AudioDatabase implements JSONSerializable {
      * @param audioName - String the name of the audio
      * @param audio - String of the audio
      */
-    public void addAudio(String audioName, List<byte[]> audio) {
+    public void addAudio(String audioName, List<byte[]> audio, int size) {
         if (checkIfAudioExists(audioName)) {
             System.err.println("Audio already exists in the database");
             return;
         }
         saveAudioFile(audioFilePath + audioName + ".txt", audio);
-        Audio newAudio = new Audio(audioName, audioFilePath + audioName + ".txt");
+        Audio newAudio = new Audio(audioName, audioFilePath + audioName + ".txt", size);
         audioList.put(audioName, newAudio);
         saveUsers();
     }
