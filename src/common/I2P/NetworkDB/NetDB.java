@@ -254,7 +254,7 @@ public class NetDB {
             HashMap<Integer, HashMap<String, Record>> newRoutingTable = new HashMap<>();
             for (HashMap<String, Record> bucket : routingTable.values()) {
                 for (Record record : bucket.values()) {
-                    byte[] routingKey = computeHashOfKey(key, currHour);
+                    byte[] routingKey = computeHashOfKey(record.getHash(), currHour);
                     //calculate distance between hash and record hash
                     int distance = calculateXORMetric(rootRoutingKey, routingKey);
 
