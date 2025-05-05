@@ -1,12 +1,12 @@
 package common.I2P.I2NP;
 
-import java.io.InvalidObjectException;
-import java.security.PublicKey;
-
 import common.I2P.IDs.RouterID;
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
+
+import java.io.InvalidObjectException;
+import java.security.PublicKey;
 
 public class EndpointPayload implements JSONSerializable {
     private int tunnelID;
@@ -73,7 +73,7 @@ public class EndpointPayload implements JSONSerializable {
         // TODO Auto-generated method stub
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("tunnelID", tunnelID);
-        jsonObject.put("routerID", routerID.toString());
+        jsonObject.put("routerID", routerID.toJSONType());
         jsonObject.put("payload", this.jsonObject);
         return jsonObject;
     }

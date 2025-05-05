@@ -8,6 +8,7 @@ import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.*;
 import common.Logger;
 import common.transport.I2CP.I2CPMessage;
+import common.transport.I2CP.PayloadMessage;
 import common.transport.I2CP.RequestLeaseSet;
 import common.transport.I2NPSocket;
 
@@ -90,7 +91,7 @@ public class RouterServiceThread implements Runnable {
         if (!recievedMessage.isPayloadValid()) {
             System.out.println("Received corrupted payload" + recievedMessage.toJSONType().getFormattedJSON());
             log.warn("Received corrupted payload");
-            return;// corrupt message - may want to add response for reliable send in future
+            //return;// corrupt message - may want to add response for reliable send in future
         }
 
         if (recievedMessage.getExpiration() < System.currentTimeMillis()) {
@@ -166,6 +167,13 @@ public class RouterServiceThread implements Runnable {
 
         // get the tunnel from the tunnel manager
         TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelID);
+        if (cstMessages.containsKey(tunnelID)) {
+            System.err.println("Found client message hurray!");
+            ConcurrentLinkedQueue<I2CPMessage> queue = cstMessages.get(tunnelID);
+            queue.add(new PayloadMessage(0,0,tunnelData.getPayload()));
+            return;
+        }
+        System.err.println("Tunnel ID " + tunnelID + " not this inbound endpoint");
         if (tunnelObject == null) {
             log.warn("Tunnel object not found for tunnel ID: " + tunnelID);
             return; // Tunnel not found, handle error appropriately
