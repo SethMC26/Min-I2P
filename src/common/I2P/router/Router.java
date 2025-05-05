@@ -20,11 +20,7 @@ import java.net.SocketException;
 import java.security.*;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.*;
 
 /**
  * Class represents Core Router module of I2P
@@ -388,7 +384,7 @@ public class Router implements Runnable {
         netDB = new NetDB(routerInfo);
 
         //hashmap for RST to CST communication
-        HashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> clientMessages = new HashMap<>();
+        ConcurrentHashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> clientMessages = new ConcurrentHashMap<>();
 
         try {
             //create and start RST
@@ -403,8 +399,8 @@ public class Router implements Runnable {
                             I2NPHeader message = null;
 
                             message = socket.getMessage();
-                            RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, tunnelManager,
-                                    edKeyPair.getPrivate());
+                            RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, clientMessages,
+                                    tunnelManager, edKeyPair.getPrivate());
                             // To sam, this will turn on floodfill, from your favorite NetDB implementor
                             // Seth
                             // rst.setFloodFill(true);

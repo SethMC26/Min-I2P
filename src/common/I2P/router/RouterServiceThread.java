@@ -1,13 +1,15 @@
 package common.I2P.router;
 
 import common.I2P.I2NP.*;
-import common.I2P.IDs.Destination;
+import common.I2P.NetworkDB.Lease;
+import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.Record;
-import common.I2P.NetworkDB.*;
+import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.*;
 import common.Logger;
+import common.transport.I2CP.I2CPMessage;
+import common.transport.I2CP.RequestLeaseSet;
 import common.transport.I2NPSocket;
-import merrimackutil.json.types.JSONObject;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -17,6 +19,7 @@ import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Handle incoming I2NP messages
@@ -56,6 +59,7 @@ public class RouterServiceThread implements Runnable {
      * Signing private key for this router
      */
     private PrivateKey signingPrivateKey;
+    private ConcurrentHashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> cstMessages;
 
     /**
      * Create thread to handle router I2NP message
@@ -64,7 +68,7 @@ public class RouterServiceThread implements Runnable {
      * @param router          RouterInfo of this router
      * @param recievedMessage I2NP message received
      */
-    public RouterServiceThread(NetDB networkDatabase, RouterInfo router, I2NPHeader recievedMessage,
+    public RouterServiceThread(NetDB networkDatabase, RouterInfo router, I2NPHeader recievedMessage, ConcurrentHashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> cstMessages,
             TunnelManager tunnelManager, PrivateKey signingPrivateKey) {
         this.netDB = networkDatabase;
         this.router = router;
@@ -73,6 +77,7 @@ public class RouterServiceThread implements Runnable {
         this.log = Logger.getInstance();
         this.isFloodFill = false;
         this.tunnelManager = tunnelManager;
+        this.cstMessages = cstMessages;
         this.signingPrivateKey = signingPrivateKey;
     }
 
@@ -183,17 +188,23 @@ public class RouterServiceThread implements Runnable {
         // PLEASE SAM CHANGE THIS ITS ONLY FOR TESTING UNTIL WE HAVE CLIENT LEASE SETS
         // SAMMMMMMM - love past sam <3
         // this is only for inbound tunnel
-        
-        if (tunnelManager.getInboundTunnel(tunnelBuildReply.getTunnelID()) != null) {
-            Lease lease = new Lease(router.getRouterID(), tunnelBuildReply.getTunnelID());
-            HashSet<Lease> leases = new HashSet<>();
-            leases.add(lease); // lol forgot to add it
-            Destination destination = new Destination(router.getRouterID().getSigningPublicKey());
-            // generate random secret key temporarily
-            LeaseSet leaseSet = new LeaseSet(leases, destination, router.getRouterID().getElgamalPublicKey(), signingPrivateKey);
+        System.err.println(tunnelBuildReply.getTunnelID());
 
-            // publish lease set to netDB
-            netDB.store(leaseSet);
+        if (tunnelManager.getInboundTunnel(tunnelBuildReply.getTunnelID()) != null) {
+            //get message queue for client
+            ConcurrentLinkedQueue<I2CPMessage> cstMsg = cstMessages.get(tunnelBuildReply.getTunnelID());
+            System.err.println("HERERERERERERERERERERERERER");
+            if (cstMsg == null) {
+                log.error("Wrong message from client cannot create inbound tunnels");
+                return false;
+            }
+            cstMsg.remove();
+            Lease lease = new Lease(router.getRouterID(), tunnelBuildReply.getTunnelID());
+            ArrayList<Lease> leases = new ArrayList<>();
+            leases.add(lease);
+            //give client lease for this inbound tunnel
+            RequestLeaseSet requestLeaseSet = new RequestLeaseSet(0, leases);
+            cstMsg.add(requestLeaseSet);
         } 
         
         return true;

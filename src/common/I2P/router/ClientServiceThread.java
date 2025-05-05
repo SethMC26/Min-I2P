@@ -5,14 +5,18 @@ import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.TunnelBuild;
 import common.I2P.I2NP.TunnelHopInfo;
 import common.I2P.IDs.Destination;
+import common.I2P.NetworkDB.LeaseSet;
+import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.Record;
+import common.I2P.NetworkDB.RouterInfo;
 import common.I2P.tunnels.Tunnel;
 import common.I2P.tunnels.TunnelManager;
-import common.I2P.NetworkDB.*;
 import common.Logger;
 import common.transport.I2CP.*;
 import common.transport.I2NPSocket;
 
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.net.ServerSocket;
@@ -21,15 +25,10 @@ import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadLocalRandom;
-
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
 
 import static common.transport.I2CP.I2CPMessageTypes.*;
 
@@ -62,11 +61,12 @@ public class ClientServiceThread implements Runnable {
      * Hashmap with client connections stored under session IDs and queues of
      * messages for those sessions
      */
-    private HashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> clientMessages;
+    private ConcurrentHashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> clientMessages;
     /**
      * Network database
      */
     private NetDB netDB;
+    private int currInboundTunnelID;
 
     /**
      * Create new thread to service incoming client connects
@@ -78,7 +78,7 @@ public class ClientServiceThread implements Runnable {
      * @throws IOException if could not create ServerSocket or I2NPSocket
      */
     public ClientServiceThread(RouterInfo router, TunnelManager tunnelManager, NetDB netDB, int port,
-            HashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> clientMessages) throws IOException {
+            ConcurrentHashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> clientMessages) throws IOException {
         this.router = router;
         this.tunnelManager = tunnelManager;
         this.netDB = netDB;
@@ -172,7 +172,7 @@ public class ClientServiceThread implements Runnable {
                 Destination clientDestination = createSession.getDestination();
 
                 // This will generate the inbound and outbound tunnels for the client
-                buildTunnel(clientDestination, router, true); // inbound
+                buildTunnel(createSession, router, true); // inbound
                 try {
                     Thread.sleep(1000); // wait for tunnel to be created for a second
                 } catch (InterruptedException e) {
@@ -180,22 +180,42 @@ public class ClientServiceThread implements Runnable {
                     // this likely wont happen but if it does we will just ignore it
                     log.warn("CST-CCH: Tunnel creation wait interrupted", e);
                 }
-                buildTunnel(clientDestination, router, false); // outbound
+                buildTunnel(createSession, router, false); // outbound
 
                 // accept session
                 clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.CREATED));
 
-                // todo setup necessary information in router, hashmap with
-                // sessionIDs/destinations/messageQueues?
-                // give client leases to authorize
-                ArrayList<Lease> leases = new ArrayList<>();
-                leases.add(new Lease(router.getRouterID(), 0)); // todo sam plz replace the tunnelID with proper one
-                                                                // thanks you <3
+                try {
+                    Thread.sleep(2000);
+                }
+                catch (InterruptedException e) {
+                    log.warn("CST interrupted while waiting for tunne building attempting anyways", e);
+                }
 
-                RequestLeaseSet requestLeaseSet = new RequestLeaseSet(sessionID, leases);
+                I2CPMessage routerMsg;
+                if (currInboundTunnelID == 0) {
+                    System.err.println("FUCK");
+                    //todo seth needs to handle this error
+                    return;
+                }
 
+                if ((routerMsg = clientMessages.get(currInboundTunnelID).remove()) == null) {
+                    System.err.println(currInboundTunnelID);
+                    System.err.println("Seth made a mistake");
+                    //todo seth needs to handle this
+                    return;
+                }
+
+                if (routerMsg.getType() != REQUESTLEASESET) {
+                    System.err.println(routerMsg.toJSONType().getFormattedJSON());
+                    System.err.println("Message is not create session??????");
+                    return;
+                }
+
+                RequestLeaseSet leases = (RequestLeaseSet) routerMsg;
                 // ask client to authorize leaseSets
-                clientSock.sendMessage(requestLeaseSet);
+                clientSock.sendMessage(new RequestLeaseSet(sessionID, leases.getLeases()));
+
                 // get authorization
                 recvMsg = clientSock.getMessage();
                 isTypeBad(recvMsg, CREATELEASESET);
@@ -205,7 +225,8 @@ public class ClientServiceThread implements Runnable {
                 // this is the private key for elgamal stuff corresponding to public key in
                 // leaseset for encryption
                 PrivateKey privateKey = createLeaseSet.getPrivateKey();
-                // todo sam plz use da leaseset and private keys yuh
+
+                netDB.store(leaseSet);
 
                 while (true) { // might be a better way to do this that avoids busy waiting
                     // wait until a new message on socket or a new message has arrived from router
@@ -280,10 +301,10 @@ public class ClientServiceThread implements Runnable {
         /**
          * Create inbound tunnel for the client destination
          * 
-         * @param clientDestination Destination of the client
+         * @param clientInfo Destination of the client
          * @param router            RouterInfo of this router
          */
-        private void buildTunnel(Destination clientDestination, RouterInfo router, boolean isInbound) {
+        private void buildTunnel(CreateSession clientInfo, RouterInfo router, boolean isInbound) {
             // note: client destination is not hard set to endpoint of tunnel
             // it is tacked on to the messge itself so the endpoint knows where to forward
 
@@ -379,6 +400,11 @@ public class ClientServiceThread implements Runnable {
                     position = TunnelBuild.Record.TYPE.ENDPOINT;
                     if (isInbound) {
                         next = router; // set to client creating request if real for testing set to gateway router
+                        ConcurrentLinkedQueue<I2CPMessage> queue = new ConcurrentLinkedQueue<>();
+                        queue.add(clientInfo);
+                        currInboundTunnelID = tunnelID;
+                        clientMessages.put(tunnelID, queue);
+
                     } else {
                         // Forward reply through inbound tunnel gateway
                         next = this.lastInboundFirstPeer;
