@@ -11,10 +11,11 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
     /**
      * The router id of the tunnel gateway
      */
-    private RouterID tunnelGateway;
+    private int nextTunnel;
 
     /**
-     * Tunnel id of the tunnel
+     * Tunnel id of a node in the originating tunnel
+     * (the one that sent the message to the tunnel gateway)
      */
     private int tunnelID;
 
@@ -30,8 +31,9 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
      * @param tunnelID
      * @param isSuccess
      */
-    public TunnelBuildReplyMessage(int tunnelID, boolean isSuccess) {
+    public TunnelBuildReplyMessage(int nextTunnel, int tunnelID, boolean isSuccess) {
         // this.tunnelGateway = tunnelGateway; // i think you can get this in the return router
+        this.nextTunnel = nextTunnel;
         this.tunnelID = tunnelID;
         this.isSuccess = isSuccess;
     }
@@ -47,9 +49,10 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
         }
 
         JSONObject jsonObject = (JSONObject) arg0;
-        jsonObject.checkValidity(new String[] {"tunnelID", "isSuccess"});
+        jsonObject.checkValidity(new String[] {"nextTunnel", "tunnelID", "isSuccess"});
         //im commenting this out to avoid serialization error - seth
         //this.tunnelGateway = new RouterID(jsonObject.getObject("tunnelGateway"));
+        this.nextTunnel = jsonObject.getInt("nextTunnel");
         this.tunnelID = jsonObject.getInt("tunnelID");
         this.isSuccess = jsonObject.getBoolean("isSuccess");
     }
@@ -59,9 +62,14 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
         JSONObject jsonObject = new JSONObject();
         //commenting out to avoid serialization error -seth
         //jsonObject.put("tunnelGateway", tunnelGateway.toJSONType()); // uhhhhhhh?
+        jsonObject.put("nextTunnel", nextTunnel);
         jsonObject.put("tunnelID", tunnelID);
         jsonObject.put("isSuccess", isSuccess);
         return jsonObject;
+    }
+
+    public int getNextTunnel() {
+        return nextTunnel;
     }
 
     public int getTunnelID() {
@@ -70,5 +78,9 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
 
     public boolean getIsSuccess() {
         return isSuccess;
+    }
+
+    public void setNextTunnel(int nextTunnel) {
+        this.nextTunnel = nextTunnel;
     }
 }
