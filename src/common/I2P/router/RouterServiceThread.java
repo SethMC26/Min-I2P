@@ -244,11 +244,12 @@ public class RouterServiceThread implements Runnable {
                         I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, random.nextInt(),
                                 System.currentTimeMillis() + 100, tunnelBuild);
                         RouterInfo nextRouter = validatePeerRouter(record.getNextIdent());
-                        System.out.println("nextRouter: " + nextRouter.toJSONType().getFormattedJSON());
+
                         if (nextRouter == null ) {
                             log.error("Could not find gateway " + Base64.getEncoder().encodeToString(record.getNextIdent()));
                             return;
                         }
+                        
                         nextHopSocket.sendMessage(header, nextRouter);
                         nextHopSocket.close();
                     }

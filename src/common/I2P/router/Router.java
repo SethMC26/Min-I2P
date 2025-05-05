@@ -158,28 +158,28 @@ public class Router implements Runnable {
         });
         t1.start(); // will go to routerservicethread after (pray)
 
-        // wait for client request
-        Thread t2 = new Thread(new Runnable() {
-            public void run() {
-                try {
-                    Logger.getInstance().debug("Net db " + netDB.logNetDB());
-                    Thread.sleep(15000);
-                    // create tunnel build for 3 hops
-                    // temp usage of thread local random
-                    // switch to secure random later
-                    int tunnelID = ThreadLocalRandom.current().nextInt(); // random tunnel id for now
-                    createTunnelBuild(3, tunnelID, true); // make inbound
-                    Thread.sleep(1000); // wait for the message to be sent
-                    tunnelID = ThreadLocalRandom.current().nextInt(); // random tunnel id for now
-                    System.out.println("Creating outbound tunnel build");
-                    createTunnelBuild(3, tunnelID, false); // make outbound
-                    // double check this later
-                } catch (InterruptedException e) {
-                    log.warn("Sleeping interrupted attempting to continue ", e);
-                }
-            }
-        });
-        t2.start();
+        // // wait for client request
+        // Thread t2 = new Thread(new Runnable() {
+        //     public void run() {
+        //         try {
+        //             Logger.getInstance().debug("Net db " + netDB.logNetDB());
+        //             Thread.sleep(15000);
+        //             // create tunnel build for 3 hops
+        //             // temp usage of thread local random
+        //             // switch to secure random later
+        //             int tunnelID = ThreadLocalRandom.current().nextInt(); // random tunnel id for now
+        //             createTunnelBuild(3, tunnelID, true); // make inbound
+        //             Thread.sleep(1000); // wait for the message to be sent
+        //             tunnelID = ThreadLocalRandom.current().nextInt(); // random tunnel id for now
+        //             System.out.println("Creating outbound tunnel build");
+        //             createTunnelBuild(3, tunnelID, false); // make outbound
+        //             // double check this later
+        //         } catch (InterruptedException e) {
+        //             log.warn("Sleeping interrupted attempting to continue ", e);
+        //         }
+        //     }
+        // });
+        // t2.start();
 
     }
 
@@ -305,7 +305,6 @@ public class Router implements Runnable {
                 // the endpoint should read off the message where to send it to
                 if (isInbound) {
                     next = routerInfo; // set to client creating request if real for testing set to gateway router
-                    // PELASE TREMEMBER TO CHANG ETHIS SAM OMG PLEAS JEHGEAH FG SGF
                 } else {
                     // Forward reply through inbound tunnel gateway
                     next = this.lastInboundFirstPeer;
@@ -430,7 +429,7 @@ public class Router implements Runnable {
             setUp();
 
             //create and start CST
-            Thread cst = new Thread(new ClientServiceThread(routerInfo, netDB, CSTPort, clientMessages));
+            Thread cst = new Thread(new ClientServiceThread(routerInfo, tunnelManager, netDB, CSTPort, clientMessages));
             cst.start();
 
         } catch (IOException e) {
