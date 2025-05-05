@@ -1,10 +1,11 @@
 package common.I2P.router;
 
-import common.I2P.I2NP.*;
+import common.I2P.I2NP.DatabaseLookup;
+import common.I2P.I2NP.DatabaseStore;
+import common.I2P.I2NP.I2NPHeader;
 import common.I2P.IDs.RouterID;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
-import common.I2P.tunnels.Tunnel;
 import common.I2P.tunnels.TunnelManager;
 import common.Logger;
 import common.transport.I2CP.I2CPMessage;
@@ -12,15 +13,16 @@ import common.transport.I2NPSocket;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
-import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.security.*;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Class represents Core Router module of I2P
@@ -85,11 +87,12 @@ public class Router implements Runnable {
      * 
      * @param configFile JSON File to use for configuration
      */
-    Router(File configFile) throws IOException {
-        // todo add config parsing
-        //int port = 7000; // hard coded for now we will fix later
-        //this.port = port;
-        //int boot = 8080;
+    public Router(RouterConfig configFile) {
+        this.address = configFile.getAddress();
+        this.RSTPort = configFile.getRSTport();
+        this.CSTPort = configFile.getCSTPort();
+        this.bootstrapAddress = configFile.getBootstrapPeer();
+        this.tunnelManager = new TunnelManager();
     }
 
     /**
