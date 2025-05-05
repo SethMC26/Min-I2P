@@ -79,9 +79,21 @@ public class p2 {
         socket.sendMessage(new CreateLeaseSet(sessionID, destElgamalKey.getPrivate(), leaseSet));
         System.out.println("You are client for dest: " + Base64.toBase64String(clientDest.getHash()));
 
-        //socket.getMessage();
-        I2CPMessage i2CPMessage = socket.getMessage();
-        System.err.println(i2CPMessage.toJSONType().getFormattedJSON());
+        while(true) {
+            recvMessage = socket.getMessage();
+            System.out.println("got message " + recvMessage);
+            try {
+                PayloadMessage payloadMessage = (PayloadMessage) recvMessage;
+                System.out.println("Payload " + payloadMessage.getPayload().getFormattedJSON());
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            if (false) {
+                break;
+            }
+        }
         //basic testing loop
         Scanner input = new Scanner(System.in);
         Destination currDest = null;

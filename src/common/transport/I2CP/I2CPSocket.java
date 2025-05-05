@@ -3,21 +3,23 @@ package common.transport.I2CP;
 import merrimackutil.json.JsonIO;
 import merrimackutil.json.types.JSONObject;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InvalidObjectException;
-import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.Scanner;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 public class I2CPSocket extends Socket {
     /**
      * Input stream
      */
-    private Scanner recv;
+    private BufferedInputStream recv;
     /**
      * Output stream
      */
-    private PrintWriter send;
+    private BufferedOutputStream send;
 
     /**
      * Constructs a new I2CPSocket stream and connects to port {@code port} on named host {@code host}
@@ -28,8 +30,8 @@ public class I2CPSocket extends Socket {
     public I2CPSocket(String host, int port) throws IOException {
         super(host,port);
 
-        this.recv = new Scanner(getInputStream());
-        this.send = new PrintWriter(getOutputStream(), true);
+        this.recv = new BufferedInputStream(getInputStream());
+        this.send = new BufferedOutputStream(getOutputStream());
     }
 
     /**
@@ -40,17 +42,19 @@ public class I2CPSocket extends Socket {
      */
     public I2CPSocket(Socket sock) throws IOException{
         super();
-
-        this.recv = new Scanner(sock.getInputStream());
-        this.send = new PrintWriter(sock.getOutputStream(), true);
+        this.recv = new BufferedInputStream(sock.getInputStream());
+        this.send = new BufferedOutputStream(sock.getOutputStream());
     }
 
     /**
      * Send an I2CPMessage along the input stream C<->R
      * @param message I2CPMessage to send
      */
-    public void sendMessage(I2CPMessage message) {
-        send.println(message.toJSONType().toJSON());
+    public void sendMessage(I2CPMessage message) throws IOException {
+        byte[] jsonbytes = message.serialize().getBytes(StandardCharsets.UTF_8);
+        send.write(ByteBuffer.allocate(Integer.BYTES).putInt(jsonbytes.length).array());
+        send.write(jsonbytes);
+        send.flush();
     }
 
     /**
@@ -60,7 +64,12 @@ public class I2CPSocket extends Socket {
      */
     public I2CPMessage getMessage() throws InvalidObjectException {
         try {
-            JSONObject json =  JsonIO.readObject(recv.nextLine());
+            int len = ByteBuffer.wrap(recv.readNBytes(4)).getInt();
+
+            byte[] buf = recv.readNBytes(len);
+
+            JSONObject json = JsonIO.readObject(new String(buf, StandardCharsets.UTF_8));
+
             I2CPMessage message = new I2CPMessage(json);
             //Logger.getInstance().debug("I2CPSock got message " + message.toJSONType().getFormattedJSON());
             switch(message.getType()) {
@@ -103,10 +112,21 @@ public class I2CPSocket extends Socket {
             throw new InvalidObjectException("Could not parse JSON: " + e.getMessage());
         } catch (ClassCastException e) {
             throw new InvalidObjectException("Could not cast to JSONObject: " + e.getMessage());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
-    public boolean hasMessage() {
-        return this.recv.hasNextLine();
+    public boolean hasMessage() throws IOException {
+        if (recv.available() < 4)
+            return false;
+
+        //below from chatGPT to see if we have enough bytes to read
+        recv.mark(4);
+        byte[] hdr = recv.readNBytes(4);              // always gives 4 because we checked available()
+        int len    = ByteBuffer.wrap(hdr).getInt();
+        boolean complete = recv.available() >= len;   // is the whole body here?
+        recv.reset();                                 // rewind to original position
+        return complete;
     }
 }
