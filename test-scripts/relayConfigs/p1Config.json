@@ -1,0 +1,11 @@
+{
+  "bootstrap-peer" : {
+    "host" : "127.0.0.1",
+    "port" : 8080
+  },
+  "router-addr": {
+    "host" : "127.0.0.1",
+    "RSTPort": 10001,
+    "CSTPort": 20001
+  }
+}

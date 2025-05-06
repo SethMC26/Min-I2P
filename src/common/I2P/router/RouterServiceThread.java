@@ -59,6 +59,11 @@ public class RouterServiceThread implements Runnable {
     private TunnelManager tunnelManager;
 
     /**
+     * Private key for this router
+     */
+    private PrivateKey elgamalPrivateKey;
+
+    /**
      * Signing private key for this router
      */
     private PrivateKey signingPrivateKey;
@@ -74,7 +79,7 @@ public class RouterServiceThread implements Runnable {
      */
     public RouterServiceThread(NetDB networkDatabase, RouterInfo router, I2NPHeader recievedMessage,
             ConcurrentHashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> cstMessages,
-            TunnelManager tunnelManager, PrivateKey signingPrivateKey) {
+            TunnelManager tunnelManager, PrivateKey elgamalPrivateKey, PrivateKey signingPrivateKey) {
         this.netDB = networkDatabase;
         this.router = router;
         this.recievedMessage = recievedMessage;
@@ -83,6 +88,7 @@ public class RouterServiceThread implements Runnable {
         this.isFloodFill = false;
         this.tunnelManager = tunnelManager;
         this.cstMessages = cstMessages;
+        this.elgamalPrivateKey = elgamalPrivateKey;
         this.signingPrivateKey = signingPrivateKey;
         this.nonceCache = new NonceCache(Integer.BYTES, 60);
     }
@@ -149,15 +155,18 @@ public class RouterServiceThread implements Runnable {
                 break;
             case TUNNELBUILD:
                 // handle tunnel build message
+                System.out.println("TunnelBuildMessage: " + recievedMessage.toJSONType().getFormattedJSON());
                 TunnelBuild tunnelBuild = (TunnelBuild) recievedMessage.getMessage();
                 handleTunnelBuildMessage(tunnelBuild);
                 break;
             case TUNNELBUILDREPLY:
+                // System.out.println("TunnelBuildReplyMessage: " + recievedMessage.toJSONType().getFormattedJSON());
                 TunnelBuildReplyMessage tunnelBuildReply = (TunnelBuildReplyMessage) recievedMessage.getMessage();
                 handleTunnelBuildReplyMessage(tunnelBuildReply);
                 break;
             case TUNNELDATA:
                 TunnelDataMessage tunnelData = (TunnelDataMessage) recievedMessage.getMessage();
+                System.out.println("TunnelDataMessage: " + tunnelData.toJSONType().getFormattedJSON());
                 handleTunnelDataMessage(tunnelData);
                 break;
             default:
@@ -207,7 +216,9 @@ public class RouterServiceThread implements Runnable {
         // the tunnel
         // and create a lease set for it - only if it is an inbound tunnel of course
 
-        System.err.println("end point id " + tunnelBuildReply.getTunnelID());
+        // recursively decrypt the message to get all of the plaintext records
+        // all of this will need to change to search the records instead ermmmmmm....
+        // later me project me thinks
 
         System.out.println("nextTunnelId: " + tunnelBuildReply.getNextTunnel());
 
@@ -215,7 +226,7 @@ public class RouterServiceThread implements Runnable {
             System.out.println("Build reply is for this inbound tunnel");
             TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelBuildReply.getNextTunnel());
             try {
-                System.out.println("TunnelBuildReplyMessage: " + tunnelBuildReply.toJSONType().getFormattedJSON());
+                // System.out.println("TunnelBuildReplyMessage: " + tunnelBuildReply.toJSONType().getFormattedJSON());
                 tunnelObject.handleMessage(tunnelBuildReply);
             } catch (IOException e) {
                 // TODO Auto-generated catch block
@@ -270,75 +281,113 @@ public class RouterServiceThread implements Runnable {
         // iterate through all the records and compare the first 16 bytes of the hash
         // to the toPeer field of the record, if they match we have found the correct
         // record for us
+        //our record
+        System.out.println("got build request " + tunnelBuild.toJSONType().getFormattedJSON());
+        String base64ourIdent = Base64.getEncoder().encodeToString(Arrays.copyOf(router.getHash(), 16));
 
+        // for each record in the tunnel build message attempt to decrypt it with our secret key
+        // if it decrypts and too peer matches we found our record -- other wise we replace it back with its original encrypted self
+        // and move on to the next record
+        TunnelBuild.Record ourRecord = null;
         for (TunnelBuild.Record record : tunnelBuild.getRecords()) {
-            byte[] toPeer = Arrays.copyOf(record.getToPeer(), 16); // only first 16 bytes of the hash
-            // check if first 16 byte of hash matches our first 16 bytes of hash
-            // SAM PLEASE FOR THE LOVE OF GOD DOUBLE CHECK ROUTERID VS ROUTERINFO THIS IS
-            // LIKE THE FIFTH TIME IVE DONE THIS
-            // with love - current same <3
-            if (Arrays.equals(toPeer, Arrays.copyOf(router.getRouterID().getHash(), 16))) {
-                // we have found the correct record for us, now we can send the reply back to
-                // the peer
-                try {
-                    // Decrypt the ElGamal
-
-                    // Get session key, we skip bloom filter
-
-                    if (System.currentTimeMillis() > record.getRequestTime() + 60000) { // allow for 1 minute for
-                                                                                        // tunnelBuild
-                        log.warn("Invalid timestamp in tunnel request. Dropping record.");
-                        continue;
-                    }
-
-                    // byte[] replyBlock = createReplyBlock(record);
-                    // record.setEncData(replyBlock);
-
-                    byte[] nextIdent = record.getNextIdent();
-
-                    // temp before enc
-                    common.I2P.I2NP.TunnelBuild.Record replyRecord = createReplyBlock(record);
-                    // hey sam seth here we are doing this then checking if it's an endpoint?
-                    // record = replyRecord; // replace the record with the reply block
-
-                    // Add the tunnel to the TunnelManager
-                    addTunnelToManager(record);
-
-                    // Handle endpoint behavior
-                    if (record.getPosition() == TunnelBuild.Record.TYPE.ENDPOINT) {
-                        handleEndpointBehavior(tunnelBuild, record);
-                    } else {
-                        // forward build request to next hop
-                        I2NPSocket nextHopSocket = new I2NPSocket();
-                        I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, random.nextInt(),
-                                System.currentTimeMillis() + 100, tunnelBuild);
-                        RouterInfo nextRouter = validatePeerRouter(record.getNextIdent());
-
-                        if (nextRouter == null) {
-                            log.error("Could not find gateway "
-                                    + Base64.getEncoder().encodeToString(record.getNextIdent()));
-                            return;
-                        }
-
-                        nextHopSocket.sendMessage(header, nextRouter);
-                        nextHopSocket.close();
-                    }
-                    // note to self - how do we adjust for recursive decryption on reply records?
-
-                } catch (IOException e) {
-                    log.debug("Most likely close is connecting to peer to send message to");
-                    log.error("Error processing TunnelBuild record: ", e);
+            TunnelBuild.Record temp = new TunnelBuild.Record(record); // unsure if this will deserialze properly
+            try {
+            record.hybridDecrypt(elgamalPrivateKey);
+            } catch (Exception e) {
+                continue; // skip this record if we can't decrypt its expected
+            }
+            System.out.println("our toPeer is " + base64ourIdent);
+            System.out.println(record.getToPeer());
+            if (Arrays.equals(record.getToPeer(), Base64.getDecoder().decode(base64ourIdent))) {
+                System.err.println("Found our record!!! " + record.toJSONType().getFormattedJSON());
+                ourRecord = record;
+                // once we find our record we can aes decrypt every record after it
+                // and then break out of the loop
+                for (int i = tunnelBuild.getRecords().indexOf(record) + 1; i < tunnelBuild.getRecords().size(); i++) {
+                    TunnelBuild.Record nextRecord = tunnelBuild.getRecords().get(i);
+                    nextRecord.layeredDecrypt(ourRecord.getReplyKey(), ourRecord.getReplyIv());
                 }
+                break;
+            }
+            record = new TunnelBuild.Record(temp); // create a new instance to ensure it's a copy
+        }
+
+        System.out.println("our record is " + ourRecord.toJSONType().getFormattedJSON());
+
+        // grrreat now we have our keys! from here we need to aes decrypt each record after this one with the reply key
+        // Use the reply key from our record to AES decrypt every record after it
+
+
+        if (ourRecord == null) {
+            log.error("Could not find our record disregarding");
+            return;
+        }
+
+
+
+        /*
+        tunnelBuild.decryptAES(ourRecord.getReplyKey());
+        JSONObject jsonObject = JsonIO.readObject(new String(ourRecord.getEncData(), StandardCharsets.UTF_8));
+
+        try {
+            ourRecord = new TunnelBuild.Record(jsonObject);
+        } catch (InvalidObjectException e) {
+            throw new RuntimeException(e);
+        }
+        *
+         */
+       // System.out.println("our record decrypted is " + ourRecord.toJSONType().getFormattedJSON());
+        if (System.currentTimeMillis() > ourRecord.getRequestTime() + 60000) { // allow for 1 minute for
+            // tunnelBuild
+            log.warn("Invalid timestamp in tunnel request. Dropping record.");
+            return;
+        }
+
+        // byte[] replyBlock = createReplyBlock(record);
+        // record.setEncData(replyBlock);
+
+        byte[] nextIdent = ourRecord.getNextIdent();
+
+        // temp before enc
+        common.I2P.I2NP.TunnelBuild.Record replyRecord = createReplyBlock(ourRecord);
+        // hey sam seth here we are doing this then checking if it's an endpoint?
+        // record = replyRecord; // replace the record with the reply block
+
+        // Add the tunnel to the TunnelManager
+        addTunnelToManager(ourRecord);
+
+        // Handle endpoint behavior
+        if (ourRecord.getPosition() == TunnelBuild.Record.TYPE.ENDPOINT) {
+            handleEndpointBehavior(tunnelBuild, ourRecord);
+        } else {
+            try {
+                // forward build request to next hop
+                I2NPSocket nextHopSocket = new I2NPSocket();
+                I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, random.nextInt(),
+                        System.currentTimeMillis() + 100, tunnelBuild);
+                RouterInfo nextRouter = validatePeerRouter(ourRecord.getNextIdent());
+
+                if (nextRouter == null) {
+                    log.error("Could not find gateway "
+                            + Base64.getEncoder().encodeToString(ourRecord.getNextIdent()));
+                    return;
+                }
+
+                nextHopSocket.sendMessage(header, nextRouter);
+                nextHopSocket.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         }
+        // note to self - how do we adjust for recursive decryption on reply records?
     }
 
     private void handleEndpointBehavior(TunnelBuild tunnelBuild, common.I2P.I2NP.TunnelBuild.Record record) {
         TunnelBuildReplyMessage replyMessage;
         // realistically have a check here that all reply flags are set to true
-        replyMessage = new TunnelBuildReplyMessage(record.getNextTunnel(), record.getReceiveTunnel(), true);
-        System.out.println("TunnelBuildReplyMessage: " + replyMessage.toJSONType().getFormattedJSON());
-        System.out.println("replyMessage: " + replyMessage.toJSONType().getFormattedJSON());
+        replyMessage = new TunnelBuildReplyMessage(record.getNextTunnel(), record.getReceiveTunnel(), tunnelBuild); // pack the entire message in the build reply
+        // System.out.println("TunnelBuildReplyMessage: " + replyMessage.toJSONType().getFormattedJSON());
+        // System.out.println("replyMessage: " + replyMessage.toJSONType().getFormattedJSON());
         // query netdb for router info of next hop
         RouterInfo nextRouter = validatePeerRouter(record.getNextIdent());
         if (nextRouter == null) {

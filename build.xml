@@ -29,6 +29,15 @@
           security checks are different between those OSes and Linux.
          -->
         <copy file="lib/bcprov.jar" todir="${dist}" />
+        <!-- Assemble the verification server program -->
+        <jar jarfile="${dist}/peer.jar" basedir="${build}">
+            <exclude name="relay/"/>
+            <manifest>
+                <attribute name="Main-Class" value="RelayPeer.RelayPeer" />
+                <attribute name="Class-Path" value="bcprov.jar" />
+            </manifest>
+            <zipfileset src="lib/merrimackutil.jar" excludes="META-INF/*.SF" />
+        </jar>
 
         <!-- Assemble the verification server program -->
         <jar jarfile="${dist}/client.jar" basedir="${build}">

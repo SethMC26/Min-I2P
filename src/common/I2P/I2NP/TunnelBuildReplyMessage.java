@@ -1,6 +1,7 @@
 package common.I2P.I2NP;
 
 import common.I2P.IDs.RouterID;
+import common.I2P.tunnels.TunnelObject;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
 
@@ -14,28 +15,28 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
     private int nextTunnel;
 
     /**
-     * Tunnel id of a node in the originating tunnel
-     * (the one that sent the message to the tunnel gateway)
+     * Tunnel id of the endpoint of the tunnel build request
      */
-    private int tunnelID;
+    private int tunnelID; // leaving this in so i dont have to change any logic in the code hehe
+
 
     /**
-     * Boolean value for successful creation or not
+     * The tunnel id of the tunnel build request
      */
-    boolean isSuccess;
+    private TunnelBuild records;
 
     /**
      * Reply message for tunnel build, all info to create lease
      * 
      * @param tunnelGateway
      * @param tunnelID
-     * @param isSuccess
+     * @param records
      */
-    public TunnelBuildReplyMessage(int nextTunnel, int tunnelID, boolean isSuccess) {
+    public TunnelBuildReplyMessage(int nextTunnel, int tunnelID, TunnelBuild records) {
         // this.tunnelGateway = tunnelGateway; // i think you can get this in the return router
         this.nextTunnel = nextTunnel;
         this.tunnelID = tunnelID;
-        this.isSuccess = isSuccess;
+        this.records = records;
     }
 
     public TunnelBuildReplyMessage(JSONObject messageObj) throws InvalidObjectException {
@@ -49,22 +50,20 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
         }
 
         JSONObject jsonObject = (JSONObject) arg0;
-        jsonObject.checkValidity(new String[] {"nextTunnel", "tunnelID", "isSuccess"});
-        //im commenting this out to avoid serialization error - seth
-        //this.tunnelGateway = new RouterID(jsonObject.getObject("tunnelGateway"));
+        jsonObject.checkValidity(new String[] {"nextTunnel", "tunnelID", "records"});
+
         this.nextTunnel = jsonObject.getInt("nextTunnel");
         this.tunnelID = jsonObject.getInt("tunnelID");
-        this.isSuccess = jsonObject.getBoolean("isSuccess");
+        this.records = new TunnelBuild(jsonObject.getArray("records"));
     }
 
     @Override
     public JSONObject toJSONType() {
         JSONObject jsonObject = new JSONObject();
-        //commenting out to avoid serialization error -seth
-        //jsonObject.put("tunnelGateway", tunnelGateway.toJSONType()); // uhhhhhhh?
         jsonObject.put("nextTunnel", nextTunnel);
         jsonObject.put("tunnelID", tunnelID);
-        jsonObject.put("isSuccess", isSuccess);
+        jsonObject.put("records", records.toJSONType());
+        // System.out.println("TunnelBuildReplyMessage serializes to: " + jsonObject.getFormattedJSON());
         return jsonObject;
     }
 
@@ -76,8 +75,8 @@ public class TunnelBuildReplyMessage extends I2NPMessage {
         return tunnelID;
     }
 
-    public boolean getIsSuccess() {
-        return isSuccess;
+    public TunnelBuild getRecords() {
+        return records;
     }
 
     public void setNextTunnel(int nextTunnel) {
