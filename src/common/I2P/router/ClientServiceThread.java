@@ -375,7 +375,7 @@ public class ClientServiceThread implements Runnable {
             // create a map of the peers in the tunnel to their router ids
             Tunnel potentialTunnel = new Tunnel();
 
-            for (int i = tempPeers.size() - 1; i >= 0; i--) {
+            for (int i = 0; i < tempPeers.size(); i++) {
                 RouterInfo current = tempPeers.get(i);
 
                 byte[] toPeer = Arrays.copyOf(current.getRouterID().getHash(), 16); // only first 16 bytes of the hash
@@ -439,6 +439,8 @@ public class ClientServiceThread implements Runnable {
                 }
                 byte[] nextIdent = next.getHash();
 
+                System.out.println("toPeer created: " + Base64.toBase64String(toPeer));
+
                 TunnelBuild.Record record = new TunnelBuild.Record(
                         toPeer,
                         receiveTunnel,
@@ -477,9 +479,7 @@ public class ClientServiceThread implements Runnable {
             // encrypt the records for the tunnel build message
             for (int i = 0; i < records.size(); i++) {
                 TunnelBuild.Record record = records.get(i);
-                record.hybridEncrypt(tempPeers.get(i).getRouterID().getElgamalPublicKey(), record.getReplyKey()); // this
-                                                                                                                  // feels
-                                                                                                                  // janky
+                record.hybridEncrypt(tempPeers.get(i).getRouterID().getElgamalPublicKey(), record.getReplyKey());
             }
 
             // OKAY NOW WE AES ENCRYPT WISH ME LUCK!!!!
