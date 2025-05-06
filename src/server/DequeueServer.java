@@ -22,6 +22,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -58,7 +59,7 @@ public class DequeueServer implements Runnable {
                 CommandType commandType = clientState.getCommandType();
 
                 switch (commandType) {
-                    case CREATE:
+                    case CREATE -> {
                         // Get the client name and password from the client state
                         String clientNameCreate = clientState.getClientName();
                         String clientPasswordCreate = clientState.getClientPassword();
@@ -67,7 +68,7 @@ public class DequeueServer implements Runnable {
                         if (USERS_DATABASE.checkIfUserExists(clientNameCreate)) {
                             System.out.println("User already exists");
                             Response response = new Response("Status", "", false, "User already exists");
-                            SendMessage send = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4] , response.toJSONType());
+                            SendMessage send = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], response.toJSONType());
                             SOCKET.sendMessage(send);
                             break;
                         }
@@ -86,9 +87,9 @@ public class DequeueServer implements Runnable {
 
                         // Send the response to the client
                         SOCKET.sendMessage(send);
+                    }
 
-                        break;
-                    case AUTHENTICATE:
+                    case AUTHENTICATE -> {
                         // Get the client name, password, and OTP from the client state
                         String clientNameAuth = clientState.getClientName();
                         String clientPasswordAuth = clientState.getClientPassword();
@@ -122,12 +123,12 @@ public class DequeueServer implements Runnable {
 
                         SOCKET.sendMessage(sendAuthSuccess);
 
-                        break;
-                    case ADD:
+                    }
+                    case ADD -> {
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
                             System.out.println("User not authenticated");
-                            Response responseAddFail = new Response("Status","", false, "User not authenticated");
+                            Response responseAddFail = new Response("Status", "", false, "User not authenticated");
                             SendMessage sendAddFail = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseAddFail.toJSONType());
                             SOCKET.sendMessage(sendAddFail);
                             break;
@@ -138,9 +139,9 @@ public class DequeueServer implements Runnable {
                         int clientSongSizeAdd = clientState.getSongSize();
 
                         // Check if the audio data exists in the database
-                        if (!AUDIO_DATABASE.checkIfAudioExists(clientSongNameAdd)) {
-                            System.out.println("Audio does not exist");
-                            Response responseAdd = new Response("Status", "", false, "Audio does not exist");
+                        if (AUDIO_DATABASE.checkIfAudioExists(clientSongNameAdd)) {
+                            System.out.println("Audio already exist");
+                            Response responseAdd = new Response("Status", "", false, "Audio already exist");
                             SendMessage sendAdd = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseAdd.toJSONType());
                             SOCKET.sendMessage(sendAdd);
                             break;
@@ -154,8 +155,8 @@ public class DequeueServer implements Runnable {
                         // Add the audio data to the map
                         AUDIO_DATA_MAP.put(clientState.getClientDest(), new ArrayList<>(clientSongSizeAdd));
 
-                        break;
-                    case SENDING:
+                    }
+                    case SENDING -> {
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
                             System.out.println("User not authenticated");
@@ -183,13 +184,14 @@ public class DequeueServer implements Runnable {
                         // Get the audio data from the map
                         List<byte[]> audioDataSending = AUDIO_DATA_MAP.get(destSending);
 
+                        System.out.println("Audio data found: " + audioDataSending.size());
                         // Check if the audio data is already present
                         if (audioDataSending.get(clientByteID) == null) {
                             audioDataSending.set(clientByteID, clientSongData);
                         }
 
-                        break;
-                    case END:
+                    }
+                    case END -> {
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
                             System.out.println("User not authenticated");
@@ -220,10 +222,14 @@ public class DequeueServer implements Runnable {
                         }
 
                         // Add the audio to the database
+                        System.out.println("Adding audio to database");
                         AUDIO_DATABASE.addAudio(clientState.getSongname(), audioData, clientState.getSongSize());
+                        MAP.remove(Base64.toBase64String(clientState.getClientDest().getHash()));
+                        AUDIO_DATA_MAP.remove(destEnd);
+                        System.out.println("Audio added to database");
 
-                        break;
-                    case PLAY:
+                    }
+                    case PLAY -> {
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
                             System.out.println("User not authenticated");
@@ -261,8 +267,12 @@ public class DequeueServer implements Runnable {
                             }
                         }
 
-                        break;
-                    case LIST:
+                        String clientDest = Base64.toBase64String(clientState.getClientDest().getHash());
+
+                        MAP.remove(clientDest);
+
+                    }
+                    case LIST -> {
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
                             System.out.println("User not authenticated");
@@ -279,12 +289,9 @@ public class DequeueServer implements Runnable {
                         Response responseList = new Response("Status", "", true, audioList);
                         SendMessage sendList = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseList.toJSONType());
 
-                        // Sends the messages to the client
-                        for (int j = 0; j <= 3; j++) {
-                            SOCKET.sendMessage(sendList);
-                        }
+                        SOCKET.sendMessage(sendList);
 
-                        break;
+                    }
                 }
 
             } catch (InterruptedException | NoSuchAlgorithmException | IOException e) {

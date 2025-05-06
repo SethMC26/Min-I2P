@@ -2,6 +2,8 @@ package server;
 
 public enum CommandType {
 
+    NONE, // No command
+
     CREATE, // Create an account in the server
 
     AUTHENTICATE, // Authenticate the user

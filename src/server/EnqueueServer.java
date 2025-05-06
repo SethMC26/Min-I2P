@@ -73,6 +73,9 @@ public class EnqueueServer implements Runnable {
                     // Check if the destination is null
                     if (reply.getDestination() != null) {
                         dest = reply.getDestination();
+                        String destHashString = Base64.toBase64String(dest.getHash());
+
+                        MAP.put(destHashString, new ClientState(dest, CommandType.NONE));
                     } else {
                         System.err.println("Error: Destination not found");
                         continue;
