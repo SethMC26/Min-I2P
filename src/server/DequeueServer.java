@@ -197,7 +197,6 @@ public class DequeueServer implements Runnable {
 
                     }
                     case END -> {
-                        System.out.println("End command received (dequeue server)");
 
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
@@ -219,18 +218,10 @@ public class DequeueServer implements Runnable {
                             break;
                         }
 
-                        System.out.println("Does the audio data exist? " + AUDIO_DATA_MAP.containsKey(destEnd));
-                        System.out.println("Audio data found: " + AUDIO_DATA_MAP.get(destEnd).size());
-
                         List<byte[]> audioData = AUDIO_DATA_MAP.get(destEnd);
 
-                        System.out.println("Adding audio to the database");
                         AUDIO_DATABASE.addAudio(clientState.getSongname(), audioData, clientState.getSongSize());
-
-                        System.out.println("Removing client from the MAP");
                         MAP.remove(Base64.toBase64String(clientState.getClientDest().getHash()));
-
-                        System.out.println("Removing audio data from the AUDIO_DATA_MAP");
                         AUDIO_DATA_MAP.remove(destEnd);
 
                     }

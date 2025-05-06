@@ -32,7 +32,6 @@ public class EnqueueClient implements Runnable {
     @Override
     public void run() {
         try {
-            System.out.println("EnqueueClient started.");
 
             I2CPMessage recvMsg = SOCKET.getMessage();
 
@@ -78,7 +77,6 @@ public class EnqueueClient implements Runnable {
                 }
 
                 QUEUE.add(combinedAudio);
-                System.out.println("Enqueued queue size: " + QUEUE.size());
 
                 if (recvMessage.getType().equals("End")) {
                     byte[] endAudio = new byte[1];

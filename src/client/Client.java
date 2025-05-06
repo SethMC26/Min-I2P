@@ -286,11 +286,7 @@ public class Client {
                             throw new RuntimeException(e);
                         }
 
-                        System.out.println("Audio bytes length: " + audioBytes.length);
-
                         List<byte[]> chunks = chunkAudioData(audioBytes, 1024); // 1024 bytes per chunk
-
-                        System.out.println("Split into " + chunks.size() + " chunks");
 
                         Request request = new Request("Add", clientHash, songname, chunks.size());
                         SendMessage msg = new SendMessage(sessionID, currDest, new byte[4], request.toJSONType());
@@ -380,15 +376,11 @@ public class Client {
                             break;
                         }
 
-                        System.out.println("Song being played now");
-
                         LinkedBlockingQueue<byte[]> queue = new LinkedBlockingQueue<>();
 
-                        System.out.println("Starting enqueue thread");
                         Thread enqueueThread = new Thread(new EnqueueClient(queue, socket));
                         enqueueThread.start();
 
-                        System.out.println("Starting dequeue thread");
                         Thread dequeueThread = new Thread(new DequeueClient(queue));
                         dequeueThread.start();
 

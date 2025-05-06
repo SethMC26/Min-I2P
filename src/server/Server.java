@@ -187,8 +187,6 @@ public class Server {
 
         // --------- Processing Messages --------- //
 
-        System.out.println("Starting server...");
-
         LinkedBlockingQueue<ClientState> queue = new LinkedBlockingQueue<>();
         ConcurrentHashMap<String, ClientState> clients = new ConcurrentHashMap<>();
 
