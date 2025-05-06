@@ -132,7 +132,7 @@ public class Server {
         // ------- Starting the router -------- //
         int numberOfRouters = 5; // Specify the number of routers to create
         Logger log = Logger.getInstance();
-        log.setMinLevel(Logger.Level.DEBUG);
+        log.setMinLevel(Logger.Level.ERROR);
 
         //start router
         Thread router = new Thread(new Router(InetAddress.getLoopbackAddress(),routerPort, servicePort, bootstrapPeer));

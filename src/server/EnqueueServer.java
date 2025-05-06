@@ -259,6 +259,7 @@ public class EnqueueServer implements Runnable {
 
                             existingClient.setSongData(songData);
                             existingClient.setByteID(id);
+                            existingClient.setCommandType(CommandType.SENDING);
 
                             client = existingClient;
                         } else {

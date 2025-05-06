@@ -77,6 +77,7 @@ public class Router implements Runnable {
      * Logger for use in Router
      */
     private Logger log = Logger.getInstance();
+    Logger.Level minLevel = Logger.Level.ERROR;
 
     private int lastInboundTunnelID;
 

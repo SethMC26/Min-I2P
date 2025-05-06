@@ -123,7 +123,7 @@ public class Client {
 
             int numberOfRouters = 5; // Specify the number of routers to create
             Logger log = Logger.getInstance();
-            log.setMinLevel(Logger.Level.DEBUG);
+            log.setMinLevel(Logger.Level.ERROR);
 
             //start router
             Thread router = new Thread(new Router(InetAddress.getLoopbackAddress(), routerPort, servicePort, bootstrapPeer));
@@ -276,8 +276,7 @@ public class Client {
                             File file = new File(filePath);
                             if (!file.exists()) {
                                 System.err.println("Error: File does not exist");
-                                socket.close();
-                                System.exit(1);
+                                break;
                             }
 
                             Path path = file.toPath();
@@ -286,7 +285,11 @@ public class Client {
                             throw new RuntimeException(e);
                         }
 
-                        List<byte[]> chunks = chunkAudioData(audioBytes, 256); // 1024 bytes per chunk
+                        System.out.println("Audio bytes length: " + audioBytes.length);
+
+                        List<byte[]> chunks = chunkAudioData(audioBytes, 1024); // 1024 bytes per chunk
+
+                        System.out.println("Split into " + chunks.size() + " chunks");
 
                         Request request = new Request("Add", clientHash, songname, chunks.size());
                         SendMessage msg = new SendMessage(sessionID, currDest, new byte[4], request.toJSONType());
@@ -527,7 +530,7 @@ public class Client {
     }
 
     private static void sendSong(Destination currDest, List<byte[]> chunks) throws IOException, InterruptedException {
-        for (int id = 0; id < 10; id++) {
+        for (int id = 0; id < chunks.size(); id++) {
             byte[] chunk = chunks.get(id);
             // create a byte message
             ByteMessage bytes = new ByteMessage("Byte", clientHash, chunk, id);
@@ -537,11 +540,11 @@ public class Client {
             socket.sendMessage(msg);
             // iterate the id for each chunk
 
-            Thread.sleep(100);
+            Thread.sleep(10);
 
         }
 
-        Thread.sleep(1000); // wait for 1 second
+        Thread.sleep(100);
 
         Message message = new Message("End", clientHash);
         SendMessage msg = new SendMessage(sessionID, currDest, new byte[4], message.toJSONType());

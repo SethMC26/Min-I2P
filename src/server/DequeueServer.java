@@ -56,7 +56,9 @@ public class DequeueServer implements Runnable {
                 ClientState clientState = QUEUE.take();
 
                 // Process the client state
+                System.out.println("Processing client state command type");
                 CommandType commandType = clientState.getCommandType();
+                System.out.println("Command type: " + commandType);
 
                 switch (commandType) {
                     case CREATE -> {
@@ -88,7 +90,6 @@ public class DequeueServer implements Runnable {
                         // Send the response to the client
                         SOCKET.sendMessage(send);
                     }
-
                     case AUTHENTICATE -> {
                         // Get the client name, password, and OTP from the client state
                         String clientNameAuth = clientState.getClientName();
@@ -152,8 +153,13 @@ public class DequeueServer implements Runnable {
                         SendMessage sendAddSuccess = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseAddSuccess.toJSONType());
                         SOCKET.sendMessage(sendAddSuccess);
 
+                        List<byte[]> list = new ArrayList<>();
+                        for (int i = 0; i < clientSongSizeAdd; i++) {
+                            list.add(null);
+                        }
+
                         // Add the audio data to the map
-                        AUDIO_DATA_MAP.put(clientState.getClientDest(), new ArrayList<>(clientSongSizeAdd));
+                        AUDIO_DATA_MAP.put(clientState.getClientDest(), list);
 
                     }
                     case SENDING -> {
@@ -184,7 +190,6 @@ public class DequeueServer implements Runnable {
                         // Get the audio data from the map
                         List<byte[]> audioDataSending = AUDIO_DATA_MAP.get(destSending);
 
-                        System.out.println("Audio data found: " + audioDataSending.size());
                         // Check if the audio data is already present
                         if (audioDataSending.get(clientByteID) == null) {
                             audioDataSending.set(clientByteID, clientSongData);
@@ -192,6 +197,8 @@ public class DequeueServer implements Runnable {
 
                     }
                     case END -> {
+                        System.out.println("End command received (dequeue server)");
+
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
                             System.out.println("User not authenticated");
@@ -212,8 +219,11 @@ public class DequeueServer implements Runnable {
                             break;
                         }
 
+                        System.out.println("Audio data found: " + (AUDIO_DATA_MAP.get(destEnd) != null));
                         // Remove empty audio data
                         List<byte[]> audioData = AUDIO_DATA_MAP.get(destEnd);
+                        System.out.println("Audio data size: " + audioData.size());
+                        System.out.println("Clearing empty audio data");
                         for (int i = 0; i < audioData.size(); i++) {
                             byte[] data = audioData.get(i);
                             if (data.length == 0) {
