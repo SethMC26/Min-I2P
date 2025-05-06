@@ -190,7 +190,7 @@ public class RouterServiceThread implements Runnable {
         if (cstMessages.containsKey(tunnelID)) {
             System.err.println("Found client message hurray! adding to queueu under " + tunnelID);
             ConcurrentLinkedQueue<I2CPMessage> queue = cstMessages.get(tunnelID);
-            queue.add(new PayloadMessage(0, 0, tunnelData.getPayload()));
+            queue.add(new PayloadMessage(0, 0, tunnelData.getEncPayload()));
             System.out.println(queue.size());
             return;
         }

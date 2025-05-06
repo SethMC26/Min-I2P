@@ -9,13 +9,16 @@ import common.I2P.tunnels.TunnelManager;
 import common.Logger;
 import common.transport.I2CP.*;
 import common.transport.I2NPSocket;
+import merrimackutil.json.JsonIO;
+import merrimackutil.json.types.JSONObject;
 import org.bouncycastle.util.encoders.Base64;
 
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
+import javax.crypto.*;
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.net.ServerSocket;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
@@ -307,8 +310,26 @@ public class ClientServiceThread implements Runnable {
                             log.warn("Bad message from router" + message.toJSONType().getFormattedJSON());
                             continue;
                         }
-                        System.out.println("CST got message " + message.toJSONType().getFormattedJSON());
-                        clientSock.sendMessage(message);
+                        PayloadMessage payload = (PayloadMessage) message;
+                        payload.getEncPayload();
+                        JSONObject json = null;
+                        try {
+                            // Decrypt the payload using ElGamal
+                            javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("ElGamal");
+                            cipher.init(javax.crypto.Cipher.DECRYPT_MODE, privateKey);
+                            byte[] decryptedPayload = cipher.doFinal(payload.getEncPayload());
+                            System.err.println(new String(decryptedPayload, StandardCharsets.UTF_8));
+                            // Convert the decrypted bytes back to a JSONObject
+                            json = JsonIO.readObject(new String(decryptedPayload, StandardCharsets.UTF_8));
+                            System.out.println(json.getFormattedJSON());
+
+                        } catch (IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | NoSuchPaddingException
+                                 | InvalidKeyException e) {
+                            System.err.println("Error decrypting payload: " + e.getMessage());
+                            e.printStackTrace();
+
+                        }
+                        clientSock.sendMessage(new PayloadMessage(sessionID, 0, json));
                     }
                 }
             } catch (InvalidObjectException e) {
