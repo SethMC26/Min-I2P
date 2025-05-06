@@ -3,6 +3,7 @@ package common.I2P.IDs;
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
+import org.bouncycastle.util.encoders.Base64;
 
 import java.io.InvalidObjectException;
 import java.security.MessageDigest;
