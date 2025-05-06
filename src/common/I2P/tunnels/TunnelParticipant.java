@@ -97,6 +97,7 @@ public class TunnelParticipant extends TunnelObject{
 
     private void handleTunnelDataMessage(TunnelDataMessage message) {
         message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
+        System.out.println("TunnelParticipant received TunnelDataMessage: " + message.toJSONType().getFormattedJSON());
         sendDataToNextHop(message);
     }
 

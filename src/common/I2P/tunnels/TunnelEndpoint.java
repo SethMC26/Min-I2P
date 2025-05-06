@@ -62,18 +62,21 @@ public class TunnelEndpoint extends TunnelObject {
     }
 
     private void handleTunnelBuildReplyMessage(TunnelBuildReplyMessage message) {
-        System.out.println("TunnelEndpoint received TunnelBuildReplyMessage: " + message);
+        System.out.println("TunnelEndpoint received TunnelBuildReplyMessage: " + message.toJSONType().getFormattedJSON());
         System.out.println("Seth how do i process this im ascarerhjkaahsdjk");
+        System.out.println("Reminder to self: make build reply message go to the router durrrrr");
     }
 
     private void handleTunnelDataMessage(TunnelDataMessage message) {
+        System.out.println("TunnelEndpoint received TunnelDataMessage1: " + message.toJSONType().getFormattedJSON());
         // assume it is an endpoint payload
         EndpointPayload payload = new EndpointPayload(message.getPayload());
+        System.out.println("TunnelEndpoint received TunnelDataMessage: " + payload.toJSONType().getFormattedJSON());
 
         // reminder, the message.getpayload would be another endpoint payload (maybe?)
 
         TunnelDataMessage tdm = new TunnelDataMessage(payload.getTunnelID(), payload.getJsonObject());
-
+        System.out.println("TunnelEndpoint received TunnelDataMessage2: " + tdm.toJSONType().getFormattedJSON());
         int msgID = new SecureRandom().nextInt();
         // recasting to a new TunnelDataMessage here might be fine or might cause errors
         // - seth
@@ -82,7 +85,7 @@ public class TunnelEndpoint extends TunnelObject {
         I2NPSocket socket;
         try {
             socket = new I2NPSocket();
-            RouterInfo routerInfo = (RouterInfo) netDB.lookup(payload.getRouterID().getHash());
+            RouterInfo routerInfo = (RouterInfo) netDB.lookup(payload.getRouterID());
             socket.sendMessage(header, routerInfo);
         } catch (SocketException e) {
             // TODO Auto-generated catch block

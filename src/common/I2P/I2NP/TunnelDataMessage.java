@@ -40,7 +40,7 @@ public class TunnelDataMessage extends I2NPMessage {
         JSONObject jsonObject = (JSONObject) arg0;
         jsonObject.checkValidity(new String[] { "tunnelID", "payload" });
         this.tunnelID = jsonObject.getInt("tunnelID");
-        this.payload = jsonObject.getObject("payload"); // pray this works
+        this.payload = jsonObject.getObject("payload"); // pray this works;
         // Cast any Double values in the payload to Integer
         this.payload = castDoublesToIntegers(this.payload);
         System.out.println("TunnelDataMessage deserializes to: " + tunnelID + " " + payload);

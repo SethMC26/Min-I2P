@@ -112,6 +112,7 @@ public class TunnelGateway extends TunnelObject {
 
     private void handleTunnelDataMessage(TunnelDataMessage message) {
         message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
+        System.out.println("TunnelGateway received TunnelDataMessage: " + message.toJSONType().getFormattedJSON());
         sendDataToNextHop(message);
     }
 

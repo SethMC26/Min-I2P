@@ -250,8 +250,13 @@ public class ClientServiceThread implements Runnable {
 
                                 // REMINDER: WE NEED AN INTERNAL PAYLOAD FOR THE MESSAGE TO SEND TO THE DESTINATION FROM THE SECOND ENDPOINT
 
+                                // realistically... we need to encrypt message with the pub key of the destination
+                                // for testing it is plain text cause i love life
+                                // god i wish there was a way to highlight this in the code
                                 EndpointPayload payload = new EndpointPayload(lease.getTunnelID(),
-                                        gateway.getRouterID(), send.getPayload());
+                                        gateway.getRouterID().getHash(), send.getPayload());
+
+                                // btduwbs it is fine for gateway router to know dest information cause it our pookie :D
 
                                 ConcurrentHashMap<Integer, Tunnel> outboundTunnels = tunnelManager.getOutboundTunnels();
                                 // select a random outbound tunnel to send the message through
