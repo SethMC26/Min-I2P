@@ -13,7 +13,6 @@ import common.transport.I2NPSocket;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
-import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -88,11 +87,12 @@ public class Router implements Runnable {
      * 
      * @param configFile JSON File to use for configuration
      */
-    Router(File configFile) throws IOException {
-        // todo add config parsing
-        //int port = 7000; // hard coded for now we will fix later
-        //this.port = port;
-        //int boot = 8080;
+    public Router(RouterConfig configFile) {
+        this.address = configFile.getAddress();
+        this.RSTPort = configFile.getRSTport();
+        this.CSTPort = configFile.getCSTPort();
+        this.bootstrapAddress = configFile.getBootstrapPeer();
+        this.tunnelManager = new TunnelManager();
     }
 
     /**
