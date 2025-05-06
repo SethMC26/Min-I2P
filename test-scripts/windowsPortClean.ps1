@@ -1,64 +1,64 @@
 <#
 .SYNOPSIS
-    Kills any process listening on specified UDP and TCP ports on localhost,
-    using netstat to enumerate listeners and taskkill to terminate them.
+    Kills processes listening on specified UDP and TCP ports on localhost.
 #>
 
-# Make sure we're elevated
-if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
-        ).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
-    Write-Warning "This script must be run as Administrator."
-    break
+# ---- 1. Require elevation ---------------------------------------------------
+if (-not ([Security.Principal.WindowsPrincipal] `
+        [Security.Principal.WindowsIdentity]::GetCurrent()
+       ).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
+    Write-Warning "ERROR: Run this script in an *elevated* PowerShell window."
+    exit 1
 }
 
-# Ports to scan
-$udpPorts = @(8080) + (10001..10005)
-$tcpPorts = 20000..20005
+# ---- 2. Port lists ----------------------------------------------------------
+$portsMap = @{
+    UDP = @(8080) + (10001..10005)
+    TCP = 20000..20005
+}
 
-function Kill-PortProcess {
+# ---- 3. Helper: kill by PID -------------------------------------------------
+function Kill-ProcId {
     param(
-        [string]$Protocol,   # “UDP” or “TCP”
-        [int]   $Port,
-        [string]$StateFilter # for TCP, only “LISTENING” lines
+        [int]    $ProcId,
+        [string] $Proto,
+        [int]    $Port
     )
 
-    # Run netstat for this protocol
-    $lines = netstat -ano -p $Protocol 2>$null |
-             Select-String ":$Port\s"
-
-    if (-not $lines) {
-        Write-Host "[$Protocol] Port $Port: no listeners found."
-        return
-    }
-
-    foreach ($line in $lines) {
-        # Split on whitespace; PID is always the last token
-        $tokens = ($line -replace '\s+',' ') -split ' '
-        $local        = $tokens[1]
-        $stateOrBlank = if ($Protocol -eq 'TCP') { $tokens[3] } else { '' }
-        $pid          = $tokens[-1]
-
-        # If TCP, only kill LISTENING state
-        if ($Protocol -eq 'TCP' -and $stateOrBlank -ne $StateFilter) {
-            continue
-        }
-
-        # Double-check process exists
-        if (Get-Process -Id $pid -ErrorAction SilentlyContinue) {
-            Write-Host "[$Protocol] Killing PID $pid listening on $local"
-            taskkill /PID $pid /F | Out-Null
-        } else {
-            Write-Host "[$Protocol] PID $pid not found (already exited?)."
-        }
+    if (Get-Process -Id $ProcId -ErrorAction SilentlyContinue) {
+        Write-Host "[$Proto] Killing PID $ProcId on port $Port"
+        taskkill /PID $ProcId /F | Out-Null
+    } else {
+        Write-Host "[$Proto] PID $ProcId not found (already exited?)"
     }
 }
 
-# Kill UDP listeners
-foreach ($port in $udpPorts) {
-    Kill-PortProcess -Protocol 'UDP' -Port $port -StateFilter ''
-}
+# ---- 4. Scan & kill ---------------------------------------------------------
+foreach ($proto in $portsMap.Keys) {
+    foreach ($port in $portsMap[$proto]) {
 
-# Kill TCP LISTENING
-foreach ($port in $tcpPorts) {
-    Kill-PortProcess -Protocol 'TCP' -Port $port -StateFilter 'LISTENING'
+        try {
+            # Regex with capture group 1 = PID
+            $regex = if ($proto -eq 'UDP') {
+                "^\s*UDP\s+\S+:$port\s+\S+\s+(\d+)"
+            } else {
+                "^\s*TCP\s+\S+:$port\s+\S+\s+LISTENING\s+(\d+)"
+            }
+
+            $lines = netstat -ano -p $proto | Select-String -Pattern $regex
+
+            if (-not $lines) {
+                Write-Host "[$proto] Port $port is free."
+                continue
+            }
+
+            foreach ($match in $lines) {
+                $procId = [int]$match.Matches[0].Groups[1].Value
+                Kill-ProcId -ProcId $procId -Proto $proto -Port $port
+            }
+        }
+        catch {
+            Write-Warning "Error processing $proto port $port : $_"
+        }
+    }
 }

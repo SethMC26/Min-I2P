@@ -18,7 +18,7 @@ public class RelayPeer {
         Security.addProvider(new BouncyCastleProvider());
 
         Logger log = Logger.getInstance();
-        log.setMinLevel(Logger.Level.WARN);
+        log.setMinLevel(Logger.Level.INFO);
         File configFile = null;
 
         OptionParser parser;
@@ -58,7 +58,7 @@ public class RelayPeer {
 
         //start router
         RouterConfig routerConfig = new RouterConfig(configFile);
-        log.error("Starting on ports " + routerConfig.getRSTport() + " " + routerConfig.getCSTPort());
+        log.info("Starting on ports " + routerConfig.getRSTport() + " " + routerConfig.getCSTPort());
         Thread router = new Thread(new Router(routerConfig));
         router.start();
     }
