@@ -8,6 +8,7 @@ import common.transport.I2CP.*;
 import merrimackutil.json.types.JSONObject;
 import org.bouncycastle.util.encoders.Base64;
 
+import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -32,7 +33,7 @@ public class EnqueueServer implements Runnable {
         while (true) {
 
             // Checks if there is a message in the socket
-            if (SOCKET.hasMessage()) {
+            try {
                 try {
                     // Get the message from the socket
                     I2CPMessage message = SOCKET.getMessage();
@@ -294,6 +295,8 @@ public class EnqueueServer implements Runnable {
                 } catch (InvalidObjectException e) {
                     throw new RuntimeException(e);
                 }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         }
     }
