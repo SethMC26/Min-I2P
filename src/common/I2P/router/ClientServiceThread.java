@@ -266,6 +266,9 @@ public class ClientServiceThread implements Runnable {
                                 RouterInfo outboundGateway = outboundTunnel.getGateway(); // get the gateway for the
                                                                                           // outbound tunnel
 
+                                // encrypt the payload
+                                payload.encryptPayload(destLease.getEncryptionKey());
+
                                 TunnelDataMessage tunnelDataMessage = new TunnelDataMessage(
                                         outboundTunnel.getGatewayTunnelID(), payload.toJSONType());
 

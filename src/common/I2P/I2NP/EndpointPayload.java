@@ -72,6 +72,18 @@ public class EndpointPayload implements JSONSerializable {
         return jsonObject;
     }
 
+    public byte[] getEncTunnelID() {
+        return encTunnelID;
+    }
+
+    public byte[] getEncRouterID() {
+        return encRouterID;
+    }
+
+    public byte[] getEncMessage() {
+        return encMessage;
+    }
+
     /**
      * First stage of encryption with the ElGamal algorithm. This method encrypts
      * the

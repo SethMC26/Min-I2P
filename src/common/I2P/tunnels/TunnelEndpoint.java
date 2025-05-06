@@ -75,7 +75,7 @@ public class TunnelEndpoint extends TunnelObject {
 
         // reminder, the message.getpayload would be another endpoint payload (maybe?)
 
-        TunnelDataMessage tdm = new TunnelDataMessage(payload.getTunnelID(), payload.getJsonObject());
+        TunnelDataMessage tdm = new TunnelDataMessage(payload.getTunnelID(), payload.getEncMessage());
         System.out.println("TunnelEndpoint received TunnelDataMessage2: " + tdm.toJSONType().getFormattedJSON());
         int msgID = new SecureRandom().nextInt();
         // recasting to a new TunnelDataMessage here might be fine or might cause errors
