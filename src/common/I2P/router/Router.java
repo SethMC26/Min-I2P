@@ -234,8 +234,11 @@ public class Router implements Runnable {
     public void run() {
         // Generate keys and create RouterInfo
         elgamalKeyPair = generateKeyPairElGamal();
+        System.err.println("Generated elgamal key");
+
         edKeyPair = generateKeyPairEd();
         routerID = new RouterID(elgamalKeyPair.getPublic(), edKeyPair.getPublic());
+        System.err.println("key used in router id");
         routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), address.getHostName(), RSTPort, edKeyPair.getPrivate());
 
         // Initialize NetDB
@@ -258,7 +261,7 @@ public class Router implements Runnable {
 
                             message = socket.getMessage();
                             RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, clientMessages,
-                                    tunnelManager, edKeyPair.getPrivate());
+                                    tunnelManager, elgamalKeyPair.getPrivate(), edKeyPair.getPrivate());
                             // To sam, this will turn on floodfill, from your favorite NetDB implementor
                             // Seth
                             // rst.setFloodFill(true);
