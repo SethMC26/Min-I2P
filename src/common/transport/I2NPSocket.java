@@ -12,11 +12,6 @@ import java.nio.charset.StandardCharsets;
 
 public class I2NPSocket extends DatagramSocket {
     /**
-     * MAX Size of datagram packets - this is hacky I just set it large in hopes we dont reach it
-     */
-    private final int MAX_SIZE = 4096;
-
-    /**
      * Constructs a datagram socket and binds it to any available port on the local host machine. The socket will be
      * bound to the wildcard address
      * @throws SocketException if the socket could not be opened, or the socket could not be bound
@@ -66,8 +61,6 @@ public class I2NPSocket extends DatagramSocket {
      */
     public void sendMessage(I2NPHeader message, String host, int port) throws IOException {
         byte[] messageByte = message.serialize().getBytes(StandardCharsets.UTF_8);
-        if (messageByte.length > MAX_SIZE)
-            throw new RuntimeException("Bytes is over max size! We will need to increase max size");
 
         InetSocketAddress toSendAddress = new InetSocketAddress(host, port);
 
@@ -82,9 +75,7 @@ public class I2NPSocket extends DatagramSocket {
      * @throws IOException if IO error occurs while sending
      */
     public void sendMessage(I2NPHeader message, InetSocketAddress address) throws IOException {
-        byte[] messageByte = message.toJSONType().getFormattedJSON().getBytes(StandardCharsets.UTF_8);
-        if (messageByte.length > MAX_SIZE)
-            throw new RuntimeException("Bytes is over max size! We will need to increase max size");
+        byte[] messageByte = message.serialize().getBytes(StandardCharsets.UTF_8);
 
         DatagramPacket pkt = new DatagramPacket(messageByte, messageByte.length, address);
         send(pkt);
@@ -96,14 +87,13 @@ public class I2NPSocket extends DatagramSocket {
      * @throws IOException if an I/O error occurs.
      */
     public I2NPHeader getMessage() throws IOException {
-        DatagramPacket pkt = new DatagramPacket(new byte[MAX_SIZE], MAX_SIZE);
+        //very hacky we have big packets ;)
+        DatagramPacket pkt = new DatagramPacket(new byte[64_000], 64_000); //size is always an issue for me -seth
         receive(pkt);
-
         //this is a hacky trick  to only get bytes received in message real protocols add lengths to avoid this issue
         //We are fake mathematician and Engineers anyways whats a little hack among friends
         String json = new String(pkt.getData(), 0, pkt.getLength(), StandardCharsets.UTF_8);
         JSONObject obj = JsonIO.readObject(json);
-
         return new I2NPHeader(obj);
     }
 }
