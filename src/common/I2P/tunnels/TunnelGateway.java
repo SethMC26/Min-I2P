@@ -2,6 +2,7 @@ package common.I2P.tunnels;
 
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.I2NPMessage;
+import common.I2P.I2NP.TunnelBuildReplyMessage;
 import common.I2P.I2NP.TunnelDataMessage;
 import common.I2P.I2NP.TunnelHopInfo;
 import common.I2P.NetworkDB.NetDB;
@@ -19,7 +20,7 @@ import java.util.ArrayList;
 /**
  * This class represents a gateway in a tunnel
  */
-public class TunnelGateway extends TunnelObject{
+public class TunnelGateway extends TunnelObject {
     /**
      * what router is the next one in the path
      */
@@ -43,16 +44,18 @@ public class TunnelGateway extends TunnelObject{
 
     /**
      * Create TunnelGateway
-     * @param tunnelID Integer ID of tunnel
+     * 
+     * @param tunnelID            Integer ID of tunnel
      * @param tunnelEncryptionKey AES key for encrypting messages
-     * @param tunnelIVKey AES key for IV encryption
-     * @param replyKey AES key for encrypting reply
-     * @param replyIV byte[] reply IV
-     * @param nextHop RouterID hash for next Router in path
-     * @param nextTunnelID Integer TunnelID on next hop
+     * @param tunnelIVKey         AES key for IV encryption
+     * @param replyKey            AES key for encrypting reply
+     * @param replyIV             byte[] reply IV
+     * @param nextHop             RouterID hash for next Router in path
+     * @param nextTunnelID        Integer TunnelID on next hop
      */
     public TunnelGateway(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey, SecretKey replyKey,
-                            byte[] replyIV, byte[] nextHop, Integer nextTunnelID, RouterInfo routerInfo, ArrayList<TunnelHopInfo> hops, NetDB netDB) {
+            byte[] replyIV, byte[] nextHop, Integer nextTunnelID, RouterInfo routerInfo, ArrayList<TunnelHopInfo> hops,
+            NetDB netDB) {
         super(TYPE.GATEWAY, tunnelID, tunnelEncryptionKey, tunnelIVKey, replyKey, replyIV);
         this.nextHop = nextHop;
         this.nextTunnelID = nextTunnelID;
@@ -62,17 +65,54 @@ public class TunnelGateway extends TunnelObject{
     }
 
     @Override
-    public void handleMessage(TunnelDataMessage message) {
+    public void handleMessage(I2NPMessage message) {
         // decrypt the message initially client -> router
         // get router info for each hop in the path
         // recursively encrypt the messaege for each hop in the path with the pk
         // skip for now
 
-        // temporary just forward the message to the next hop
-        //I2NPMessage encryptedMessage = encryptMessage(message);
-        message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
+        if (message instanceof TunnelDataMessage) {
+            System.out.println("TunnelGateway received TunnelDataMessage");
+            handleTunnelDataMessage((TunnelDataMessage) message);
+        } else if (message instanceof TunnelBuildReplyMessage) {
+            System.out.println("TunnelGateway received TunnelBuildReplyMessage");
+            handleTunnelBuildReplyMessage((TunnelBuildReplyMessage) message);
+        } else {
+            System.out.println("TunnelGateway received unknown message type: " + message.getClass().getSimpleName());
+            return;
+        }
 
-        sendToNextHop(message);
+        // temporary just forward the message to the next hop
+        // I2NPMessage encryptedMessage = encryptMessage(message);
+        // message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
+
+        // sendToNextHop(message);
+    }
+
+    private void handleTunnelBuildReplyMessage(TunnelBuildReplyMessage message) {
+        System.out.println("this is what the gateway thinks the next tunnel id is: " + nextTunnelID);
+        message.setNextTunnel(nextTunnelID); // set the tunnel ID for the next hop
+
+        int msgID = new SecureRandom().nextInt(); // generate a random message ID, with secure random
+        I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILDREPLY, msgID, System.currentTimeMillis() + 100, message);
+        try {
+            I2NPSocket socket = new I2NPSocket();
+            RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextHop); // this is a dangerous cast could crash here
+            socket.sendMessage(header, nextRouter);
+            socket.close(); // make sure to close socket
+        } catch (SocketException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        
+    }
+
+    private void handleTunnelDataMessage(TunnelDataMessage message) {
+        message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
+        sendDataToNextHop(message);
     }
 
     private I2NPMessage encryptMessage(I2NPMessage message) {
@@ -80,18 +120,19 @@ public class TunnelGateway extends TunnelObject{
         return currentPayload;
     }
 
-    private void sendToNextHop(I2NPMessage encryptedMessage) {
+    private void sendDataToNextHop(I2NPMessage encryptedMessage) {
         try {
             int msgID = new SecureRandom().nextInt(); // generate a random message ID, with secure random
 
-            
             // create header for the message
-            I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELDATA, msgID, System.currentTimeMillis() + 10, encryptedMessage);
+            I2NPHeader header = new I2NPHeader(I2NPHeader.TYPE.TUNNELDATA, msgID, System.currentTimeMillis() + 100,
+                    encryptedMessage);
             I2NPSocket socket = new I2NPSocket();
-            RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextHop); //this is a dangerous cast could crash here should be fixed -seth
+            RouterInfo nextRouter = (RouterInfo) netDB.lookup(nextHop); // this is a dangerous cast could crash here
+                                                                        // should be fixed -seth
             socket.sendMessage(header, nextRouter);
 
-            socket.close(); //make sure to close socket
+            socket.close(); // make sure to close socket
         } catch (SocketException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();

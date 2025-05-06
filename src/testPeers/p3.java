@@ -31,7 +31,9 @@ public class p3 {
         log.setMinLevel(Logger.Level.DEBUG);
         Thread router = new Thread(new Router(InetAddress.getLoopbackAddress(),routerPort, servicePort, bootstrapPeer));
         router.start();
-
+        if (true) {
+            return;
+        }
         try {
             Thread.sleep(20000); //wait until router setup
         } catch (InterruptedException e) {
@@ -77,7 +79,7 @@ public class p3 {
         LeaseSet leaseSet = new LeaseSet(leases, clientDest, destElgamalKey.getPublic(), destEd25519Key.getPrivate());
 
         socket.sendMessage(new CreateLeaseSet(sessionID, destElgamalKey.getPrivate(), leaseSet));
-
+        System.out.println(socket.getMessage().toJSONType().getFormattedJSON());
         //basic testing loop
         Scanner input = new Scanner(System.in);
         Destination currDest = null;

@@ -31,9 +31,6 @@ public class p2 {
         log.setMinLevel(Logger.Level.DEBUG);
         Thread router = new Thread(new Router(InetAddress.getLoopbackAddress(),routerPort, servicePort, bootstrapPeer));
         router.start();
-        if (true) {
-            return;
-        }
 
         try {
             Thread.sleep(20000); //wait until router setup
@@ -80,7 +77,23 @@ public class p2 {
         LeaseSet leaseSet = new LeaseSet(leases, clientDest, destElgamalKey.getPublic(), destEd25519Key.getPrivate());
 
         socket.sendMessage(new CreateLeaseSet(sessionID, destElgamalKey.getPrivate(), leaseSet));
+        System.out.println("You are client for dest: " + Base64.toBase64String(clientDest.getHash()));
 
+        while(true) {
+            recvMessage = socket.getMessage();
+            System.out.println("got message " + recvMessage);
+            try {
+                PayloadMessage payloadMessage = (PayloadMessage) recvMessage;
+                System.out.println("Payload " + payloadMessage.getPayload().getFormattedJSON());
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            if (false) {
+                break;
+            }
+        }
         //basic testing loop
         Scanner input = new Scanner(System.in);
         Destination currDest = null;

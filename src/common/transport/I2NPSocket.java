@@ -82,7 +82,7 @@ public class I2NPSocket extends DatagramSocket {
      * @throws IOException if IO error occurs while sending
      */
     public void sendMessage(I2NPHeader message, InetSocketAddress address) throws IOException {
-        byte[] messageByte = message.serialize().getBytes(StandardCharsets.UTF_8);
+        byte[] messageByte = message.toJSONType().getFormattedJSON().getBytes(StandardCharsets.UTF_8);
         if (messageByte.length > MAX_SIZE)
             throw new RuntimeException("Bytes is over max size! We will need to increase max size");
 
