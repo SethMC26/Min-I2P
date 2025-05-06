@@ -19,78 +19,58 @@ import java.util.List;
 
 public class TunnelBuild extends I2NPMessage implements JSONSerializable {
     /**
-     * Records key is toPeer 16 byte SHA256 hash of peerID with value being record
+     * Array list of the records which contain all info for the tunnel build
      */
-    private HashMap<String, Record> records;
+    private ArrayList<Record> records;
 
     TunnelBuild(JSONArray json) throws InvalidObjectException {
         deserialize(json);
     }
 
     public TunnelBuild(ArrayList<Record> records) {
-        this.records = new HashMap<>();
+        this.records = new ArrayList<>();
 
         for (Record record : records) {
-            this.records.put(Base64.toBase64String(record.getToPeer()), record);
+            this.records.add(record);
         }
     }
 
     @Override
     public void deserialize(JSONType jsonType) throws InvalidObjectException {
-        if (jsonType == null) {
-            throw new InvalidObjectException("TunnelBuild deserialization failed: input JSONType is null");
-        }
-
-        if (!(jsonType instanceof JSONArray)) {
-            throw new InvalidObjectException("TunnelBuild deserialization failed: Expected JSONArray, got "
-                    + jsonType.getClass().getSimpleName());
-        }
+        if (!(jsonType instanceof JSONArray))
+            throw new InvalidObjectException("Must be JSONArray");
 
         JSONArray jsonArray = (JSONArray) jsonType;
-        this.records = new HashMap<>();
+        records = new ArrayList<>();
 
         for (int i = 0; i < jsonArray.size(); i++) {
-            JSONObject recordObject = jsonArray.getObject(i);
-            Record record = new Record(recordObject);
-            String key = Base64.toBase64String(record.getToPeer());
-            records.put(key, record);
+            JSONObject jsonObject = jsonArray.getObject(i);
+            Record record = new Record(jsonObject);
+            records.add(record);
         }
     }
 
     @Override
     public JSONArray toJSONType() {
         JSONArray jsonArray = new JSONArray();
-        for (Record record : records.values()) {
+        for (Record record : records) {
             jsonArray.add(record.toJSONType());
         }
         return jsonArray;
     }
 
     public void decryptAES(SecretKey secretKey) {
-        for (Record record : records.values()) {
-            try {
-                Cipher dec = Cipher.getInstance("AES/GCM/NoPadding");
-                GCMParameterSpec gcmSpec = new GCMParameterSpec(128, record.replyIv);
-                dec.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec);
-
-                byte[] decByte = dec.doFinal(record.getEncData());
-                record.setEncData(decByte);
-
-            } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | NoSuchAlgorithmException
-                    | IllegalBlockSizeException | BadPaddingException e) {
-                throw new RuntimeException(e); // should not hit case
-            } catch (InvalidKeyException e) {
-                throw new IllegalArgumentException("bad key " + e);
-            }
+        for (Record record : records) {
+            record.layeredDecrypt(secretKey);
         }
     }
 
-    public Record getRecord(String key) {
-        return records.get(key);
+    public Record getRecord(int position) {
+        return records.get(position);
     }
 
-    public List<Record> getRecords() {
-        return new ArrayList<>(records.values());
+    public ArrayList<Record> getRecords() {
+        return records;
     }
 
     public static class Record implements JSONSerializable {
@@ -167,6 +147,12 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
         private boolean replyFlag;
 
         /**
+         * Encrypted toPeer and replyKey
+         */
+        private byte[] encToPeer;
+        private byte[] encReplyKey;
+
+        /**
          * Construct a record from a json
          * 
          * @param jsonObject JSON to deserialize
@@ -224,8 +210,10 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
          *                RouterIdentity.
          * @param encData The encrypted data associated with this record.
          */
-        public Record(byte[] toPeer, byte[] encData) {
-            this.toPeer = toPeer; // uhhh... maybe uneeded?
+        public Record(byte[] encToPeer, byte[] encReplyKey, byte[] replyIV, byte[] encData) {
+            this.encToPeer = encToPeer;
+            this.encReplyKey = encReplyKey;
+            this.replyIv = replyIV; // regular
             this.encData = encData;
         }
 
@@ -243,9 +231,15 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 Cipher elgamalCipher = Cipher.getInstance("ElGamal/None/NoPadding");
                 elgamalCipher.init(Cipher.ENCRYPT_MODE, elgamalPublicKey);
 
-                byte[] encryptedToPeer = elgamalCipher.doFinal(this.toPeer);
-                byte[] encryptedReplyKey = elgamalCipher.doFinal(this.replyKey.getEncoded());
-                byte[] encryptedReplyIv = elgamalCipher.doFinal(this.replyIv);
+                this.encToPeer = elgamalCipher.doFinal(this.toPeer);
+                this.encReplyKey = elgamalCipher.doFinal(this.replyKey.getEncoded());
+                this.replyIv = this.replyIv; // OoOoooOOoooOooo keep it unencrypteddddd - the ghost of Sam's past whos
+                                             // made too many mistakes
+
+                // byte[] encryptedReplyIv = elgamalCipher.doFinal(this.replyIv);
+
+                this.toPeer = null; // Clear the toPeer field after encryption just in case
+                this.replyKey = null; // Clear the replyKey field after encryption just in case
 
                 // Encrypt the remaining fields using AES
                 Cipher aesCipher = Cipher.getInstance("AES/GCM/NoPadding");
@@ -275,22 +269,15 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 byte[] aesEncryptedData = aesCipher
                         .doFinal(remainingFeilds.toJSON().getBytes(StandardCharsets.UTF_8));
 
-                // Create a JSON object to hold the encrypted data
-                JSONObject encryptedData = new JSONObject();
-                encryptedData.put("encryptedToPeer", Base64.toBase64String(encryptedToPeer));
-                encryptedData.put("encryptedReplyKey", Base64.toBase64String(encryptedReplyKey));
-                encryptedData.put("encryptedReplyIv", Base64.toBase64String(encryptedReplyIv));
-                encryptedData.put("encryptedData", Base64.toBase64String(aesEncryptedData));
-
-                // Store the encrypted data as a byte array
-                this.encData = encryptedData.toJSON().getBytes(StandardCharsets.UTF_8);
+                this.encData = aesEncryptedData; // Store the encrypted data in encData
             } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException
                     | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
                 throw new RuntimeException("Encryption error: " + e.getMessage(), e);
             }
         }
 
-        // More or less an example for seth, should we have individual encrypt and decrypt
+        // More or less an example for seth, should we have individual encrypt and
+        // decrypt
         // method for each chunk?
         /**
          * Elgamal encrypts only the toPeer, replyKey, and replyIV fields.
@@ -309,9 +296,9 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
 
                 // Store the encrypted data in a JSON object
                 JSONObject encryptedData = new JSONObject();
-                encryptedData.put("encryptedToPeer", Base64.toBase64String(encryptedToPeer));
-                encryptedData.put("encryptedReplyKey", Base64.toBase64String(encryptedReplyKey));
-                encryptedData.put("encryptedReplyIv", Base64.toBase64String(encryptedReplyIv));
+                encryptedData.put("toPeer", Base64.toBase64String(encryptedToPeer));
+                encryptedData.put("replyKey", Base64.toBase64String(encryptedReplyKey));
+                encryptedData.put("replyIv", Base64.toBase64String(encryptedReplyIv));
 
                 // Save to enc data as a byte array
                 this.encData = encryptedData.toJSON().getBytes(StandardCharsets.UTF_8);
@@ -321,61 +308,65 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             }
         }
 
-
         /**
-         * Decrypts the record using a hybrid decryption scheme. It uses ElGamal to
-         * decrypt the toPeer, replyKey, and replyIV fields, and AES to decrypt the rest
-         * of the record. Extracts the AES key and IV from the encrypted data.
+         * Decrypts the record using a hybrid encryption scheme. It uses ElGamal to
+         * decrypt the toPeer, replyKey fields, and AES to decrypt the rest of the
+         * record.
          *
-         * @param elgamalPrivateKey The private key to use for ElGamal decryption.
+         * @param elgamalPrivateKey The ElGamal private key for decrypting the toPeer
+         *                          and replyKey fields.
+         * @param aesKey            The AES key for decrypting the remaining fields.
          */
         public void hybridDecrypt(PrivateKey elgamalPrivateKey) {
             try {
-                // System.out.println("Encrypted data: " + new String(encData, StandardCharsets.UTF_8));
-                JSONObject encryptedData = JsonIO.readObject(new String(encData, StandardCharsets.UTF_8));
+                // Decrypt the toPeer and replyKey fields using ElGamal
                 Cipher elgamalCipher = Cipher.getInstance("ElGamal/None/NoPadding");
                 elgamalCipher.init(Cipher.DECRYPT_MODE, elgamalPrivateKey);
 
-                this.toPeer = elgamalCipher.doFinal(Base64.decode(encryptedData.getString("encryptedToPeer")));
-                this.replyKey = new SecretKeySpec(
-                        elgamalCipher.doFinal(Base64.decode(encryptedData.getString("encryptedReplyKey"))), "AES");
-                this.replyIv = elgamalCipher.doFinal(Base64.decode(encryptedData.getString("encryptedReplyIv")));
+                this.toPeer = elgamalCipher.doFinal(this.encToPeer);
+                byte[] decryptedReplyKey = elgamalCipher.doFinal(this.encReplyKey);
+                this.replyKey = new SecretKeySpec(decryptedReplyKey, "AES");
+                this.replyIv = this.replyIv; // Keep replyIv as it is since it wasn't encrypted
 
+                // Decrypt the remaining fields using AES
                 Cipher aesCipher = Cipher.getInstance("AES/GCM/NoPadding");
                 GCMParameterSpec gcmSpec = new GCMParameterSpec(128, this.replyIv);
                 aesCipher.init(Cipher.DECRYPT_MODE, this.replyKey, gcmSpec);
 
-                byte[] aesDecryptedData = aesCipher.doFinal(Base64.decode(encryptedData.getString("encryptedData")));
-                JSONObject remainingFields = JsonIO.readObject(new String(aesDecryptedData, StandardCharsets.UTF_8));
+                byte[] aesDecryptedData = aesCipher.doFinal(this.encData);
 
-                this.receiveTunnel = remainingFields.getInt("receiveTunnel");
-                this.ourIdent = Base64.decode(remainingFields.getString("ourIdent"));
-                this.nextTunnel = remainingFields.getInt("nextTunnel");
-                this.nextIdent = Base64.decode(remainingFields.getString("nextIdent"));
-                this.layerKey = new SecretKeySpec(
-                        Base64.decode(remainingFields.getString("layerKey")), "AES");
-                this.ivKey = new SecretKeySpec(Base64.decode(remainingFields.getString("IVKey")), "AES");
-                this.requestTime = remainingFields.getLong("requestTime");
-                this.sendMsgID = remainingFields.getInt("sendMsgID");
-                this.type = TYPE.values()[remainingFields.getInt("type")];
-                this.replyFlag = remainingFields.getBoolean("replyFlag");
+                // Deserialize the decrypted data into a JSON object
+                JSONObject decryptedJson = JsonIO.readObject(new String(aesDecryptedData, StandardCharsets.UTF_8));
+                this.receiveTunnel = decryptedJson.getInt("receiveTunnel");
+                this.ourIdent = Base64.decode(decryptedJson.getString("ourIdent"));
+                this.nextTunnel = decryptedJson.getInt("nextTunnel");
+                this.nextIdent = Base64.decode(decryptedJson.getString("nextIdent"));
+                this.layerKey = new SecretKeySpec(Base64.decode(decryptedJson.getString("layerKey")), "AES");
+                this.ivKey = new SecretKeySpec(Base64.decode(decryptedJson.getString("IVKey")), "AES");
+                this.requestTime = decryptedJson.getLong("requestTime");
+                this.sendMsgID = decryptedJson.getInt("sendMsgID");
+                this.type = TYPE.values()[decryptedJson.getInt("type")];
+                this.replyFlag = decryptedJson.getBoolean("replyFlag");
 
                 this.hopInfo = new ArrayList<>();
-                JSONArray hopInfoArray = remainingFields.getArray("hopInfo");
+                JSONArray hopInfoArray = decryptedJson.getArray("hopInfo");
                 for (int i = 0; i < hopInfoArray.size(); i++) {
                     this.hopInfo.add(new TunnelHopInfo(hopInfoArray.getObject(i)));
                 }
 
+                // Clear the encrypted fields after decryption
+                this.encToPeer = null;
+                this.encReplyKey = null;
                 this.encData = null; // Clear the encData field after decryption just in case
 
-            } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException
-                    | BadPaddingException | InvalidAlgorithmParameterException e) {
-                e.printStackTrace();
+            } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException
+                    | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
+                throw new RuntimeException("Decryption error: " + e.getMessage(), e);
             }
-
         }
 
-        // not sure what to do with two peer in these bad boys -  we can come back to this
+        // not sure what to do with two peer in these bad boys - we can come back to
+        // this
 
         /**
          * Encrypts the record using AES encryption with the provided key and IV.
@@ -397,7 +388,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 throw new IllegalArgumentException("bad key " + e);
             }
         }
-               
+
         // Lord please let all of these encryption methods work
         // St. Isidore of Seville please guide my hand as my Patron Saint
 
@@ -423,18 +414,24 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             }
         }
 
-
         @Override
         public void deserialize(JSONType jsonType) throws InvalidObjectException {
             if (!(jsonType instanceof JSONObject))
                 throw new InvalidObjectException("Must be JSONObject");
 
             JSONObject json = (JSONObject) jsonType;
-            json.checkValidity(new String[] { "toPeer", "encData", "replyIV", "replyKey" });
+            json.checkValidity(new String[] { "replyIV" });
 
-            this.toPeer = Base64.decode(json.getString("toPeer"));
+            if (json.getString("encToPeer") != null) {
+                this.encToPeer = Base64.decode(json.getString("encToPeer"));
+                this.encReplyKey = Base64.decode(json.getString("encReplyKey"));
+            } else {
+                this.toPeer = Base64.decode(json.getString("toPeer"));
+                this.replyKey = new SecretKeySpec(Base64.decode(json.getString("replyKey")), "AES");
+            }
+
             this.replyIv = Base64.decode(json.getString("replyIV"));
-            this.replyKey = new SecretKeySpec(Base64.decode(json.getString("replyKey")), "AES");
+
             // Check if encData is a JSON object or a Base64 string
             if (json.get("encData") instanceof JSONObject) {
                 JSONObject encDataJSON = json.getObject("encData");
@@ -468,13 +465,21 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
 
         @Override
         public JSONObject toJSONType() {
-            JSONObject jsonObject = new JSONObject();
-            jsonObject.put("toPeer", Base64.toBase64String(toPeer));
-            jsonObject.put("replyIV", Base64.toBase64String(replyIv));
-            jsonObject.put("replyKey", Base64.toBase64String(replyKey.getEncoded()));
-            if (encData == null) {
-                JSONObject encDataJSON = new JSONObject();
+            JSONObject json = new JSONObject();
+            if (encToPeer != null) {
+                json.put("encToPeer", Base64.toBase64String(encToPeer));
+                json.put("encReplyKey", Base64.toBase64String(encReplyKey));
+            } else {
+                json.put("toPeer", Base64.toBase64String(toPeer));
+                json.put("replyKey", Base64.toBase64String(replyKey.getEncoded()));
+            }
 
+            json.put("replyIV", Base64.toBase64String(replyIv));
+
+            if (encData != null) {
+                json.put("encData", Base64.toBase64String(encData));
+            } else {
+                JSONObject encDataJSON = new JSONObject();
                 encDataJSON.put("receiveTunnel", receiveTunnel);
                 encDataJSON.put("ourIdent", Base64.toBase64String(ourIdent));
                 encDataJSON.put("nextTunnel", nextTunnel);
@@ -484,24 +489,17 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 encDataJSON.put("requestTime", requestTime);
                 encDataJSON.put("sendMsgID", sendMsgID);
                 encDataJSON.put("type", type.ordinal());
+                encDataJSON.put("replyFlag", replyFlag);
 
-                // Serialize hopInfo
                 JSONArray hopInfoArray = new JSONArray();
-                if (hopInfo != null) {
-                    for (TunnelHopInfo hop : hopInfo) {
-                        hopInfoArray.add(hop.toJSONType());
-                    }
+                for (TunnelHopInfo hop : hopInfo) {
+                    hopInfoArray.add(hop.toJSONType());
                 }
                 encDataJSON.put("hopInfo", hopInfoArray);
 
-                encDataJSON.put("replyFlag", replyFlag);
-
-                jsonObject.put("encData", encDataJSON);
-            } else {
-                jsonObject.put("encData", Base64.toBase64String(encData));
+                json.put("encData", encDataJSON);
             }
-
-            return jsonObject;
+            return json;
         }
 
         public byte[] getEncData() {
