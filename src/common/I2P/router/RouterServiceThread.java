@@ -286,14 +286,28 @@ public class RouterServiceThread implements Runnable {
         // and move on to the next record
         TunnelBuild.Record ourRecord = null;
         for (TunnelBuild.Record record : tunnelBuild.getRecords()) {
+            TunnelBuild.Record temp = new TunnelBuild.Record(record); // unsure if this will deserialze properly
             record.hybridDecrypt(elgamalPrivateKey);
+            System.out.println("our toPeer is " + base64ourIdent);
             if (Arrays.equals(record.getToPeer(), base64ourIdent.getBytes())) {
+                System.err.println("Found our record!!! " + record.toJSONType().getFormattedJSON());
                 ourRecord = record;
+                // once we find our record we can aes decrypt every record after it
+                // and then break out of the loop
+                for (int i = tunnelBuild.getRecords().indexOf(record) + 1; i < tunnelBuild.getRecords().size(); i++) {
+                    TunnelBuild.Record nextRecord = tunnelBuild.getRecords().get(i);
+                    nextRecord.layeredDecrypt(ourRecord.getReplyKey(), ourRecord.getReplyIv());
+                }
                 break;
             }
+            record = new TunnelBuild.Record(temp); // create a new instance to ensure it's a copy
         }
 
         System.out.println("our record is " + ourRecord.toJSONType().getFormattedJSON());
+
+        // grrreat now we have our keys! from here we need to aes decrypt each record after this one with the reply key
+        // Use the reply key from our record to AES decrypt every record after it
+
 
         if (ourRecord == null) {
             log.error("Could not find our record disregarding");

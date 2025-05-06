@@ -59,9 +59,10 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
         return jsonArray;
     }
 
-    public void decryptAES(SecretKey secretKey) {
+    
+    public void decryptAES(SecretKey secretKey, byte[] iv) {
         for (Record record : records) {
-            record.layeredDecrypt(secretKey);
+            record.layeredDecrypt(secretKey, iv);
         }
     }
 
@@ -160,6 +161,20 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
          */
         public Record(JSONObject jsonObject) throws InvalidObjectException {
             deserialize(jsonObject);
+        }
+
+        /**
+         * Constructs a new {@code Record} instance by copying the fields from the
+         * given encrypted record.
+         * NOTE: This constructor is for encrypted records only.
+         * 
+         * @param encRecord
+         */
+        public Record(Record encRecord) {
+            this.encToPeer = encRecord.encToPeer;
+            this.encReplyKey = encRecord.encReplyKey;
+            this.replyIv = encRecord.replyIv;
+            this.encData = encRecord.encData;
         }
 
         /**
@@ -328,6 +343,9 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 this.replyKey = new SecretKeySpec(decryptedReplyKey, "AES");
                 this.replyIv = this.replyIv; // Keep replyIv as it is since it wasn't encrypted
 
+                System.out.println("Decrypted toPeer: " + Base64.toBase64String(this.toPeer));
+                System.out.println("Decrypted replyKey: " + Base64.toBase64String(this.replyKey.getEncoded()));
+
                 // Decrypt the remaining fields using AES
                 Cipher aesCipher = Cipher.getInstance("AES/GCM/NoPadding");
                 GCMParameterSpec gcmSpec = new GCMParameterSpec(128, this.replyIv);
@@ -369,23 +387,39 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
         // this
 
         /**
-         * Encrypts the record using AES encryption with the provided key and IV.
-         * Just the entire encData chunk.
-         * 
-         * @param key
-         * @param iv
+         * Encrypts the record using AES/GCM/NoPadding with the provided key and IV.
+         * Encrypts encToPeer, encReplyKey, and encData separately, each with its own
+         * cipher instance.
+         *
+         * @param key AES key to use
+         * @param iv  12-byte IV (should ideally vary for each encryption in GCM mode)
          */
         public void layeredEncrypt(SecretKey key, byte[] iv) {
             try {
-                Cipher enc = Cipher.getInstance("AES/GCM/NoPadding");
-                GCMParameterSpec gcmSpec = new GCMParameterSpec(128, iv); // we are not using this record iv
-                enc.init(Cipher.ENCRYPT_MODE, key, gcmSpec);
-                encData = enc.doFinal(this.serialize().getBytes(StandardCharsets.UTF_8));
+                // Encrypt encToPeer
+                Cipher enc1 = Cipher.getInstance("AES/GCM/NoPadding");
+                GCMParameterSpec gcmSpec1 = new GCMParameterSpec(128, iv);
+                enc1.init(Cipher.ENCRYPT_MODE, key, gcmSpec1);
+                encToPeer = enc1.doFinal(encToPeer);
+
+                // Encrypt encReplyKey
+                Cipher enc2 = Cipher.getInstance("AES/GCM/NoPadding");
+                GCMParameterSpec gcmSpec2 = new GCMParameterSpec(128, iv); // you know i should probably vary the iv but
+                                                                           // i also havent been outside in three days
+                                                                           // and if i have to write another method i
+                                                                           // might scream
+                enc2.init(Cipher.ENCRYPT_MODE, key, gcmSpec2);
+                encReplyKey = enc2.doFinal(encReplyKey);
+
+                // Encrypt encData
+                Cipher enc3 = Cipher.getInstance("AES/GCM/NoPadding");
+                GCMParameterSpec gcmSpec3 = new GCMParameterSpec(128, iv);
+                enc3.init(Cipher.ENCRYPT_MODE, key, gcmSpec3);
+                encData = enc3.doFinal(encData);
+
             } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | IllegalBlockSizeException
-                    | NoSuchAlgorithmException | BadPaddingException e) {
-                throw new RuntimeException(e); // should not hit case
-            } catch (InvalidKeyException e) {
-                throw new IllegalArgumentException("bad key " + e);
+                    | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException e) {
+                throw new RuntimeException("Layered encryption failed", e);
             }
         }
 
@@ -393,24 +427,35 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
         // St. Isidore of Seville please guide my hand as my Patron Saint
 
         /**
-         * Decrypts the record using AES decryption with the provided key and IV.
-         * 
-         * @param key
-         * @param iv
+         * Decrypts the record using AES/GCM/NoPadding with the provided key and IV.
+         * Decrypts encToPeer, encReplyKey, and encData separately.
+         *
+         * @param key AES key to use
+         * @param iv  12-byte IV used during encryption
          */
-        public void layeredDecrypt(SecretKey key) {
+        public void layeredDecrypt(SecretKey key, byte[] iv) {
             try {
-                Cipher dec = Cipher.getInstance("AES/GCM/NoPadding");
-                GCMParameterSpec gcmSpec = new GCMParameterSpec(128, this.replyIv);
-                dec.init(Cipher.DECRYPT_MODE, key, gcmSpec);
-                byte[] decByte = dec.doFinal(encData);
-                encData = decByte; // overwrite this encData with the now stripped copy of data
-                // deserialize(JsonIO.readObject(new String(decByte, StandardCharsets.UTF_8)));
+                // Decrypt encToPeer
+                Cipher dec1 = Cipher.getInstance("AES/GCM/NoPadding");
+                GCMParameterSpec gcmSpec1 = new GCMParameterSpec(128, iv);
+                dec1.init(Cipher.DECRYPT_MODE, key, gcmSpec1);
+                encToPeer = dec1.doFinal(encToPeer);
+
+                // Decrypt encReplyKey
+                Cipher dec2 = Cipher.getInstance("AES/GCM/NoPadding");
+                GCMParameterSpec gcmSpec2 = new GCMParameterSpec(128, iv);
+                dec2.init(Cipher.DECRYPT_MODE, key, gcmSpec2);
+                encReplyKey = dec2.doFinal(encReplyKey);
+
+                // Decrypt encData
+                Cipher dec3 = Cipher.getInstance("AES/GCM/NoPadding");
+                GCMParameterSpec gcmSpec3 = new GCMParameterSpec(128, iv);
+                dec3.init(Cipher.DECRYPT_MODE, key, gcmSpec3);
+                encData = dec3.doFinal(encData);
+
             } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | IllegalBlockSizeException
-                    | NoSuchAlgorithmException | BadPaddingException e) {
-                throw new RuntimeException(e); // should not hit case
-            } catch (InvalidKeyException e) {
-                throw new IllegalArgumentException("bad key " + e);
+                    | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException e) {
+                throw new RuntimeException("Layered decryption failed", e);
             }
         }
 
