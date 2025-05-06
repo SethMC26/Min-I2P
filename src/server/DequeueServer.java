@@ -219,24 +219,19 @@ public class DequeueServer implements Runnable {
                             break;
                         }
 
-                        System.out.println("Audio data found: " + (AUDIO_DATA_MAP.get(destEnd) != null));
-                        // Remove empty audio data
-                        List<byte[]> audioData = AUDIO_DATA_MAP.get(destEnd);
-                        System.out.println("Audio data size: " + audioData.size());
-                        System.out.println("Clearing empty audio data");
-                        for (int i = 0; i < audioData.size(); i++) {
-                            byte[] data = audioData.get(i);
-                            if (data.length == 0) {
-                                audioData.remove(i);
-                            }
-                        }
+                        System.out.println("Does the audio data exist? " + AUDIO_DATA_MAP.containsKey(destEnd));
+                        System.out.println("Audio data found: " + AUDIO_DATA_MAP.get(destEnd).size());
 
-                        // Add the audio to the database
-                        System.out.println("Adding audio to database");
+                        List<byte[]> audioData = AUDIO_DATA_MAP.get(destEnd);
+
+                        System.out.println("Adding audio to the database");
                         AUDIO_DATABASE.addAudio(clientState.getSongname(), audioData, clientState.getSongSize());
+
+                        System.out.println("Removing client from the MAP");
                         MAP.remove(Base64.toBase64String(clientState.getClientDest().getHash()));
+
+                        System.out.println("Removing audio data from the AUDIO_DATA_MAP");
                         AUDIO_DATA_MAP.remove(destEnd);
-                        System.out.println("Audio added to database");
 
                     }
                     case PLAY -> {
@@ -260,22 +255,17 @@ public class DequeueServer implements Runnable {
                             break;
                         }
 
+                        Response responsePlayFail = new Response("Status", "", true, "Audio does exist");
+                        SendMessage sendPlayFail = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responsePlayFail.toJSONType());
+                        SOCKET.sendMessage(sendPlayFail);
+
+                        Thread.sleep(100);
+
                         // Get the audio data from the database
                         List<byte[]> audioDataPlay = AUDIO_DATABASE.getAudio(clientSongNamePlay);
 
-                        // Builds all the messages that need to be sent
-                        for (int i = 0; i < audioDataPlay.size(); i++) {
-                            byte[] data = audioDataPlay.get(i);
-
-                            // Create a new ByteMessage with the audio data
-                            ByteMessage msg = new ByteMessage("Byte", "", data, i);
-                            SendMessage sendPlay = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], msg.toJSONType());
-
-                            // Send the message to the client
-                            for (int j = 0; j <= 3; j++) {
-                                SOCKET.sendMessage(sendPlay);
-                            }
-                        }
+                        Thread sendPlayedSongThread = new Thread(new SendPlayedSong(SESSION_ID, SOCKET, clientState, audioDataPlay));
+                        sendPlayedSongThread.start();
 
                         String clientDest = Base64.toBase64String(clientState.getClientDest().getHash());
 

@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class Client {
 
@@ -340,7 +341,7 @@ public class Client {
                             break;
                         }
 
-                        System.out.println("Please enter the song name: ");
+                        System.out.print("Please enter the song name: ");
                         String songname = input.nextLine();
 
                         Request request = new Request("Play", clientHash, songname);
@@ -381,7 +382,16 @@ public class Client {
 
                         System.out.println("Song being played now");
 
-                        // todo: add in the logic for playing the song here using the audio bytes from the server
+                        LinkedBlockingQueue<byte[]> queue = new LinkedBlockingQueue<>();
+
+                        System.out.println("Starting enqueue thread");
+                        Thread enqueueThread = new Thread(new EnqueueClient(queue, socket));
+                        enqueueThread.start();
+
+                        System.out.println("Starting dequeue thread");
+                        Thread dequeueThread = new Thread(new DequeueClient(queue));
+                        dequeueThread.start();
+
                     }
 
                     // List all songs on the server
@@ -540,7 +550,7 @@ public class Client {
             socket.sendMessage(msg);
             // iterate the id for each chunk
 
-            Thread.sleep(10);
+            Thread.sleep(5);
 
         }
 

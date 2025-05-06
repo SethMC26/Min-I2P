@@ -182,9 +182,11 @@ public class AudioDatabase implements JSONSerializable {
         try (FileWriter fw = new FileWriter(path,true)) {
 
             for (byte[] base64Bytes : audio) {
-                String text = Base64.toBase64String(base64Bytes) + "\n";
-                fw.write(text);
-                fw.flush();
+                if (base64Bytes != null) {
+                    String text = Base64.toBase64String(base64Bytes) + "\n";
+                    fw.write(text);
+                    fw.flush();
+                }
             }
 
         } catch (IOException e) {
