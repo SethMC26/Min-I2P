@@ -3,6 +3,8 @@ package common.I2P.tunnels;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import javax.crypto.SecretKey;
+
 import org.bouncycastle.jcajce.provider.asymmetric.mldsa.MLDSAKeyFactorySpi.Hash;
 
 import common.I2P.NetworkDB.RouterInfo;
@@ -19,9 +21,9 @@ public class Tunnel {
         this.routers = routers;
     }
 
-    public void addTunnelObject(Integer tunnelID, RouterInfo router) {
+    public void addTunnelObject(Integer tunnelID, RouterInfo router, SecretKey replyKey, byte[] replyIv) {
         // Add a TunnelObject to the tunnel
-        TunnelItem tunnelItem = new TunnelItem(tunnelID, router);
+        TunnelItem tunnelItem = new TunnelItem(tunnelID, router, replyKey, replyIv);
         routers.add(tunnelItem);
     }
 
@@ -54,10 +56,14 @@ public class Tunnel {
     private class TunnelItem {
         private int tunnelID;
         private RouterInfo routerInfo;
+        private SecretKey replyKey; // AES key for encryption/decryption
+        private byte[] replyIv; // IV for AES encryption/decryption
 
-        public TunnelItem(int tunnelID, RouterInfo routerInfo) {
+        public TunnelItem(int tunnelID, RouterInfo routerInfo, SecretKey replyKey, byte[] replyIv) {
             this.tunnelID = tunnelID;
             this.routerInfo = routerInfo;
+            this.replyKey = replyKey;
+            this.replyIv = replyIv;
         }
 
         public int getTunnelID() {
@@ -66,6 +72,14 @@ public class Tunnel {
 
         public RouterInfo getRouterInfo() {
             return routerInfo;
+        }
+
+        public SecretKey getReplyKey() {
+            return replyKey;
+        }
+
+        public byte[] getReplyIv() {
+            return replyIv;
         }
     }
 }

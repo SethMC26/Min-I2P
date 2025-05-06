@@ -97,7 +97,7 @@ public class RouterServiceThread implements Runnable {
         }
 
         if (recievedMessage.getType() == TYPE.TUNNELBUILDREPLY) {
-            System.out.println("Received TunnelBuildReplyMessage: " + recievedMessage.toJSONType().getFormattedJSON());
+            // System.out.println("Received TunnelBuildReplyMessage: " + recievedMessage.toJSONType().getFormattedJSON());
         }
 
         if (recievedMessage.getExpiration() < System.currentTimeMillis()) {
@@ -147,7 +147,7 @@ public class RouterServiceThread implements Runnable {
                 handleTunnelBuildMessage(tunnelBuild);
                 break;
             case TUNNELBUILDREPLY:
-                System.out.println("TunnelBuildReplyMessage: " + recievedMessage.toJSONType().getFormattedJSON());
+                // System.out.println("TunnelBuildReplyMessage: " + recievedMessage.toJSONType().getFormattedJSON());
                 TunnelBuildReplyMessage tunnelBuildReply = (TunnelBuildReplyMessage) recievedMessage.getMessage();
                 handleTunnelBuildReplyMessage(tunnelBuildReply);
                 break;
@@ -203,7 +203,9 @@ public class RouterServiceThread implements Runnable {
         // the tunnel
         // and create a lease set for it - only if it is an inbound tunnel of course
 
-        System.err.println("end point id " + tunnelBuildReply.getTunnelID());
+        // recursively decrypt the message to get all of the plaintext records
+        // all of this will need to change to search the records instead ermmmmmm....
+        // later me project me thinks
 
         System.out.println("nextTunnelId: " + tunnelBuildReply.getNextTunnel());
 
@@ -211,7 +213,7 @@ public class RouterServiceThread implements Runnable {
             System.out.println("Build reply is for this inbound tunnel");
             TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelBuildReply.getNextTunnel());
             try {
-                System.out.println("TunnelBuildReplyMessage: " + tunnelBuildReply.toJSONType().getFormattedJSON());
+                // System.out.println("TunnelBuildReplyMessage: " + tunnelBuildReply.toJSONType().getFormattedJSON());
                 tunnelObject.handleMessage(tunnelBuildReply);
             } catch (IOException e) {
                 // TODO Auto-generated catch block
@@ -334,9 +336,9 @@ public class RouterServiceThread implements Runnable {
     private void handleEndpointBehavior(TunnelBuild tunnelBuild, common.I2P.I2NP.TunnelBuild.Record record) {
         TunnelBuildReplyMessage replyMessage;
         // realistically have a check here that all reply flags are set to true
-        replyMessage = new TunnelBuildReplyMessage(record.getNextTunnel(), record.getReceiveTunnel(), true);
-        System.out.println("TunnelBuildReplyMessage: " + replyMessage.toJSONType().getFormattedJSON());
-        System.out.println("replyMessage: " + replyMessage.toJSONType().getFormattedJSON());
+        replyMessage = new TunnelBuildReplyMessage(record.getNextTunnel(), record.getReceiveTunnel(), tunnelBuild); // pack the entire message in the build reply
+        // System.out.println("TunnelBuildReplyMessage: " + replyMessage.toJSONType().getFormattedJSON());
+        // System.out.println("replyMessage: " + replyMessage.toJSONType().getFormattedJSON());
         // query netdb for router info of next hop
         RouterInfo nextRouter = validatePeerRouter(record.getNextIdent());
         if (nextRouter == null) {

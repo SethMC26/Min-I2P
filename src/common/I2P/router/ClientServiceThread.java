@@ -118,8 +118,7 @@ public class ClientServiceThread implements Runnable {
          * ID of session
          */
         private int sessionID;
-        private int lastInboundTunnelID;
-        private RouterInfo lastInboundFirstPeer;
+
         private ConcurrentLinkedQueue<I2CPMessage> msgQueue;
         /**
          * Create new connection for the client
@@ -360,31 +359,13 @@ public class ClientServiceThread implements Runnable {
                 }
             }
 
-            // create a map of the peers in the tunnel to their router ids
-            Tunnel potentialTunnel = new Tunnel();
-
-            for (int i = 0; i < tempPeers.size(); i++) {
-                RouterInfo current = tempPeers.get(i);
-                potentialTunnel.addTunnelObject(hopTunnelIDs[i], current); // map the router id to the tunnel id
-            }
-
-            // save this list of peers to the tunnel manager for easy access later
-            if (isInbound) {
-                System.out.println("Adding inbound tunnel: " + tunnelID);
-                tunnelManager.addInboundTunnel(tunnelID, potentialTunnel);
-    
-                // Save info for use by outbound tunnel
-                this.lastInboundTunnelID = tunnelID;
-                this.lastInboundFirstPeer = tempPeers.get(0); // inbound gateway
-            } else {
-                System.out.println("Adding outbound tunnel: " + tunnelID);
-                tunnelManager.addOutboundTunnel(tunnelID, potentialTunnel);
-            }
-
             int sendMessageID = random.nextInt(1, Integer.MAX_VALUE); // unique message id for this message
             long requestTime = System.currentTimeMillis(); // time of request
 
             ArrayList<TunnelHopInfo> hopInfo = new ArrayList<>(); // this is for the hops in the tunnel
+
+            // create a map of the peers in the tunnel to their router ids
+            Tunnel potentialTunnel = new Tunnel();
 
             for (int i = tempPeers.size() - 1; i >= 0; i--) {
                 RouterInfo current = tempPeers.get(i);
@@ -398,6 +379,8 @@ public class ClientServiceThread implements Runnable {
 
                 byte[] replyIv = new byte[16];
                 random.nextBytes(replyIv);
+
+                potentialTunnel.addTunnelObject(hopTunnelIDs[i], current, replyKey, replyIv); // add the router to the tunnel
 
                 ArrayList<TunnelHopInfo> hopInfoInput = null; // this is for the hops in the tunnel
 
@@ -466,6 +449,15 @@ public class ClientServiceThread implements Runnable {
                 for (TunnelBuild.Record currRecord : records) {
                     //currRecord.encryptAES(replyKey);
                 }
+            }
+
+            // save this list of peers to the tunnel manager for easy access later
+            if (isInbound) {
+                System.out.println("Adding inbound tunnel: " + tunnelID);
+                tunnelManager.addInboundTunnel(tunnelID, potentialTunnel);
+            } else {
+                System.out.println("Adding outbound tunnel: " + tunnelID);
+                tunnelManager.addOutboundTunnel(tunnelID, potentialTunnel);
             }
 
             // send tunnel build message to the first peer in the list

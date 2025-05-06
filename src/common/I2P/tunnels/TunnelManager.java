@@ -14,12 +14,20 @@ public class TunnelManager {
     // tunnel objects the router is comprised of
     private ConcurrentHashMap<Integer, TunnelObject> tunnelObjects;
 
+    /**
+     * TunnelManager constructor
+     */
     public TunnelManager() {
         inboundTunnels = new ConcurrentHashMap<>();
         outboundTunnels = new ConcurrentHashMap<>();
         tunnelObjects = new ConcurrentHashMap<>();
     }
 
+    /**
+     * Add an inbound tunnel to the list of inbound tunnels
+     * @param tunnelID
+     * @param tunnel
+     */
     public void addInboundTunnel(Integer tunnelID, Tunnel tunnel) {
         inboundTunnels.put(tunnelID, tunnel);
     }
@@ -33,6 +41,13 @@ public class TunnelManager {
         outboundTunnels.put(tunnelID, tunnel);
     }
 
+    /**
+     * Get the tunnel ID of the tunnel that contains the given tunnel object ID
+     * This is also gateway tunnel ID
+     * 
+     * @param tunnelObjectID
+     * @return the tunnel ID of the tunnel that contains the given tunnel object ID, or -1 if not found
+     */
     public int findAssociatedTunnel(int tunnelObjectID) {
         // return the tunnelID of the tunnel that contains the tunnelObjectID
         for (Integer tunnelID : inboundTunnels.keySet()) {
