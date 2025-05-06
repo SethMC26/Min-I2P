@@ -1,12 +1,11 @@
 package server;
 
 import common.I2P.IDs.Destination;
-import org.jetbrains.annotations.NotNull;
 
 public class ClientState {
 
     // -------- Private Variables -------- //
-    private Destination clientDest;
+    private final Destination CLIENTDEST;
     private CommandType commandType;
 
     private boolean isAuthenticated;
@@ -24,15 +23,15 @@ public class ClientState {
      * @param clientDest - Destination of the client
      * @param commandType - CommandType of the previous command
      */
-    public ClientState(@NotNull Destination clientDest, @NotNull CommandType commandType) {
-        this.clientDest = clientDest;
+    public ClientState(Destination clientDest, CommandType commandType) {
+        this.CLIENTDEST = clientDest;
         this.commandType = commandType;
     }
 
     // -------- Getters -------- //
 
     public Destination getClientDest() {
-        return clientDest;
+        return CLIENTDEST;
     }
 
     public CommandType getCommandType() {

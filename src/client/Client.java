@@ -1,437 +1,545 @@
 package client;
 
-import common.MessageSocket;
+import common.I2P.IDs.Destination;
+import common.I2P.NetworkDB.Lease;
+import common.I2P.NetworkDB.LeaseSet;
+import common.I2P.router.Router;
+import common.Logger;
 import common.message.ByteMessage;
 import common.message.Message;
 import common.message.Request;
 import common.message.Response;
+import common.transport.I2CP.*;
 import merrimackutil.cli.LongOption;
 import merrimackutil.cli.OptionParser;
-import merrimackutil.codec.Base32;
 import merrimackutil.util.Tuple;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.encoders.Base64;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InvalidObjectException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
-import java.util.concurrent.LinkedBlockingQueue;
 
 public class Client {
 
-    private static String userName;
-    private static String songName;
-    private static String songPath;
-    private static String ipAddress;
-    private static int port;
+    public static int routerPort = 10001;
+    public static int servicePort = 20001;
+    public static InetSocketAddress bootstrapPeer = new InetSocketAddress("127.0.0.1", 8080);
+    private static byte[] destHash;
+    private static String clientHash;
+    private static int sessionID;
+    private static I2CPSocket socket;
 
-    /**
-     * This tells the user how to use the program
-     */
     public static void usage() {
-        System.out.println("Usage: ");
-        System.out.println("  client --create --userName <username> --port <port> --ipAddress <ipAddress>");
-        System.out.println("  client --add --userName <username> --songName <songname> --songPath <songpath> --port <port> --ipAddress <ipAddress>");
-        System.out.println("  client --play --userName <username> --songName <songname> --port <port> --ipAddress <ipAddress>");
-        System.out.println("  client --list --userName <username> --port <port> --ipAddress <ipAddress>");
+        System.out.println("Usage:");
         System.out.println("  client --help");
-        System.out.println("Options: ");
-        System.out.printf("  %-15s %-20s\n", "-c, --create", "Create a new user");
-        System.out.printf("  %-15s %-20s\n", "-u, --userName", "Username of the user");
-        System.out.printf("  %-15s %-20s\n", "-p, --port", "Port number to connect to");
-        System.out.printf("  %-15s %-20s\n", "-i, --ipAddress", "Host name to connect to");
-        System.out.printf("  %-15s %-20s\n", "-a, --add", "Add a new song to the database");
-        System.out.printf("  %-15s %-20s\n", "-n, --songName", "Name of the song");
-        System.out.printf("  %-15s %-20s\n", "-s, --songPath", "File path to the song");
-        System.out.printf("  %-15s %-20s\n", "-o, --play", "Play a song from the database");
-        System.out.printf("  %-15s %-20s\n", "-l, --list", "List all the songs in the database");
-        System.out.printf("  %-15s %-20s\n", "-h, --help", "Pulls up the help menus");
+        System.out.println("  client --start --destination <destination_hash>");
+        System.out.println("Options:");
+        System.out.printf("  %-15s %-20s\n", "-h, --help", "Display this help message");
+        System.out.printf("  %-15s %-20s\n", "-s, --start", "Starts up the client router connection");
+        System.out.printf("  %-15s %-20s\n", "-d, --destination", "The destination hash to connect to");
     }
 
-    /**
-     * Processes the arguments passed to the program
-     *
-     * @param args
-     */
-    public static void processArgs(String[] args) {
+    public static void processArgs(String[] args) throws IOException, InterruptedException {
         OptionParser parser;
 
         boolean doHelp = false;
-        boolean doCreate = false;
-        boolean doAdd = false;
-        boolean doPlay = false;
-        boolean doList = false;
+        boolean doStart = false;
 
-        LongOption[] opts = new LongOption[10];
-        opts[0] = new LongOption("create", false, 'c');
-        opts[1] = new LongOption("userName", true, 'u');
-        opts[2] = new LongOption("port", true, 'p');
-        opts[3] = new LongOption("ipAddress", true, 'i');
-        opts[4] = new LongOption("add", false, 'a');
-        opts[5] = new LongOption("songName", true, 'n');
-        opts[6] = new LongOption("songPath", true, 's');
-        opts[7] = new LongOption("play", false, 'o');
-        opts[8] = new LongOption("list", false, 'l');
-        opts[9] = new LongOption("help", false, 'h');
+        LongOption[] opts = new LongOption[3];
+        opts[0] = new LongOption("help", false, 'h');
+        opts[1] = new LongOption("start", false, 's');
+        opts[2] = new LongOption("destination", true, 'd');
 
         Tuple<Character, String> currOpt;
 
         parser = new OptionParser(args);
         parser.setLongOpts(opts);
 
-        parser.setOptString("cu:p:i:an:s:olh");
+        parser.setOptString("hsd:");
 
         while (parser.getOptIdx() != args.length) {
             currOpt = parser.getOpt();
             switch (currOpt.getFirst()) {
-                case 'c':
-                    doCreate = true;
-                    break;
-                case 'u':
-                    userName = currOpt.getSecond();
-                    break;
-                case 'p':
-                    try {
-                        port = Integer.parseInt(currOpt.getSecond());
-                    } catch (NumberFormatException e) {
-                        System.out.println("Invalid port number");
-                        System.exit(1);
-                    }
-                    break;
-                case 'i':
-                    ipAddress = currOpt.getSecond();
-                    break;
-                case 'a':
-                    doAdd = true;
-                    break;
-                case 'n':
-                    songName = currOpt.getSecond();
-                    break;
-                case 's':
-                    songPath = currOpt.getSecond();
-                    break;
-                case 'o':
-                    doPlay = true;
-                    break;
-                case 'l':
-                    doList = true;
-                    break;
                 case 'h':
                     doHelp = true;
+                    break;
+                case 's':
+                    doStart = true;
+                    break;
+                case 'd':
+                    destHash = currOpt.getSecond().getBytes();
+                    break;
+                default:
+                    System.out.println("Unknown option: " + currOpt.getFirst());
                     break;
             }
         }
 
-        // Check if help was requested
+        // Check if the user requested help
         if (doHelp) {
             usage();
             System.exit(0);
         }
 
-        // Check if create was requested
-        if (doCreate) {
-            if (userName == null || port <= 0 || port >= 65535 || ipAddress == null) {
-                System.out.println("Missing required arguments for create");
+        // Check if the user requested to start the client
+        if (doStart) {
+            // Check if the destination hash is provided
+            if (destHash == null) {
+                System.out.println("Destination hash is required");
                 usage();
                 System.exit(1);
             }
 
-            // Create the user in the database if the user does not already exist
-            System.out.println("Creating user...");
-
-            MessageSocket socket = null;
-            try {
-                socket = new MessageSocket(ipAddress, port);
-            } catch (Exception e) {
-                System.out.println("Error creating user: " + e.getMessage());
-                System.exit(1);
-            }
-
-            String password = new String(System.console().readPassword("Enter password: "));
-
-            Request createRequest = new Request("Create", userName, password);
-
-            socket.sendMessage(createRequest);
-
-            Message recvMsg = socket.getMessage();
-
-            if (!recvMsg.getType().equals("Status")) {
-                System.err.println("Error: Invalid response type: " + recvMsg.getType());
-                socket.close();
-                System.exit(1);
-            }
-
-            Response response = (Response) recvMsg;
-
-            boolean status = response.getStatus();
-            String payload = response.getPayload();
-
-            if (status) {
-                // spec says we should send key totp as base64 but display it as base 32
-                String totp = Base32.encodeToString(Base64.decode(payload), true);
-                System.out.println("Base 32 Key: " + totp);
-            } else {
-                System.err.println("\u001B[31mUser creation failed. Reason:\u001B[0m");
-                System.out.println(payload);
-            }
-
-            socket.close();
+            // Start the client
+            startClient();
         }
 
-        // Check if add was requested
-        if (doAdd) {
-            if (userName == null || port <= 0 || port >= 65535 || ipAddress == null || songName == null || songPath == null) {
-                System.out.println("Missing required arguments for add");
-                usage();
-                System.exit(1);
-            }
 
-            // Add the song to the database if the user exists and if the song does not already exist in the database
-            System.out.println("Adding song...");
-
-            MessageSocket socket = null;
-            try {
-                socket = new MessageSocket(ipAddress, port);
-            } catch (IOException e) {
-                System.err.println("Could not set up connection: " + e.getMessage());
-                System.exit(1);
-            }
-
-            authenticate(socket);
-
-            System.out.println("Authenticated");
-
-            // --------- Send the Add Request --------- //
-            Request addRequest = new Request("Add", userName, songName);
-
-            socket.sendMessage(addRequest);
-
-            Message recvMsg = socket.getMessage();
-
-            if (!recvMsg.getType().equals("Status")) {
-                System.err.println("Error: Invalid response type: " + recvMsg.getType());
-                socket.close();
-                System.exit(1);
-            }
-
-            Response response = (Response) recvMsg;
-
-            boolean status = response.getStatus();
-
-            if(!status) {
-                System.err.println("Error: " + response.getPayload());
-                socket.close();
-                System.exit(1);
-            }
-
-            // --------- Send the Song Data --------- //
-
-            // Checks to see if the file path given is a wav file
-            String[] parts = songPath.split("\\.");
-            if (parts.length < 2 || !parts[parts.length - 1].equals("wav")) {
-                System.err.println("Error: Invalid file path or file type. Must be a .wav file");
-                socket.close();
-                System.exit(1);
-            }
-
-            // Checks if the file exists and gets the bytes if it does
-            byte[] audioBytes;
-            try {
-                File file = new File(songPath);
-                if (!file.exists()) {
-                    System.err.println("Error: File does not exist");
-                    socket.close();
-                    System.exit(1);
-                }
-
-                Path path = file.toPath();
-                audioBytes = Files.readAllBytes(path);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-
-            // Send the song data to the server
-
-            List<byte[]> chunks = chunkAudioData(audioBytes, 256); // Chunk size of 512 bytes
-
-            System.out.println("Size of audio data: " + chunks.size());
-
-            for (int i = 0; i < chunks.size(); i++) {
-                byte[] chunk = chunks.get(i);
-                ByteMessage byteMessage = new ByteMessage("Byte", chunk);
-                socket.sendMessage(byteMessage);
-            }
-
-            socket.sendMessage(new Message("End")); // Send end message to indicate end of audio data
-
-            recvMsg = socket.getMessage();
-
-            if (!recvMsg.getType().equals("Status")) {
-                System.err.println("Error: Invalid response type: " + recvMsg.getType());
-                socket.close();
-                System.exit(1);
-            }
-
-            response = (Response) recvMsg;
-
-            status = response.getStatus();
-            String payload = response.getPayload();
-
-            if (status) {
-                System.out.println("Song added successfully");
-            } else {
-                System.err.println("Error: " + payload);
-            }
-
-        }
-
-        // Check if play was requested
-        if (doPlay) {
-            if (userName == null || port <= 0 || port >= 65535 || ipAddress == null || songName == null) {
-                System.out.println("Missing required arguments for play");
-                usage();
-                System.exit(1);
-            }
-
-            // Play the song if the user exists and the song is in the database
-            System.out.println("Playing song...");
-
-            MessageSocket socket = null;
-            try {
-                socket = new MessageSocket(ipAddress, port);
-            } catch (IOException e) {
-                System.err.println("Could not set up connection: " + e.getMessage());
-                System.exit(1);
-            }
-
-            authenticate(socket);
-            System.out.println("Authenticated");
-
-            // --------- Send the Play Request --------- //
-            Request addRequest = new Request("Play", userName, songName);
-
-            socket.sendMessage(addRequest);
-
-            // TODO: Added the plaing music threads here
-
-            LinkedBlockingQueue<byte[]> queue = new LinkedBlockingQueue<>();
-
-            EnqueueClient enqueueThread = new EnqueueClient(queue, socket);
-            Thread enqueue = new Thread(enqueueThread);
-            enqueue.start();
-
-            DequeueClient dequeueThread = new DequeueClient(queue);
-            Thread dequeue = new Thread(dequeueThread);
-            dequeue.start();
-        }
-
-        // Check if list was requested
-        if (doList) {
-            if (userName == null || port <= 0 || port >= 65535 || ipAddress == null) {
-                System.out.println("Missing required arguments for list");
-                usage();
-                System.exit(1);
-            }
-
-            // List all the songs in the database if the user exists
-            System.out.println("Listing songs...");
-
-            MessageSocket socket = null;
-            try {
-                socket = new MessageSocket(ipAddress, port);
-            } catch (IOException e) {
-                System.err.println("Could not set up connection: " + e.getMessage());
-                System.exit(1);
-            }
-
-            authenticate(socket);
-            System.out.println("Authenticated");
-
-            // --------- Send the List Request --------- //
-            Request addRequest = new Request("List", userName, songName);
-
-            socket.sendMessage(addRequest);
-
-            Message recvMsg = socket.getMessage();
-
-            if (!recvMsg.getType().equals("Status")) {
-                System.err.println("Error: Invalid response type: " + recvMsg.getType());
-                socket.close();
-                System.exit(1);
-            }
-
-            Response response = (Response) recvMsg;
-
-            boolean status = response.getStatus();
-
-            if(!status) {
-                System.err.println("Error: " + response.getPayload());
-                socket.close();
-                System.exit(1);
-            }
-
-            // --------- Print the List of Songs --------- //
-
-            String payload = response.getPayload();
-
-            System.out.println("\nSongs in database:");
-            String[] songs = payload.split(",");
-            int i = 1;
-            for (String song : songs) {
-                System.out.println("   " + i + ": " + song);
-                i++;
-            }
-
-        }
     }
 
-    public static void main(String[] args) {
-        BouncyCastleProvider c = new BouncyCastleProvider();
-        if (args.length == 0) {
-            usage();
-            System.exit(0);
-        }
-        if (args.length > 11) {
-            System.out.println("Invalid arguments");
+    public static void main(String[] args) throws IOException, InterruptedException {
+        if (args.length == 0 || args.length > 3) {
             usage();
             System.exit(1);
         }
         processArgs(args);
     }
 
-    // ---------- Private Methods ---------- //
+    private static void startClient() throws IOException, InterruptedException {
+        // speciality floodfill router
+        Security.addProvider(new BouncyCastleProvider()); // Add BouncyCastle provider for cryptography
 
-    // Add any private methods here if needed
-    private static void authenticate(MessageSocket sock) {
-        // We might want to move this password string if post/get needs it as well -Seth
+        int numberOfRouters = 5; // Specify the number of routers to create
+        Logger log = Logger.getInstance();
+        log.setMinLevel(Logger.Level.DEBUG);
+
+        //start router
+        Thread router = new Thread(new Router(InetAddress.getLoopbackAddress(),routerPort, servicePort, bootstrapPeer));
+        router.start();
+
+        try {
+            Thread.sleep(20000); //wait until router setup
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        KeyPair destEd25519Key = generateKeyPairEd();
+        KeyPair destElgamalKey = generateKeyPairElGamal();
+
+        Destination clientDest = new Destination(destEd25519Key.getPublic());
+
+        //do client stuff
+        socket = new I2CPSocket("127.0.0.1", servicePort);
+        socket.sendMessage(new CreateSession(clientDest));
+
+        I2CPMessage recvMessage;
+        recvMessage = socket.getMessage();
+
+        if (recvMessage.getType() != I2CPMessageTypes.SESSIONSTATUS) {
+            System.err.println("bad type: " + recvMessage.getType());
+            System.err.println(recvMessage.toJSONType().getFormattedJSON());
+            return;
+        }
+        SessionStatus sessionStatus = (SessionStatus) recvMessage;
+
+        if (sessionStatus.getStatus() != SessionStatus.Status.CREATED) {
+            System.err.println("could not create session " + sessionStatus.getStatus());
+            return;
+        }
+
+        //IMPORTANT NOTE this is the session ID since it is generated by the router
+        sessionID = sessionStatus.getSessionID();
+        recvMessage = socket.getMessage();
+
+        if (recvMessage.getType() != I2CPMessageTypes.REQUESTLEASESET) {
+            System.err.println("Bad type " + recvMessage.getType());
+            System.err.println(recvMessage.toJSONType().getFormattedJSON());
+        }
+
+        RequestLeaseSet requestLeaseSet = (RequestLeaseSet) recvMessage;
+        System.out.println("leases are" + requestLeaseSet.getLeases().size());
+        ArrayList<Lease> leases = new ArrayList<>();
+        leases.addAll(requestLeaseSet.getLeases());
+
+        LeaseSet leaseSet = new LeaseSet(leases, clientDest, destElgamalKey.getPublic(), destEd25519Key.getPrivate());
+
+        socket.sendMessage(new CreateLeaseSet(sessionID, destElgamalKey.getPrivate(), leaseSet));
+
+        // Get the clients destination hash
+        clientHash = Base64.toBase64String(destEd25519Key.getPublic().getEncoded());
+
+        Destination currDest = null;
+
+        socket.sendMessage(new DestinationLookup(sessionID, destHash));
+        recvMessage = socket.getMessage();
+        System.out.println("Got message from router");
+        DestinationReply reply = (DestinationReply) recvMessage;
+
+        if (reply.getDestination() != null) {
+            currDest = reply.getDestination();
+            System.out.println("Got destination! " + currDest);
+            System.out.println("You can now send there!");
+        }
+        else {
+            System.err.println("Destination not found :(");
+            System.exit(1);
+        }
+
+        while (true) {
+            // basic testing loop
+            Scanner input = new Scanner(System.in);
+
+            System.out.println("What would you like to do?");
+            System.out.println("1. Create a user (create)");
+            System.out.println("2. Add a song to the server (add)");
+            System.out.println("3. Play a song from the server (play)");
+            System.out.println("4. List all songs on the server (list)");
+
+            System.out.print("Input: ");
+            int usercase = input.nextInt();
+
+            input.nextLine();
+
+            switch (usercase) {
+                // Create a user
+                case 1 -> {
+                    System.out.print("Please enter your username: ");
+                    String username = input.nextLine();
+                    System.out.print("Please enter your password: ");
+                    String password = input.nextLine();
+
+                    Request request = new Request("Create", clientHash , username, password);
+                    SendMessage msg = new SendMessage(sessionID, currDest, new byte[4], request.toJSONType());
+                    socket.sendMessage(msg);
+
+                    long startTime = System.currentTimeMillis();
+                    while (!socket.hasMessage() && (System.currentTimeMillis() - startTime) > 5000) { // wait for 5 seconds
+                        Thread.sleep(100);
+                    }
+
+                    if (System.currentTimeMillis() - startTime > 5000) {
+                        System.out.println("Timeout waiting for response");
+                        break;
+                    }
+
+                    recvMessage = socket.getMessage();
+
+                    if (!(recvMessage instanceof PayloadMessage)) {
+                        System.err.println("Error: expected PayloadMessage, got " + recvMessage.getType());
+                        break;
+                    }
+
+                    PayloadMessage payloadMessage = (PayloadMessage) recvMessage;
+
+                    Message recvMsg = new Message(payloadMessage.getPayload());
+
+                    if (!recvMsg.getType().equals("Status")) {
+                        System.err.println("Error: expected Status message, got " + recvMsg.getType());
+                        break;
+                    }
+
+                    Response response = (Response) recvMsg;
+                    boolean status = response.getStatus();
+
+                    if (!status) {
+                        System.out.println("User not added successfully");
+                        break;
+                    }
+
+                    System.out.println("User added successfully");
+                    System.out.println("TOTP secret: " + response.getPayload());
+
+                }
+
+                // Add a song to the server
+                case 2 -> {
+                    if (!authenticateUser(input, currDest)) {
+                        break;
+                    }
+
+                    System.out.print("Please enter the song name: ");
+                    String songname = input.nextLine();
+                    System.out.print("Please enter the size of the song: ");
+                    int size = input.nextInt();
+                    System.out.println("Please enter the songs file path: ");
+                    String filePath = input.nextLine();
+
+                    Request request = new Request("Add", clientHash, songname, size);
+                    SendMessage msg = new SendMessage(sessionID, currDest, new byte[4], request.toJSONType());
+                    socket.sendMessage(msg);
+
+                    long startTime = System.currentTimeMillis();
+                    while (!socket.hasMessage() && (System.currentTimeMillis() - startTime) > 5000) { // wait for 5 seconds
+                        Thread.sleep(100);
+                    }
+                    if (System.currentTimeMillis() - startTime > 5000) {
+                        System.out.println("Timeout waiting for response");
+                        break;
+                    }
+
+                    recvMessage = socket.getMessage();
+                    if (!(recvMessage instanceof PayloadMessage)) {
+                        System.err.println("Error: expected PayloadMessage, got " + recvMessage.getType());
+                        break;
+                    }
+
+                    PayloadMessage payloadMessage = (PayloadMessage) recvMessage;
+                    Message recvMsg = new Message(payloadMessage.getPayload());
+
+                    if (!recvMsg.getType().equals("Status")) {
+                        System.err.println("Error: expected Status message, got " + recvMsg.getType());
+                        break;
+                    }
+
+                    Response response = (Response) recvMsg;
+                    boolean status = response.getStatus();
+
+                    if (!status) {
+                        System.out.println("Song can not be added");
+                        break;
+                    }
+
+                    System.out.println("Song being added now");
+
+                    sendSong(currDest, filePath);
+
+                    System.out.println("Song successfully sent");
+
+                }
+
+                // Play a song from the server
+                case 3 -> {
+                    if (!authenticateUser(input, currDest)) {
+                        break;
+                    }
+
+                    System.out.println("Please enter the song name: ");
+                    String songname = input.nextLine();
+
+                    Request request = new Request("Play", clientHash, songname);
+                    SendMessage msg = new SendMessage(sessionID, currDest, new byte[4], request.toJSONType());
+                    socket.sendMessage(msg);
+
+                    long startTime = System.currentTimeMillis();
+                    while (!socket.hasMessage() && (System.currentTimeMillis() - startTime) > 5000) { // wait for 5 seconds
+                        Thread.sleep(100);
+                    }
+                    if (System.currentTimeMillis() - startTime > 5000) {
+                        System.out.println("Timeout waiting for response");
+                        break;
+                    }
+
+                    recvMessage = socket.getMessage();
+
+                    if (!(recvMessage instanceof PayloadMessage)) {
+                        System.err.println("Error: expected PayloadMessage, got " + recvMessage.getType());
+                        break;
+                    }
+
+                    PayloadMessage payloadMessage = (PayloadMessage) recvMessage;
+                    Message recvMsg = new Message(payloadMessage.getPayload());
+
+                    if (!recvMsg.getType().equals("Status")) {
+                        System.err.println("Error: expected Status message, got " + recvMsg.getType());
+                        break;
+                    }
+
+                    Response response = (Response) recvMsg;
+                    boolean status = response.getStatus();
+
+                    if (!status) {
+                        System.out.println("Song can not be played");
+                        break;
+                    }
+
+                    System.out.println("Song being played now");
+
+                    // todo: add in the logic for playing the song here using the audio bytes from the server
+                }
+
+                // List all songs on the server
+                case 4 -> {
+                    if (!authenticateUser(input, currDest)) {
+                        break;
+                    }
+
+                    Request request = new Request("List", clientHash);
+                    SendMessage msg = new SendMessage(sessionID, currDest, new byte[4], request.toJSONType());
+
+                    socket.sendMessage(msg);
+
+                    long startTime = System.currentTimeMillis();
+                    while (!socket.hasMessage() && (System.currentTimeMillis() - startTime) > 5000) { // wait for 5 seconds
+                        Thread.sleep(100);
+                    }
+                    if (System.currentTimeMillis() - startTime > 5000) {
+                        System.out.println("Timeout waiting for response");
+                        break;
+                    }
+
+                    recvMessage = socket.getMessage();
+
+                    if (!(recvMessage instanceof PayloadMessage)) {
+                        System.err.println("Error: expected PayloadMessage, got " + recvMessage.getType());
+                        break;
+                    }
+
+                    PayloadMessage payloadMessage = (PayloadMessage) recvMessage;
+                    Message recvMsg = new Message(payloadMessage.getPayload());
+
+                    if (!recvMsg.getType().equals("Status")) {
+                        System.err.println("Error: expected Status message, got " + recvMsg.getType());
+                        break;
+                    }
+
+                    Response response = (Response) recvMsg;
+                    boolean status = response.getStatus();
+
+                    if (!status) {
+                        System.out.println("Song can not be listed");
+                        break;
+                    }
+
+                    System.out.println("Songs on the server: ");
+                    String payload = response.getPayload();
+                    if (payload != null) {
+                        String[] songs = payload.split(",");
+                        for (String song : songs) {
+                            System.out.println(song);
+                        }
+                    } else {
+                        System.out.println("No songs found");
+                    }
+
+                }
+            }
+
+            System.out.println("Do you want to continue? (y/n)");
+            String cont = input.nextLine();
+            if (cont.equalsIgnoreCase("n")) {
+                System.out.println("Exiting...");
+                socket.close();
+                System.exit(0);
+            }
+
+        }
+    }
+
+    private static KeyPair generateKeyPairElGamal() {
+        // Generate a key pair for the router
+        try {
+            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("ElGamal");
+            keyGen.initialize(2048); // 2048 bits for RSA
+            return keyGen.generateKeyPair();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static KeyPair generateKeyPairEd() {
+        // Generate a key pair for the router
+        try {
+            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("Ed25519", "BC");
+            return keyGen.generateKeyPair();
+        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
+            throw new RuntimeException(e); // should never hit case
+        }
+    }
+
+    private static boolean authenticateUser(Scanner input, Destination currDest) throws InterruptedException, InvalidObjectException {
+        System.out.println("Please authenticate with your username, password, and otp code; ");
+        System.out.print("Username: ");
+        String username = input.nextLine();
         String password = new String(System.console().readPassword("Enter Password: "));
-        Scanner in = new Scanner(System.in);
-        System.out.print("Enter OTP: ");
-        Integer otp = in.nextInt();
+        System.out.print("OTP code: ");
+        int otpCode = input.nextInt();
 
-        Request request = new Request("Authenticate", userName, password, otp);
+        input.nextLine(); // consume the newline character
 
-        sock.sendMessage(request);
+        Request request = new Request("Authenticate", clientHash, username, password, otpCode);
+        SendMessage msg = new SendMessage(sessionID, currDest, new byte[4], request.toJSONType());
+        socket.sendMessage(msg);
 
-        Message response = sock.getMessage();
-        if (!response.getType().equals("Status")) {
-            sock.close();
-            System.err.println("Got bad message type from server: " + response.getType());
-            System.exit(1);
+        long startTime = System.currentTimeMillis();
+        while (!socket.hasMessage() && (System.currentTimeMillis() - startTime) > 5000) { // wait for 5 seconds
+            Thread.sleep(100);
         }
 
-        Response status = (Response) response;
-        // if we get a bad status let's exit
-        if (!status.getStatus()) {
-            System.err.println(status.getPayload());
-            sock.close();
-            System.exit(1);
+        if (System.currentTimeMillis() - startTime > 5000) {
+            System.out.println("Timeout waiting for response");
+            return false;
         }
+
+        I2CPMessage recvMessage = socket.getMessage();
+
+        if (!(recvMessage instanceof PayloadMessage)) {
+            System.err.println("Error: expected PayloadMessage, got " + recvMessage.getType());
+            return false;
+        }
+
+        PayloadMessage payloadMessage = (PayloadMessage) recvMessage;
+
+        Message recvMsg = new Message(payloadMessage.getPayload());
+
+        if (!recvMsg.getType().equals("Status")) {
+            System.err.println("Error: expected Status message, got " + recvMsg.getType());
+            return false;
+        }
+
+        Response response = (Response) recvMsg;
+        boolean status = response.getStatus();
+
+        if (!status) {
+            System.out.println("Authentication failed");
+            return false;
+        }
+
+        System.out.println("Authentication successful");
+        return true;
+    }
+
+    private static void sendSong(Destination currDest, String filePath) {
+        byte[] audioBytes;
+        try {
+            File file = new File(filePath);
+            if (!file.exists()) {
+                System.err.println("Error: File does not exist");
+                socket.close();
+                System.exit(1);
+            }
+
+            Path path = file.toPath();
+            audioBytes = Files.readAllBytes(path);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        List<byte[]> chunks = chunkAudioData(audioBytes, 256); // 256 bytes per chunk
+
+        int id = 0;
+        for (byte[] chunk : chunks) {
+            // create a byte message
+            ByteMessage bytes = new ByteMessage("Byte", clientHash, chunk, id);
+            SendMessage msg = new SendMessage(sessionID, currDest, new byte[4], bytes.toJSONType());
+
+            // Send the message 3 times
+            for (int i = 0; i < 3; i++) {
+                socket.sendMessage(msg);
+            }
+
+            // iterate the id for each chunk
+            id++;
+        }
+
     }
 
     /**

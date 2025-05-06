@@ -196,9 +196,8 @@ public class Server {
         Thread enqueue = new Thread(new EnqueueServer(sessionID, clients, queue, socket));
         enqueue.start();
 
-
-
-
+        Thread dequeue = new Thread(new DequeueServer(sessionID, clients, queue, socket, audioDatabase, usersDatabase));
+        dequeue.start();
 
     }
 

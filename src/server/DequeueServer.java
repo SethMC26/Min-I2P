@@ -65,7 +65,7 @@ public class DequeueServer implements Runnable {
                         // Check if the user already exists in the database
                         if (USERS_DATABASE.checkIfUserExists(clientNameCreate)) {
                             System.out.println("User already exists");
-                            Response response = new Response("Status", false, "User already exists");
+                            Response response = new Response("Status", "", false, "User already exists");
                             SendMessage send = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4] , response.toJSONType());
                             SOCKET.sendMessage(send);
                             break;
@@ -80,7 +80,7 @@ public class DequeueServer implements Runnable {
                         USERS_DATABASE.addUser(clientNameCreate, clientPasswordCreate, totp);
 
                         // Store the client state in the map
-                        Response response = new Response("Status", true, totp);
+                        Response response = new Response("Status", "", true, totp);
                         SendMessage send = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], response.toJSONType());
 
                         // Send the response to the client
@@ -96,7 +96,7 @@ public class DequeueServer implements Runnable {
                         // Check if the user exists in the database
                         if (!USERS_DATABASE.checkIfUserExists(clientNameAuth)) {
                             System.out.println("User does not exist");
-                            Response responseAuth = new Response("Status", false, "User does not exist");
+                            Response responseAuth = new Response("Status", "", false, "User does not exist");
                             SendMessage sendAuth = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseAuth.toJSONType());
                             SOCKET.sendMessage(sendAuth);
                             break;
@@ -105,7 +105,7 @@ public class DequeueServer implements Runnable {
                         // Check if the user is already authenticated
                         if (!authProtocol(clientNameAuth, clientPasswordAuth, clientOTPAuth)) {
                             System.out.println("Authentication failed");
-                            Response responseAuthFail = new Response("Status", false, "Authentication failed");
+                            Response responseAuthFail = new Response("Status", "", false, "Authentication failed");
                             SendMessage sendAuthFail = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseAuthFail.toJSONType());
                             SOCKET.sendMessage(sendAuthFail);
                             break;
@@ -116,7 +116,7 @@ public class DequeueServer implements Runnable {
 
                         // Store the client state in the map
                         System.out.println("Authentication successful");
-                        Response responseAuthSuccess = new Response("Status", true, "Authentication successful");
+                        Response responseAuthSuccess = new Response("Status", "", true, "Authentication successful");
                         SendMessage sendAuthSuccess = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseAuthSuccess.toJSONType());
 
                         SOCKET.sendMessage(sendAuthSuccess);
@@ -126,7 +126,7 @@ public class DequeueServer implements Runnable {
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
                             System.out.println("User not authenticated");
-                            Response responseAddFail = new Response("Status", false, "User not authenticated");
+                            Response responseAddFail = new Response("Status","", false, "User not authenticated");
                             SendMessage sendAddFail = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseAddFail.toJSONType());
                             SOCKET.sendMessage(sendAddFail);
                             break;
@@ -139,14 +139,14 @@ public class DequeueServer implements Runnable {
                         // Check if the audio data exists in the database
                         if (!AUDIO_DATABASE.checkIfAudioExists(clientSongNameAdd)) {
                             System.out.println("Audio does not exist");
-                            Response responseAdd = new Response("Status", false, "Audio does not exist");
+                            Response responseAdd = new Response("Status", "", false, "Audio does not exist");
                             SendMessage sendAdd = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseAdd.toJSONType());
                             SOCKET.sendMessage(sendAdd);
                             break;
                         }
 
                         // Check if the audio data is already present
-                        Response responseAddSuccess = new Response("Status", true, "Audio can be added to the database");
+                        Response responseAddSuccess = new Response("Status", "", true, "Audio can be added to the database");
                         SendMessage sendAddSuccess = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseAddSuccess.toJSONType());
                         SOCKET.sendMessage(sendAddSuccess);
 
@@ -158,7 +158,7 @@ public class DequeueServer implements Runnable {
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
                             System.out.println("User not authenticated");
-                            Response responseSendingFail = new Response("Status", false, "User not authenticated");
+                            Response responseSendingFail = new Response("Status", "", false, "User not authenticated");
                             SendMessage sendSendingFail = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseSendingFail.toJSONType());
                             SOCKET.sendMessage(sendSendingFail);
                             break;
@@ -173,7 +173,7 @@ public class DequeueServer implements Runnable {
                         // Check if the audio data exists in the map
                         if (!AUDIO_DATA_MAP.containsKey(destSending)) {
                             System.out.println("Audio data not found");
-                            Response responseSendingFail = new Response("Status", false, "Audio data not found");
+                            Response responseSendingFail = new Response("Status", "", false, "Audio data not found");
                             SendMessage sendSendingFail = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseSendingFail.toJSONType());
                             SOCKET.sendMessage(sendSendingFail);
                             break;
@@ -192,7 +192,7 @@ public class DequeueServer implements Runnable {
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
                             System.out.println("User not authenticated");
-                            Response responseEndFail = new Response("Status", false, "User not authenticated");
+                            Response responseEndFail = new Response("Status", "", false, "User not authenticated");
                             SendMessage sendEndFail = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseEndFail.toJSONType());
                             SOCKET.sendMessage(sendEndFail);
                             break;
@@ -203,7 +203,7 @@ public class DequeueServer implements Runnable {
                         // Check if the audio data exists in the map
                         if (!AUDIO_DATA_MAP.containsKey(destEnd)) {
                             System.out.println("Audio data not found");
-                            Response responseEndFail = new Response("Status", false, "Audio data not found");
+                            Response responseEndFail = new Response("Status", "", false, "Audio data not found");
                             SendMessage sendEndFail = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseEndFail.toJSONType());
                             SOCKET.sendMessage(sendEndFail);
                             break;
@@ -226,7 +226,7 @@ public class DequeueServer implements Runnable {
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
                             System.out.println("User not authenticated");
-                            Response responsePlayFail = new Response("Status", false, "User not authenticated");
+                            Response responsePlayFail = new Response("Status", "", false, "User not authenticated");
                             SendMessage sendPlayFail = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responsePlayFail.toJSONType());
                             SOCKET.sendMessage(sendPlayFail);
                             break;
@@ -237,7 +237,7 @@ public class DequeueServer implements Runnable {
                         // Check if the audio exists in the database
                         if (!AUDIO_DATABASE.checkIfAudioExists(clientSongNamePlay)) {
                             System.out.println("Audio does not exist");
-                            Response responsePlayFail = new Response("Status", false, "Audio does not exist");
+                            Response responsePlayFail = new Response("Status", "", false, "Audio does not exist");
                             SendMessage sendPlayFail = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responsePlayFail.toJSONType());
                             SOCKET.sendMessage(sendPlayFail);
                             break;
@@ -251,7 +251,7 @@ public class DequeueServer implements Runnable {
                             byte[] data = audioDataPlay.get(i);
 
                             // Create a new ByteMessage with the audio data
-                            ByteMessage msg = new ByteMessage("Byte", data, i);
+                            ByteMessage msg = new ByteMessage("Byte", "", data, i);
                             SendMessage sendPlay = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], msg.toJSONType());
 
                             // Send the message to the client
@@ -265,7 +265,7 @@ public class DequeueServer implements Runnable {
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
                             System.out.println("User not authenticated");
-                            Response responseListFail = new Response("Status", false, "User not authenticated");
+                            Response responseListFail = new Response("Status", "", false, "User not authenticated");
                             SendMessage sendListFail = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseListFail.toJSONType());
                             SOCKET.sendMessage(sendListFail);
                             break;
@@ -275,7 +275,7 @@ public class DequeueServer implements Runnable {
                         String audioList = AUDIO_DATABASE.listAudio();
 
                         // Builds the messsages that needs to be sent
-                        Response responseList = new Response("Status", true, audioList);
+                        Response responseList = new Response("Status", "", true, audioList);
                         SendMessage sendList = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseList.toJSONType());
 
                         // Sends the messages to the client

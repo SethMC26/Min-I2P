@@ -1,7 +1,6 @@
 {
   "public": "MCowBQYDK2VwAyEAKANZ5XaEOE6Y4GJnFLbsDJj6udKrBwTBOPUkH6MQrt8=",
   "private": "MFECAQEwBQYDK2VwBCIEIPv2eaPx8rupwPqtyp1OBGe55UOsSCzmvuh0EHeNsHSPgSEAKANZ5XaEOE6Y4GJnFLbsDJj6udKrBwTBOPUkH6MQrt8=",
-
   "debug": true,
   "database-file": "test-data/database/database.json",
   "users-file": "test-data/database/users.json",

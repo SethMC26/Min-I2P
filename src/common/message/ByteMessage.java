@@ -17,8 +17,8 @@ public class ByteMessage extends Message {
      * @param type - String type of message
      * @param data - byte[] data of the message
      */
-    public ByteMessage(String type, byte[] data, int id) {
-        super(type);
+    public ByteMessage(String type, String desthash, byte[] data, int id) {
+        super(type, desthash);
         this.data = data;
         this.id = id;
     }

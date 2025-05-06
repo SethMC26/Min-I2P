@@ -22,8 +22,8 @@ public class Request extends Message {
      * @param password - String password of the user
      * @param otp - Integer otp of the user
      */
-    public Request(String type, String username, String password, int otp) {
-        super(type);
+    public Request(String type, String desthash, String username, String password, int otp) {
+        super(type, desthash);
         this.username = username;
         this.password = password;
         this.otp = otp;
@@ -36,8 +36,8 @@ public class Request extends Message {
      * @param username - String username of the user
      * @param password - String password or song name of the user
      */
-    public Request(String type, String username, String password) {
-        super(type);
+    public Request(String type, String desthash, String username, String password) {
+        super(type, desthash);
         this.username = username;
         this.password = password;
     }
@@ -49,8 +49,8 @@ public class Request extends Message {
      * @param songname - String song name of the user
      * @param size - int size of the song
      */
-    public Request(String type, String songname, int size) {
-        super(type);
+    public Request(String type, String desthash, String songname, int size) {
+        super(type, desthash);
         this.songname = songname;
         this.size = size;
     }
@@ -61,9 +61,18 @@ public class Request extends Message {
      * @param type - String type of message
      * @param songname - String song name of the user
      */
-    public Request(String type, String songname) {
-        super(type);
+    public Request(String type, String desthash, String songname) {
+        super(type, desthash);
         this.songname = songname;
+    }
+
+    /**
+     * Constructor for the user to request list songs from the database
+     *
+     * @param type - String type of message
+     */
+    public Request(String type, String desthash) {
+        super(type, desthash);
     }
 
     /**

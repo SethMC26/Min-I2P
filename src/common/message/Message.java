@@ -28,8 +28,9 @@ public class Message implements JSONSerializable {
     /**
      * Constructor creates a new message from parameters
      */
-    public Message(String type) {
+    public Message(String type, String destHash) {
         this.type = type;
+        this.destHash = destHash;
     }
 
     @Override
