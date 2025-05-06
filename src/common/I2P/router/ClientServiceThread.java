@@ -403,6 +403,7 @@ public class ClientServiceThread implements Runnable {
                     position = TunnelBuild.Record.TYPE.ENDPOINT;
                     if (isInbound) {
                         System.err.println("queue under " + receiveTunnel);
+                        tempPeers.set(i, router); // make sure to overwrite for later
                         next = router; // set to client creating request if real for testing set to gateway router
                         msgQueue = new ConcurrentLinkedQueue<>();
                         //currInboundTunnelID = receiveTunnel;
@@ -441,14 +442,11 @@ public class ClientServiceThread implements Runnable {
                         requestTime,
                         sendMessageID,
                         position,
-                        hopInfoInput,
-                        replyFlag); // pass the hop info to the record
+                        hopInfoInput, // only gateway gets this not null
+                        replyFlag); // flips to true in response if good
 
 
                 records.add(record);
-                for (TunnelBuild.Record currRecord : records) {
-                    //currRecord.encryptAES(replyKey);
-                }
             }
 
             // save this list of peers to the tunnel manager for easy access later
@@ -460,12 +458,42 @@ public class ClientServiceThread implements Runnable {
                 tunnelManager.addOutboundTunnel(tunnelID, potentialTunnel);
             }
 
+            // encrypt the records for the tunnel build message
+            for (int i = 0; i < records.size(); i++) {
+                TunnelBuild.Record record = records.get(i);
+                record.hybridEncrypt(tempPeers.get(i).getRouterID().getElgamalPublicKey(), record.getReplyKey()); // this feels janky
+            }
+
+            // OKAY NOW WE AES ENCRYPT WISH ME LUCK!!!!
+            // first record is not encrypted with AES, it is the gateway record
+            // second record is encrypted with replyKey from the first record
+            // third record is encrypted with the reply key from record 2 THEN from record 1
+            // and so on
+
+            for (int i = 1; i < records.size(); i++) { // Start from the second record (index 1)
+                TunnelBuild.Record currentRecord = records.get(i);
+            
+                // Apply layered encryption
+                for (int j = i - 1; j >= 0; j--) { // Encrypt using reply keys from all previous records
+                    TunnelBuild.Record previousRecord = records.get(j);
+            
+                    SecretKey aesKey = previousRecord.getReplyKey();
+                    byte[] iv = previousRecord.getReplyIv();
+            
+                    // Encrypt the current record with the replyKey and replyIv from the previous record
+                    currentRecord.layeredEncrypt(aesKey, iv);
+                }
+            }
+
+
             // send tunnel build message to the first peer in the list
             RouterInfo firstPeer = tempPeers.get(0);
             I2NPHeader tunnelBuildMessage = new I2NPHeader(I2NPHeader.TYPE.TUNNELBUILD, random.nextInt(),
                     System.currentTimeMillis() + 100, new TunnelBuild(records));
             I2NPSocket buildSocket = null;
             try {
+                System.out.println("Sending tunnel build message to " + firstPeer.getRouterID().getHash());
+                System.out.println("the message looks like... " + tunnelBuildMessage.toJSONType().getFormattedJSON());
                 buildSocket = new I2NPSocket();
                 buildSocket.sendMessage(tunnelBuildMessage, firstPeer);
                 buildSocket.close();

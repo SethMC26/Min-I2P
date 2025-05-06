@@ -58,9 +58,16 @@ public class RouterServiceThread implements Runnable {
     private TunnelManager tunnelManager;
 
     /**
+     * Private key for this router
+     */
+    private PrivateKey elgamalPrivateKey;
+
+    /**
      * Signing private key for this router
      */
     private PrivateKey signingPrivateKey;
+
+
     private ConcurrentHashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> cstMessages;
 
     /**
@@ -72,7 +79,7 @@ public class RouterServiceThread implements Runnable {
      */
     public RouterServiceThread(NetDB networkDatabase, RouterInfo router, I2NPHeader recievedMessage,
             ConcurrentHashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> cstMessages,
-            TunnelManager tunnelManager, PrivateKey signingPrivateKey) {
+            TunnelManager tunnelManager, PrivateKey elgamalPrivateKey, PrivateKey signingPrivateKey) {
         this.netDB = networkDatabase;
         this.router = router;
         this.recievedMessage = recievedMessage;
@@ -81,6 +88,7 @@ public class RouterServiceThread implements Runnable {
         this.isFloodFill = false;
         this.tunnelManager = tunnelManager;
         this.cstMessages = cstMessages;
+        this.elgamalPrivateKey = elgamalPrivateKey;
         this.signingPrivateKey = signingPrivateKey;
     }
 
@@ -143,6 +151,7 @@ public class RouterServiceThread implements Runnable {
                 break;
             case TUNNELBUILD:
                 // handle tunnel build message
+                System.out.println("TunnelBuildMessage: " + recievedMessage.toJSONType().getFormattedJSON());
                 TunnelBuild tunnelBuild = (TunnelBuild) recievedMessage.getMessage();
                 handleTunnelBuildMessage(tunnelBuild);
                 break;
@@ -269,13 +278,19 @@ public class RouterServiceThread implements Runnable {
         // to the toPeer field of the record, if they match we have found the correct
         // record for us
         //our record
-        //System.out.println("got build request " + tunnelBuild.toJSONType().getFormattedJSON());
+        System.out.println("got build request " + tunnelBuild.toJSONType().getFormattedJSON());
         String base64ourIdent = Base64.getEncoder().encodeToString(Arrays.copyOf(router.getHash(), 16));
         TunnelBuild.Record ourRecord = tunnelBuild.getRecord(base64ourIdent);
+
+        ourRecord.hybridDecrypt(elgamalPrivateKey);
+
         if (ourRecord == null) {
             log.error("Could not find our record disregarding");
             return;
         }
+
+
+
         /*
         tunnelBuild.decryptAES(ourRecord.getReplyKey());
         JSONObject jsonObject = JsonIO.readObject(new String(ourRecord.getEncData(), StandardCharsets.UTF_8));

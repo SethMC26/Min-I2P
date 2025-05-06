@@ -37,6 +37,14 @@ public class Tunnel {
         return null; // not found
     }
 
+    public RouterInfo getTunnelObjectAtPos(int pos) {
+        // Get the router info at the given position in the tunnel
+        if (pos >= 0 && pos < routers.size()) {
+            return routers.get(pos).getRouterInfo();
+        }
+        return null; // out of bounds
+    }
+
     public int getGatewayTunnelID() {
         // Get the first tunnel ID in the tunnel
         if (routers.size() > 0) {

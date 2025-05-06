@@ -261,7 +261,7 @@ public class Router implements Runnable {
 
                             message = socket.getMessage();
                             RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, clientMessages,
-                                    tunnelManager, edKeyPair.getPrivate());
+                                    tunnelManager, elgamalKeyPair.getPrivate(), edKeyPair.getPrivate());
                             // To sam, this will turn on floodfill, from your favorite NetDB implementor
                             // Seth
                             // rst.setFloodFill(true);
