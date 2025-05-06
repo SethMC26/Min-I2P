@@ -12,13 +12,13 @@ import common.message.Response;
 import common.transport.I2CP.*;
 import merrimackutil.cli.LongOption;
 import merrimackutil.cli.OptionParser;
+import merrimackutil.codec.Base32;
 import merrimackutil.util.Tuple;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.encoders.Base64;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InvalidObjectException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
@@ -248,7 +248,7 @@ public class Client {
                         break;
                     }
 
-                    Response response = (Response) recvMsg;
+                    Response response = new Response(payloadMessage.getPayload());
                     boolean status = response.getStatus();
 
                     if (!status) {
@@ -257,7 +257,7 @@ public class Client {
                     }
 
                     System.out.println("User added successfully");
-                    System.out.println("TOTP secret: " + response.getPayload());
+                    System.out.println("TOTP secret: " + Base32.encodeToString(Base64.decode(response.getPayload()), true));
 
                 }
 
