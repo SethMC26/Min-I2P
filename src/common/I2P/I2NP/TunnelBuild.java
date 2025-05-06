@@ -314,7 +314,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 encryptedData.put("encryptedReplyIv", Base64.toBase64String(encryptedReplyIv));
 
                 // Save to enc data as a byte array
-                this.encData = encryptedData.toString().getBytes(StandardCharsets.UTF_8);
+                this.encData = encryptedData.toJSON().getBytes(StandardCharsets.UTF_8);
             } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException
                     | IllegalBlockSizeException | BadPaddingException e) {
                 throw new RuntimeException("Encryption error: " + e.getMessage(), e);
