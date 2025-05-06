@@ -179,10 +179,11 @@ public class ClientServiceThread implements Runnable {
                 //attempt to get tunnel information from router service thread
                 if (msgQueue.isEmpty()) {
                     log.error("Unable to make tunnel please restart router");
+                    clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.REFUSED));
                     return;
                 }
 
-                I2CPMessage routerMsg = msgQueue.remove();;
+                I2CPMessage routerMsg = msgQueue.remove();
 
 
                 if (routerMsg.getType() != REQUESTLEASESET) {
@@ -516,12 +517,12 @@ public class ClientServiceThread implements Runnable {
 
                 for (RouterInfo peer : peers) {
                     I2NPHeader lookup = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
-                            System.currentTimeMillis() + 10, new DatabaseLookup(hash, router.getHash()));
+                            System.currentTimeMillis() + 200, new DatabaseLookup(hash, router.getHash()));
                     routerSock.sendMessage(lookup, peer);
                 }
                 // wait for responses
                 try {
-                    Thread.sleep(10);
+                    Thread.sleep(350);
                 } catch (InterruptedException e) {
                     log.warn("Dest lookup wait interrupted", e);
                 }
