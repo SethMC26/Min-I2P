@@ -33,7 +33,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class Server {
 
-    private static String configFile = "test-data/config/config.json";
+    private static String configFile = "test-data/config/serverConfig.json";
     private static boolean debug = false;
     private static String databaseFile;
     private static String usersFile;
@@ -41,8 +41,8 @@ public class Server {
     private static AudioDatabase audioDatabase;
     private static UsersDatabase usersDatabase;
 
-    static int routerPort = 10001;
-    static int servicePort = 20001;
+    static int routerPort = 10006;
+    static int servicePort = 20006;
     static InetSocketAddress bootstrapPeer = new InetSocketAddress("127.0.0.1", 8080);
 
     private static PublicKey publicKey;

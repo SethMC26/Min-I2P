@@ -31,8 +31,8 @@ import java.util.Scanner;
 
 public class Client {
 
-    public static int routerPort = 10001;
-    public static int servicePort = 20001;
+    public static int routerPort = 10007;
+    public static int servicePort = 20007;
     public static InetSocketAddress bootstrapPeer = new InetSocketAddress("127.0.0.1", 8080);
     private static byte[] destHash;
     private static String clientHash;
@@ -77,7 +77,8 @@ public class Client {
                     doStart = true;
                     break;
                 case 'd':
-                    destHash = currOpt.getSecond().getBytes();
+                    String temp = currOpt.getSecond();
+                    destHash = Base64.decode(temp);
                     break;
                 default:
                     System.out.println("Unknown option: " + currOpt.getFirst());
@@ -175,7 +176,7 @@ public class Client {
         socket.sendMessage(new CreateLeaseSet(sessionID, destElgamalKey.getPrivate(), leaseSet));
 
         // Get the clients destination hash
-        clientHash = Base64.toBase64String(destEd25519Key.getPublic().getEncoded());
+        clientHash = Base64.toBase64String(clientDest.getHash());
 
         Destination currDest = null;
 
@@ -455,7 +456,7 @@ public class Client {
         }
     }
 
-    private static boolean authenticateUser(Scanner input, Destination currDest) throws InterruptedException, InvalidObjectException {
+    private static boolean authenticateUser(Scanner input, Destination currDest) throws InterruptedException, IOException {
         System.out.println("Please authenticate with your username, password, and otp code; ");
         System.out.print("Username: ");
         String username = input.nextLine();
@@ -507,7 +508,7 @@ public class Client {
         return true;
     }
 
-    private static void sendSong(Destination currDest, String filePath) {
+    private static void sendSong(Destination currDest, String filePath) throws IOException {
         byte[] audioBytes;
         try {
             File file = new File(filePath);

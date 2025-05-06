@@ -2,7 +2,6 @@ package server;
 
 import common.I2P.IDs.Destination;
 import common.message.ByteMessage;
-import common.message.Request;
 import common.message.Response;
 import common.transport.I2CP.I2CPSocket;
 import common.transport.I2CP.SendMessage;
@@ -15,6 +14,7 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -286,7 +286,7 @@ public class DequeueServer implements Runnable {
                         break;
                 }
 
-            } catch (InterruptedException | NoSuchAlgorithmException e) {
+            } catch (InterruptedException | NoSuchAlgorithmException | IOException e) {
                 throw new RuntimeException(e);
             }
         }
