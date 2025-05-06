@@ -62,7 +62,6 @@ public class ClientServiceThread implements Runnable {
      * Network database
      */
     private NetDB netDB;
-    private int currInboundTunnelID;
 
     /**
      * Create new thread to service incoming client connects
@@ -118,8 +117,6 @@ public class ClientServiceThread implements Runnable {
          * ID of session
          */
         private int sessionID;
-        private int lastInboundTunnelID;
-        private RouterInfo lastInboundFirstPeer;
         private ConcurrentLinkedQueue<I2CPMessage> msgQueue;
         /**
          * Create new connection for the client
@@ -173,24 +170,25 @@ public class ClientServiceThread implements Runnable {
                 clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.CREATED));
 
                 try {
-                    Thread.sleep(2000);
+                    Thread.sleep(5000);
                 }
                 catch (InterruptedException e) {
                     log.warn("CST interrupted while waiting for tunne building attempting anyways", e);
                 }
 
-                I2CPMessage routerMsg;
-
-                if ((routerMsg = msgQueue.remove()) == null) {
-                    System.err.println(currInboundTunnelID);
-                    System.err.println("Seth made a mistake");
-                    //todo seth needs to handle this
+                //attempt to get tunnel information from router service thread
+                if (msgQueue.isEmpty()) {
+                    log.error("Unable to make tunnel please restart router");
+                    clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.REFUSED));
                     return;
                 }
 
+                I2CPMessage routerMsg = msgQueue.remove();
+
+
                 if (routerMsg.getType() != REQUESTLEASESET) {
-                    System.err.println(routerMsg.toJSONType().getFormattedJSON());
-                    System.err.println("Message is not create session??????");
+                    log.error("Message given to CST is wrong type must be leaseset)");
+                    log.debug(routerMsg.toJSONType().getFormattedJSON());
                     return;
                 }
 
@@ -208,8 +206,16 @@ public class ClientServiceThread implements Runnable {
                 // this is the private key for elgamal stuff corresponding to public key in
                 // leaseset for encryption
                 PrivateKey privateKey = createLeaseSet.getPrivateKey();
+                //store leaseSet in our netDB and send leaseSet out to neighbors
                 netDB.store(leaseSet);
-
+                //send to 3 nearby peers
+                for (RouterInfo peer : netDB.getKClosestRouterInfos(leaseSet.getHash(), 3)) {
+                    //create store message
+                    I2NPHeader store = new I2NPHeader(I2NPHeader.TYPE.DATABASESTORE, random.nextInt(), System.currentTimeMillis() + 100,
+                            new DatabaseStore(leaseSet));
+                    //send to nearby peers
+                    routerSock.sendMessage(store, peer);
+                }
                 buildTunnel(clientDestination, router, false); // outbound
 
                 while (true) { // might be a better way to do this that avoids busy waiting
@@ -238,10 +244,6 @@ public class ClientServiceThread implements Runnable {
 
                                 byte[] gatewayHash = lease.getTunnelGW(); // get the router info for the gateway
                                 RouterInfo gateway = (RouterInfo) netDB.lookup(gatewayHash); // get the router info for the gateway
-                    
-                                //todo send message to destLease
-                                // todo set up session information in router
-                                System.err.println(destLease.getLeases().size());
 
                                 // REMINDER: WE NEED AN INTERNAL PAYLOAD FOR THE MESSAGE TO SEND TO THE DESTINATION FROM THE SECOND ENDPOINT
 
@@ -267,6 +269,7 @@ public class ClientServiceThread implements Runnable {
                             }
                             case DESTROYSESSION -> {
                                 clientSock.close();
+                                routerSock.close();
                                 clientMessages.remove(sessionID);
                                 // todo remove inbound tunnels?
                                 // todo handle any necessary session destroying in router
@@ -375,8 +378,7 @@ public class ClientServiceThread implements Runnable {
                 tunnelManager.addInboundTunnel(tunnelID, potentialTunnel);
     
                 // Save info for use by outbound tunnel
-                this.lastInboundTunnelID = tunnelID;
-                this.lastInboundFirstPeer = tempPeers.get(0); // inbound gateway
+                RouterInfo lastInboundFirstPeer = tempPeers.get(0); // inbound gateway
             } else {
                 System.out.println("Adding outbound tunnel: " + tunnelID);
                 tunnelManager.addOutboundTunnel(tunnelID, potentialTunnel);
@@ -515,12 +517,12 @@ public class ClientServiceThread implements Runnable {
 
                 for (RouterInfo peer : peers) {
                     I2NPHeader lookup = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
-                            System.currentTimeMillis() + 10, new DatabaseLookup(hash, router.getHash()));
+                            System.currentTimeMillis() + 200, new DatabaseLookup(hash, router.getHash()));
                     routerSock.sendMessage(lookup, peer);
                 }
                 // wait for responses
                 try {
-                    Thread.sleep(10);
+                    Thread.sleep(350);
                 } catch (InterruptedException e) {
                     log.warn("Dest lookup wait interrupted", e);
                 }

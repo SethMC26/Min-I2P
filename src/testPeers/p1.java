@@ -4,14 +4,15 @@ import common.I2P.IDs.Destination;
 import common.I2P.NetworkDB.Lease;
 import common.I2P.NetworkDB.LeaseSet;
 import common.I2P.router.Router;
+import common.I2P.router.RouterConfig;
 import common.Logger;
 import common.transport.I2CP.*;
 import merrimackutil.json.types.JSONObject;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.encoders.Base64;
 
+import java.io.File;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.*;
 import java.util.ArrayList;
@@ -30,7 +31,9 @@ public class p1 {
         log.setMinLevel(Logger.Level.DEBUG);
 
         //start router
-        Thread router = new Thread(new Router(InetAddress.getLoopbackAddress(),routerPort, servicePort, bootstrapPeer));
+        //Thread router = new Thread(new Router(InetAddress.getLoopbackAddress(),routerPort, servicePort, bootstrapPeer));
+        RouterConfig routerConfig = new RouterConfig(new File("src/testPeers/routerConfig.json"));
+        Thread router = new Thread(new Router(routerConfig));
         router.start();
 
         try {
