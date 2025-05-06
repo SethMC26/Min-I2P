@@ -273,7 +273,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 remainingFeilds.put("hopInfo", hopInfoArray);
 
                 byte[] aesEncryptedData = aesCipher
-                        .doFinal(remainingFeilds.toString().getBytes(StandardCharsets.UTF_8));
+                        .doFinal(remainingFeilds.toJSON().getBytes(StandardCharsets.UTF_8));
 
                 // Create a JSON object to hold the encrypted data
                 JSONObject encryptedData = new JSONObject();
@@ -283,7 +283,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 encryptedData.put("encryptedData", Base64.toBase64String(aesEncryptedData));
 
                 // Store the encrypted data as a byte array
-                this.encData = encryptedData.toString().getBytes(StandardCharsets.UTF_8);
+                this.encData = encryptedData.toJSON().getBytes(StandardCharsets.UTF_8);
             } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException
                     | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
                 throw new RuntimeException("Encryption error: " + e.getMessage(), e);
