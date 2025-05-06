@@ -280,9 +280,20 @@ public class RouterServiceThread implements Runnable {
         //our record
         System.out.println("got build request " + tunnelBuild.toJSONType().getFormattedJSON());
         String base64ourIdent = Base64.getEncoder().encodeToString(Arrays.copyOf(router.getHash(), 16));
-        TunnelBuild.Record ourRecord = tunnelBuild.getRecord(base64ourIdent);
 
-        ourRecord.hybridDecrypt(elgamalPrivateKey);
+        // for each record in the tunnel build message attempt to decrypt it with our secret key
+        // if it decrypts and too peer matches we found our record -- other wise we replace it back with its original encrypted self
+        // and move on to the next record
+        TunnelBuild.Record ourRecord = null;
+        for (TunnelBuild.Record record : tunnelBuild.getRecords()) {
+            record.hybridDecrypt(elgamalPrivateKey);
+            if (Arrays.equals(record.getToPeer(), base64ourIdent.getBytes())) {
+                ourRecord = record;
+                break;
+            }
+        }
+
+        System.out.println("our record is " + ourRecord.toJSONType().getFormattedJSON());
 
         if (ourRecord == null) {
             log.error("Could not find our record disregarding");

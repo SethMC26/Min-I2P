@@ -331,6 +331,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
          */
         public void hybridDecrypt(PrivateKey elgamalPrivateKey) {
             try {
+                // System.out.println("Encrypted data: " + new String(encData, StandardCharsets.UTF_8));
                 JSONObject encryptedData = JsonIO.readObject(new String(encData, StandardCharsets.UTF_8));
                 Cipher elgamalCipher = Cipher.getInstance("ElGamal/None/NoPadding");
                 elgamalCipher.init(Cipher.DECRYPT_MODE, elgamalPrivateKey);
@@ -386,7 +387,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
         public void layeredEncrypt(SecretKey key, byte[] iv) {
             try {
                 Cipher enc = Cipher.getInstance("AES/GCM/NoPadding");
-                GCMParameterSpec gcmSpec = new GCMParameterSpec(128, iv); // Most likely not this record IV
+                GCMParameterSpec gcmSpec = new GCMParameterSpec(128, iv); // we are not using this record iv
                 enc.init(Cipher.ENCRYPT_MODE, key, gcmSpec);
                 encData = enc.doFinal(this.serialize().getBytes(StandardCharsets.UTF_8));
             } catch (InvalidAlgorithmParameterException | NoSuchPaddingException | IllegalBlockSizeException
@@ -406,10 +407,10 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
          * @param key
          * @param iv
          */
-        public void layeredDecrypt(SecretKey key, byte[] iv) {
+        public void layeredDecrypt(SecretKey key) {
             try {
                 Cipher dec = Cipher.getInstance("AES/GCM/NoPadding");
-                GCMParameterSpec gcmSpec = new GCMParameterSpec(128, iv);
+                GCMParameterSpec gcmSpec = new GCMParameterSpec(128, this.replyIv);
                 dec.init(Cipher.DECRYPT_MODE, key, gcmSpec);
                 byte[] decByte = dec.doFinal(encData);
                 encData = decByte; // overwrite this encData with the now stripped copy of data
