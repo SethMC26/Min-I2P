@@ -5,6 +5,7 @@ import common.message.ByteMessage;
 import common.message.Response;
 import common.transport.I2CP.I2CPSocket;
 import common.transport.I2CP.SendMessage;
+import org.bouncycastle.util.encoders.Base32;
 import org.bouncycastle.util.encoders.Base64;
 import server.databases.AudioDatabase;
 import server.databases.User;
