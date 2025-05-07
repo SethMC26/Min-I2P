@@ -148,21 +148,23 @@ public class EndpointPayload implements JSONSerializable {
             Cipher enc1 = Cipher.getInstance("AES/GCM/NoPadding");
             GCMParameterSpec gcmSpec1 = new GCMParameterSpec(128, iv);
             enc1.init(Cipher.ENCRYPT_MODE, sk, gcmSpec1);
-            encTunnelID = enc1.doFinal(ByteBuffer.allocate(4).putInt(tunnelID).array());
+            this.encTunnelID = enc1.doFinal(ByteBuffer.allocate(4).putInt(tunnelID).array());
 
             Cipher enc2 = Cipher.getInstance("AES/GCM/NoPadding");
             GCMParameterSpec gcmSpec2 = new GCMParameterSpec(128, iv);
-            enc1.init(Cipher.ENCRYPT_MODE, sk, gcmSpec2);
-            encRouterID = enc2.doFinal(routerID);
+            enc2.init(Cipher.ENCRYPT_MODE, sk, gcmSpec2);
+            this.encRouterID = enc2.doFinal(routerID);
 
             // Encrypt the already encrypted payload using AES
             Cipher enc3 = Cipher.getInstance("AES/GCM/NoPadding");
             GCMParameterSpec gcmSpec3 = new GCMParameterSpec(128, iv);
-            enc1.init(Cipher.ENCRYPT_MODE, sk, gcmSpec3);
-            encMessage = enc3.doFinal(encMessage);
+            enc3.init(Cipher.ENCRYPT_MODE, sk, gcmSpec3);
+            this.encMessage = enc3.doFinal(encMessage);
 
             this.tunnelID = -1;
             this.routerID = null;
+            
+            System.out.println("Encrypted tunnelID: " + this.toJSONType().getFormattedJSON());
 
         } catch (IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | NoSuchPaddingException
                 | InvalidKeyException | InvalidAlgorithmParameterException e) {
@@ -199,6 +201,9 @@ public class EndpointPayload implements JSONSerializable {
             dec3.init(Cipher.DECRYPT_MODE, sk, gcmSpec3);
             encMessage = dec3.doFinal(encMessage); // still in encrypted form
 
+            this.encRouterID = null;
+            this.encTunnelID = null;
+
         } catch (IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | NoSuchPaddingException
                 | InvalidKeyException | InvalidAlgorithmParameterException e) {
             System.err.println("Error decrypting tunnelID: " + e.getMessage());
@@ -224,13 +229,13 @@ public class EndpointPayload implements JSONSerializable {
 
             Cipher enc2 = Cipher.getInstance("AES/GCM/NoPadding");
             GCMParameterSpec gcmSpec2 = new GCMParameterSpec(128, iv);
-            enc1.init(Cipher.ENCRYPT_MODE, sk, gcmSpec2);
+            enc2.init(Cipher.ENCRYPT_MODE, sk, gcmSpec2);
             encRouterID = enc2.doFinal(encRouterID);
 
             // Encrypt the already encrypted payload using AES
             Cipher enc3 = Cipher.getInstance("AES/GCM/NoPadding");
             GCMParameterSpec gcmSpec3 = new GCMParameterSpec(128, iv);
-            enc1.init(Cipher.ENCRYPT_MODE, sk, gcmSpec3);
+            enc3.init(Cipher.ENCRYPT_MODE, sk, gcmSpec3);
             encMessage = enc3.doFinal(encMessage);
 
         } catch (IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | NoSuchPaddingException
@@ -330,6 +335,7 @@ public class EndpointPayload implements JSONSerializable {
         if (tunnelID != -1) {
             json.put("tunnelID", this.tunnelID);
         }
+
         if (routerID != null) {
             json.put("routerID", Base64.toBase64String(this.routerID));
         }

@@ -432,7 +432,8 @@ public class ClientServiceThread implements Runnable {
 
                 TunnelHopInfo hopInfoItem = new TunnelHopInfo(toPeer, layerKey, layerIv, ivKey,
                         receiveTunnel);
-                hopInfo.add(0, hopInfoItem); // add to the front of the list
+                hopInfo.add(hopInfoItem); // add to the front of the list
+                // oops i realized this is now wrong cause i flipped the order of the loop hehe
 
                 TunnelBuild.Record.TYPE position = null;
 
@@ -495,6 +496,11 @@ public class ClientServiceThread implements Runnable {
 
                 records.add(record);
             }
+
+            // set the first record hop info to the list
+            TunnelBuild.Record firstRecord = records.get(0);
+            firstRecord.setHopInfo(hopInfo); // set the hop info for the first record
+            // had to do this cause i flipped the loop SORRY!!! i know its clanky
 
             // save this list of peers to the tunnel manager for easy access later
             if (isInbound) {

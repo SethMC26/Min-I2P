@@ -123,11 +123,16 @@ public class TunnelGateway extends TunnelObject {
         EndpointPayload payload = new EndpointPayload(message.getPayload());
         // we now iterate through each hopin the tunnel, right to left, skipping this one, and layer encrypt with their layer keys
         // can access this info from the hops list
+        System.out.println("this is the size of the hops list: " + hops.size());
         for (int i = hops.size() - 1; i >= 1; i--) { // skips gateway
             TunnelHopInfo hop = hops.get(i);
             SecretKey layerKey = hop.getLayerKey();
             byte[] layerIV = hop.getLayerIv();
-            payload.layerEncrypt(layerKey, layerIV); // perform layer encryption with the hop's layer key
+            if (i == hops.size() - 1) { // first iteration
+                payload.firstLayerEncrypt(layerKey, layerIv); // different variables hence why we gotta use this
+            } else {
+                payload.layerEncrypt(layerKey, layerIV); // perform layer encryption with the hop's layer key
+            }
         }
     }
 

@@ -5,6 +5,7 @@ import merrimackutil.json.JsonIO;
 import merrimackutil.json.types.JSONArray;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
+
 import org.bouncycastle.util.encoders.Base64;
 
 import javax.crypto.*;
@@ -347,6 +348,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 byte[] decryptedReplyKey = elgamalCipher.doFinal(this.encReplyKey);
                 this.replyKey = new SecretKeySpec(decryptedReplyKey, "AES");
                 this.replyIv = this.replyIv; // Keep replyIv as it is since it wasn't encrypted
+                this.layerIv = this.layerIv; // Keep layerIv as it is since it wasn't encrypted
 
                 System.out.println("Decrypted toPeer: " + Base64.toBase64String(this.toPeer));
                 System.out.println("Decrypted replyKey: " + Base64.toBase64String(this.replyKey.getEncoded()));
@@ -481,6 +483,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             }
 
             this.replyIv = Base64.decode(json.getString("replyIV"));
+            this.layerIv = Base64.decode(json.getString("layerIV"));
 
             // Check if encData is a JSON object or a Base64 string
             if (json.get("encData") instanceof JSONObject) {
@@ -525,6 +528,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             }
 
             json.put("replyIV", Base64.toBase64String(replyIv));
+            json.put("layerIV", Base64.toBase64String(layerIv));
 
             if (encData != null) {
                 json.put("encData", Base64.toBase64String(encData));
@@ -614,6 +618,10 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
 
         public boolean getReplyFlag() {
             return replyFlag;
+        }
+
+        public void setHopInfo(ArrayList<TunnelHopInfo> hopInfo) {
+            this.hopInfo = hopInfo;
         }
     }
 }
