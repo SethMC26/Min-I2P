@@ -306,6 +306,7 @@ public class ClientServiceThread implements Runnable {
                         PayloadMessage payload = (PayloadMessage) message;
                         payload.getEncPayload();
                         JSONObject json = null;
+                        System.out.println(payload.toJSONType().getFormattedJSON());
                         try {
                             // Decrypt the payload using ElGamal
                             javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("ElGamal");

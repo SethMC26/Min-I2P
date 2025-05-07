@@ -88,4 +88,12 @@ public class TunnelEndpoint extends TunnelObject {
             e.printStackTrace();
         }
     }
+
+    public byte[] getIV() {
+        return super.layerIv;
+    }
+
+    public SecretKey getLayerKey() {
+        return tunnelEncryptionKey;
+    }
 }

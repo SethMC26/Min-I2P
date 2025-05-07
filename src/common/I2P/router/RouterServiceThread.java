@@ -183,15 +183,26 @@ public class RouterServiceThread implements Runnable {
         for (Map.Entry<Integer, TunnelObject> entry : tunnelObjects.entrySet()) {
             System.out.println("Tunnel ID: " + entry.getKey() + ", Tunnel Object: " + entry.getValue());
         }
+        TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelID);
 
         // get the tunnel from the tunnel manager
-        TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelID);
+
         if (cstMessages.containsKey(tunnelID)) {
+            EndpointPayload payload = new EndpointPayload(tunnelData.getPayload());
+            System.out.println("TunnelEndpoint received TunnelDataMessage: " + payload.toJSONType().getFormattedJSON());
+
+            //fuck it lets do it (this is a hacky cast should work hjahahahahah)
+            TunnelEndpoint endpoint = (TunnelEndpoint) tunnelObject;
+
+            payload.finalLayerDecrypt(endpoint.getLayerKey(), endpoint.getIV()); // different values so we gotta use this
             System.err.println("Found client message hurray! adding to queueu under " + tunnelID);
+            System.err.println(payload.toJSONType().getFormattedJSON());
             ConcurrentLinkedQueue<I2CPMessage> queue = cstMessages.get(tunnelID);
-            queue.add(new PayloadMessage(0, 0, tunnelData.getEncPayload()));
+            queue.add(new PayloadMessage(0, 0, payload.getEncMessage()));
             return;
         }
+
+
         System.err.println("Tunnel ID " + tunnelID + " not this inbound endpoint");
         if (tunnelObject == null) {
             log.warn("Tunnel object not found for tunnel ID: " + tunnelID);
