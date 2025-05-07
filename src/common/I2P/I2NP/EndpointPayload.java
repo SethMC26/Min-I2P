@@ -143,9 +143,6 @@ public class EndpointPayload implements JSONSerializable {
      * @param iv
      */
     public void firstLayerEncrypt(SecretKey sk, byte[] iv) {
-        // Encrypt the tunnelID and routerID using ElGamal
-        System.out.println("Encryption Key: " + Base64.toBase64String(sk.getEncoded()));
-        System.out.println("Encryption IV: " + Base64.toBase64String(iv));
         try {
             Cipher enc1 = Cipher.getInstance("AES/GCM/NoPadding");
             GCMParameterSpec gcmSpec1 = new GCMParameterSpec(128, iv);
@@ -166,8 +163,6 @@ public class EndpointPayload implements JSONSerializable {
             this.tunnelID = -1;
             this.routerID = null;
 
-            System.out.println("Encrypted tunnelID: " + this.toJSONType().getFormattedJSON());
-
         } catch (IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | NoSuchPaddingException
                 | InvalidKeyException | InvalidAlgorithmParameterException e) {
             System.err.println("Error encrypting tunnelID: " + e.getMessage());
@@ -186,8 +181,6 @@ public class EndpointPayload implements JSONSerializable {
      */
     public void finalLayerDecrypt(SecretKey sk, byte[] iv) {
         try {
-            System.out.println("Decrypting with Key: " + Base64.toBase64String(sk.getEncoded()));
-            System.out.println("Decrypting with IV: " + Base64.toBase64String(iv));
 
             Cipher dec1 = Cipher.getInstance("AES/GCM/NoPadding");
             GCMParameterSpec gcmSpec1 = new GCMParameterSpec(128, iv);
