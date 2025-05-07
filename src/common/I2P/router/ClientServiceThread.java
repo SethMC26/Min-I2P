@@ -306,17 +306,13 @@ public class ClientServiceThread implements Runnable {
                         PayloadMessage payload = (PayloadMessage) message;
                         payload.getEncPayload();
                         JSONObject json = null;
-                        System.out.println(payload.toJSONType().getFormattedJSON());
                         try {
                             // Decrypt the payload using ElGamal
                             javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("ElGamal");
                             cipher.init(javax.crypto.Cipher.DECRYPT_MODE, privateKey);
                             byte[] decryptedPayload = cipher.doFinal(payload.getEncPayload());
-                            System.err.println(new String(decryptedPayload, StandardCharsets.UTF_8));
                             // Convert the decrypted bytes back to a JSONObject
                             json = JsonIO.readObject(new String(decryptedPayload, StandardCharsets.UTF_8));
-                            System.out.println(json.getFormattedJSON());
-
                         } catch (IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | NoSuchPaddingException
                                  | InvalidKeyException e) {
                             System.err.println("Error decrypting payload: " + e.getMessage());
