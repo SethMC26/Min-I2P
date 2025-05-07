@@ -44,7 +44,7 @@ public class SendPlayedSong implements Runnable {
                     i++;
 
                     // Sleep for a short duration to simulate real-time playback
-                    Thread.sleep(4); // Adjust the sleep time as needed
+                    Thread.sleep(5); // Adjust the sleep time as needed
                 }
             }
         } catch (IOException e) {

@@ -322,6 +322,12 @@ public class Client {
                         System.out.print("Please enter the songs file path: ");
                         String filePath = input.nextLine();
 
+                        // Check if the file is a .wav file
+                        if (!filePath.endsWith(".wav")) {
+                            System.out.println("Error: File is not a .wav file");
+                            break;
+                        }
+
                         byte[] audioBytes;
                         try {
                             File file = new File(filePath);
@@ -618,7 +624,7 @@ public class Client {
 
             // Send the message 3 times
             socket.sendMessage(msg);
-            Thread.sleep(1);
+            Thread.sleep(5);
 
         }
 
