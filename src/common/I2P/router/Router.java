@@ -77,11 +77,7 @@ public class Router implements Runnable {
      * Logger for use in Router
      */
     private Logger log = Logger.getInstance();
-    Logger.Level minLevel = Logger.Level.ERROR;
-
-    private int lastInboundTunnelID;
-
-    private RouterInfo lastInboundFirstPeer;
+    Logger.Level minLevel = Logger.Level.INFO;
 
     /**
      * Create router from specified config file
@@ -112,7 +108,7 @@ public class Router implements Runnable {
         this.tunnelManager = new TunnelManager();
     }
 
-    private void setUp() throws IOException {
+    private boolean setUp() throws IOException {
         // create socket to contact bootstrap peer
         I2NPSocket socket = new I2NPSocket();
 
@@ -124,53 +120,31 @@ public class Router implements Runnable {
         socket.sendMessage(msg, bootstrapAddress);
 
         try {
+            Thread.sleep(1000); //wait to see if peer got message
+            // send of self from self to bootstrap - get bootstrap info (if same get
+            // boostrap info)
+            DatabaseLookup databaseLookup = new DatabaseLookup(routerInfo.getHash(), routerInfo.getHash());
+            I2NPHeader lookupMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
+                    System.currentTimeMillis() + 500,
+                    databaseLookup);
+            socket.sendMessage(lookupMsg, bootstrapAddress);
+            // give enough time for all the routers to send their messages/turn on
             Thread.sleep(1000);
+            //check if we learned about bootstrap peer netDB should have at least 1 peer(bootstrap)
+            if (!netDB.getKClosestPeers(new byte[32], 1).isEmpty()) {
+                return false;
+            }
         } catch (InterruptedException e) {
             log.warn("Sleeping interrupted attempting to continue setup", e);
         } // wait for the message to be sent
 
-        // send of self from self to bootstrap - get bootstrap info (if same get
-        // boostrap info)
-        DatabaseLookup databaseLookup = new DatabaseLookup(routerInfo.getHash(), routerInfo.getHash());
-        I2NPHeader lookupMsg = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
-                System.currentTimeMillis() + 500,
-                databaseLookup);
-        socket.sendMessage(lookupMsg, bootstrapAddress);
-        // give enough time for all the routers to send their messages/turn on
-        Thread t1 = new Thread(new Runnable() {
-            public void run() {
-                try {
-                    Thread.sleep(2000); // 5 seconds to wait for the message to be sent while we turn them all on
-                    DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], routerInfo.getHash());
-                    I2NPHeader lookupMsg2 = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
-                            System.currentTimeMillis() + 100,
-                            databaseLookup2);
-                    socket.sendMessage(lookupMsg2, bootstrapAddress);
-                    // netDB.getKClosestRouterInfos(routerID.getHash(), 10);
-                } catch (InterruptedException e) {
-                    log.warn("Sleeping interrupted attempting to continue ", e);
-                } catch (IOException e) {
-                    log.error("Could not setup/send message to learn about peers", e);
-                    log.error("FATAL: step needed to establish connection with peers");
-                    throw new RuntimeException(e);
-                }
-            }
-        });
-        t1.start(); // will go to routerservicethread after (pray)
-
-    }
-
-    /**
-     * Query the NetDB for other routers on the network.
-     *
-     * @param k The number of closest routers to retrieve.
-     * @return A list of RouterInfo objects for the closest routers.
-     */
-    public ArrayList<RouterInfo> queryNetDBForRouters(int k) {
-        // Use the router's own hash as the key to find closest routers
-        byte[] routerHash = routerID.getHash();
-        ArrayList<RouterInfo> closestRouters = netDB.getKClosestRouterInfos(routerHash, k);
-        return closestRouters;
+        //send null key to discover peers
+        DatabaseLookup databaseLookup2 = new DatabaseLookup(new byte[32], routerInfo.getHash());
+        I2NPHeader lookupMsg2 = new I2NPHeader(I2NPHeader.TYPE.DATABASELOOKUP, random.nextInt(),
+                System.currentTimeMillis() + 100,
+                databaseLookup2);
+        socket.sendMessage(lookupMsg2, bootstrapAddress);
+        return true;
     }
 
     private KeyPair generateKeyPairElGamal() {
@@ -194,17 +168,6 @@ public class Router implements Runnable {
             throw new RuntimeException(e); // should never hit case
         }
     }
-
-    private SecretKey generateAESKey(int bits) {
-        try {
-            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-            keyGen.init(bits);
-            return keyGen.generateKey();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e); // should never hit case
-        }
-    }
-
     /**
      * Start router
      */
@@ -259,7 +222,20 @@ public class Router implements Runnable {
                 return;
             }
 
-            setUp();
+            boolean startup = false;
+            for (int i = 0; i < 5; i++) {
+                if (setUp()) {
+                    log.info("Bootstrap successful");
+                    startup = true;
+                    break;
+                }
+            }
+
+            if (!startup) {
+                log.error("Bootstrap failed even after 5 attempts");
+                log.info("Please try restarting router make sure Bootstrap peer online");
+                System.exit(1);
+            }
 
             //create and start CST
             Thread cst = new Thread(new ClientServiceThread(routerInfo, tunnelManager, netDB, CSTPort, clientMessages));
