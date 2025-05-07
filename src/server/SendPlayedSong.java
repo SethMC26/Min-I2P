@@ -4,18 +4,20 @@ import common.message.ByteMessage;
 import common.message.Message;
 import common.transport.I2CP.I2CPSocket;
 import common.transport.I2CP.SendMessage;
+import org.bouncycastle.util.encoders.Base64;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
-import java.util.List;
 
 public class SendPlayedSong implements Runnable {
 
     private final ClientState CLIENT_STATE;
-    private final List<byte[]> AUDIO_DATA;
+    private final String AUDIO_DATA;
     private final I2CPSocket SOCKET;
     private final int SESSION_ID; // Assuming session ID is 0 for simplicity
 
-    public SendPlayedSong(int sessionID ,I2CPSocket socket, ClientState clientState, List<byte[]> audioData) {
+    public SendPlayedSong(int sessionID ,I2CPSocket socket, ClientState clientState, String audioData) {
         this.SESSION_ID = sessionID;
         this.SOCKET = socket;
         this.CLIENT_STATE = clientState;
@@ -24,27 +26,33 @@ public class SendPlayedSong implements Runnable {
 
     @Override
     public void run() {
-        // Builds all the messages that need to be sent
-        for (int i = 0; i < AUDIO_DATA.size(); i++) {
-            byte[] data = AUDIO_DATA.get(i);
 
-            // Create a new ByteMessage with the audio data
-            ByteMessage msg = new ByteMessage("Byte", "", data, i);
-            SendMessage sendPlay = new SendMessage(SESSION_ID, CLIENT_STATE.getClientDest(), new byte[4], msg.toJSONType());
+        try (BufferedReader br = new BufferedReader(new FileReader(AUDIO_DATA))) {
+            String line;
+            int i = 0;
+            byte[] audioBytes;
+            while ((line = br.readLine()) != null) {
+                // Assuming the audio data is in Base64 format
+                audioBytes = Base64.decode(line);
 
-            // Send the message to the client
-            try {
-                SOCKET.sendMessage(sendPlay);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+                if (audioBytes != null) {
+                    ByteMessage byteMessage = new ByteMessage("Byte", "", audioBytes, i);
+                    SendMessage sendMessage = new SendMessage(SESSION_ID, CLIENT_STATE.getClientDest(), audioBytes, byteMessage.toJSONType());
+
+                    // Send the audio data
+                    SOCKET.sendMessage(sendMessage);
+                    i++;
+
+                    // Sleep for a short duration to simulate real-time playback
+                    Thread.sleep(4); // Adjust the sleep time as needed
+                }
             }
-
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+        } catch (IOException e) {
+            System.err.println("Error reading audio file: " + e.getMessage());
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
+
 
         // Send a termination message to indicate the end of the audio stream
         Message endMessage = new Message("End", "");

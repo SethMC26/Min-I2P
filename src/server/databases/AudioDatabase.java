@@ -8,7 +8,6 @@ import merrimackutil.json.types.JSONType;
 import org.bouncycastle.util.encoders.Base64;
 
 import java.io.*;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -55,23 +54,10 @@ public class AudioDatabase implements JSONSerializable {
         }
     }
 
-    public List<byte[]> getAudio(String audioName) {
+    public String getAudio(String audioName) {
         String audioPath = audioList.get(audioName).getAudio();
 
-        List<byte[]> byteList = new ArrayList<>();
-
-        try (BufferedReader br = new BufferedReader(new FileReader(audioPath))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                String base64Bytes = line.split("\n")[0];
-                byte[] bytes = Base64.decode(base64Bytes);
-                byteList.add(bytes);
-            }
-        } catch (IOException e) {
-            System.err.println("Error reading audio file: " + e.getMessage());
-        }
-
-        return byteList;
+        return audioPath;
 
     }
 

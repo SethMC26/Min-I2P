@@ -20,7 +20,7 @@ public class DequeueClient implements Runnable {
     public void run() {
 
         try {
-            Thread.sleep(30000); // Sleep for 20 seconds if the queue is empty
+            Thread.sleep(60000); // Sleep for 20 seconds if the queue is empty
         } catch (InterruptedException e) {
             System.err.println("Error: " + e.getMessage());
         }

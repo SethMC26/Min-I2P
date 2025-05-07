@@ -250,7 +250,7 @@ public class DequeueServer implements Runnable {
                         Thread.sleep(100);
 
                         // Get the audio data from the database
-                        List<byte[]> audioDataPlay = AUDIO_DATABASE.getAudio(clientSongNamePlay);
+                        String audioDataPlay = AUDIO_DATABASE.getAudio(clientSongNamePlay);
 
                         Thread sendPlayedSongThread = new Thread(new SendPlayedSong(SESSION_ID, SOCKET, clientState, audioDataPlay));
                         sendPlayedSongThread.start();
