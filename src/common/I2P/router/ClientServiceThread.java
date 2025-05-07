@@ -9,13 +9,16 @@ import common.I2P.tunnels.TunnelManager;
 import common.Logger;
 import common.transport.I2CP.*;
 import common.transport.I2NPSocket;
+import merrimackutil.json.JsonIO;
+import merrimackutil.json.types.JSONObject;
 import org.bouncycastle.util.encoders.Base64;
 
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
+import javax.crypto.*;
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.net.ServerSocket;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
@@ -162,20 +165,10 @@ public class ClientServiceThread implements Runnable {
                 // This will generate the inbound and outbound tunnels for the client
                 buildTunnel(clientDestination, router, true); // inbound
                 try {
-                    Thread.sleep(1000); // wait for tunnel to be created for a second
+                    Thread.sleep(5000); // wait for tunnel to be created for a second
                 } catch (InterruptedException e) {
-                    // TODO Auto-generated catch block
                     // this likely wont happen but if it does we will just ignore it
                     log.warn("CST-CCH: Tunnel creation wait interrupted", e);
-                }
-                // accept session
-                clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.CREATED));
-
-                try {
-                    Thread.sleep(5000);
-                }
-                catch (InterruptedException e) {
-                    log.warn("CST interrupted while waiting for tunne building attempting anyways", e);
                 }
 
                 //attempt to get tunnel information from router service thread
@@ -184,6 +177,9 @@ public class ClientServiceThread implements Runnable {
                     clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.REFUSED));
                     return;
                 }
+
+                // accept session
+                clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.CREATED));
 
                 I2CPMessage routerMsg = msgQueue.remove();
 
@@ -250,8 +246,13 @@ public class ClientServiceThread implements Runnable {
 
                                 // REMINDER: WE NEED AN INTERNAL PAYLOAD FOR THE MESSAGE TO SEND TO THE DESTINATION FROM THE SECOND ENDPOINT
 
+                                // realistically... we need to encrypt message with the pub key of the destination
+                                // for testing it is plain text cause i love life
+                                // god i wish there was a way to highlight this in the code
                                 EndpointPayload payload = new EndpointPayload(lease.getTunnelID(),
-                                        gateway.getRouterID(), send.getPayload());
+                                        gateway.getRouterID().getHash(), send.getPayload());
+
+                                // btduwbs it is fine for gateway router to know dest information cause it our pookie :D
 
                                 ConcurrentHashMap<Integer, Tunnel> outboundTunnels = tunnelManager.getOutboundTunnels();
                                 // select a random outbound tunnel to send the message through
@@ -260,6 +261,9 @@ public class ClientServiceThread implements Runnable {
                                 Tunnel outboundTunnel = tunnelManager.getOutboundTunnel(tunnelID);
                                 RouterInfo outboundGateway = outboundTunnel.getGateway(); // get the gateway for the
                                                                                           // outbound tunnel
+
+                                // encrypt the payload
+                                payload.encryptPayload(destLease.getEncryptionKey());
 
                                 TunnelDataMessage tunnelDataMessage = new TunnelDataMessage(
                                         outboundTunnel.getGatewayTunnelID(), payload.toJSONType());
@@ -299,8 +303,27 @@ public class ClientServiceThread implements Runnable {
                             log.warn("Bad message from router" + message.toJSONType().getFormattedJSON());
                             continue;
                         }
-                        System.out.println("CST got message " + message.toJSONType().getFormattedJSON());
-                        clientSock.sendMessage(message);
+                        PayloadMessage payload = (PayloadMessage) message;
+                        payload.getEncPayload();
+                        JSONObject json = null;
+                        System.out.println(payload.toJSONType().getFormattedJSON());
+                        try {
+                            // Decrypt the payload using ElGamal
+                            javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("ElGamal");
+                            cipher.init(javax.crypto.Cipher.DECRYPT_MODE, privateKey);
+                            byte[] decryptedPayload = cipher.doFinal(payload.getEncPayload());
+                            System.err.println(new String(decryptedPayload, StandardCharsets.UTF_8));
+                            // Convert the decrypted bytes back to a JSONObject
+                            json = JsonIO.readObject(new String(decryptedPayload, StandardCharsets.UTF_8));
+                            System.out.println(json.getFormattedJSON());
+
+                        } catch (IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | NoSuchPaddingException
+                                 | InvalidKeyException e) {
+                            System.err.println("Error decrypting payload: " + e.getMessage());
+                            e.printStackTrace();
+
+                        }
+                        clientSock.sendMessage(new PayloadMessage(sessionID, 0, json));
                     }
                 }
             } catch (InvalidObjectException e) {
@@ -386,6 +409,8 @@ public class ClientServiceThread implements Runnable {
                 int receiveTunnel = hopTunnelIDs[i]; // tunnel id for the tunnel
 
                 SecretKey layerKey = generateAESKey(256);
+                byte[] layerIv = new byte[16];
+                random.nextBytes(layerIv); // generate a random iv for the layer key
                 SecretKey ivKey = generateAESKey(256);
                 SecretKey replyKey = generateAESKey(256);
 
@@ -399,9 +424,10 @@ public class ClientServiceThread implements Runnable {
 
                 boolean replyFlag = false; // this is for the hops in the tunnel - they change this later
 
-                TunnelHopInfo hopInfoItem = new TunnelHopInfo(toPeer, layerKey, ivKey,
+                TunnelHopInfo hopInfoItem = new TunnelHopInfo(toPeer, layerKey, layerIv, ivKey,
                         receiveTunnel);
-                hopInfo.add(0, hopInfoItem); // add to the front of the list
+                hopInfo.add(hopInfoItem); // add to the front of the list
+                // oops i realized this is now wrong cause i flipped the order of the loop hehe
 
                 TunnelBuild.Record.TYPE position = null;
 
@@ -452,6 +478,7 @@ public class ClientServiceThread implements Runnable {
                         nextTunnel,
                         nextIdent,
                         layerKey,
+                        layerIv,
                         ivKey,
                         replyKey,
                         replyIv,
@@ -463,6 +490,11 @@ public class ClientServiceThread implements Runnable {
 
                 records.add(record);
             }
+
+            // set the first record hop info to the list
+            TunnelBuild.Record firstRecord = records.get(0);
+            firstRecord.setHopInfo(hopInfo); // set the hop info for the first record
+            // had to do this cause i flipped the loop SORRY!!! i know its clanky
 
             // save this list of peers to the tunnel manager for easy access later
             if (isInbound) {
@@ -518,7 +550,6 @@ public class ClientServiceThread implements Runnable {
             I2NPSocket buildSocket = null;
             try {
                 System.out.println("Sending tunnel build message to " + firstPeer.getRouterID().getHash());
-                System.out.println("the message looks like... " + tunnelBuildMessage.toJSONType().getFormattedJSON());
                 buildSocket = new I2NPSocket();
                 buildSocket.sendMessage(tunnelBuildMessage, firstPeer);
                 buildSocket.close();

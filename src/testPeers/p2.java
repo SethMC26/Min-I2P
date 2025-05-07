@@ -84,7 +84,16 @@ public class p2 {
             System.out.println("got message " + recvMessage);
             try {
                 PayloadMessage payloadMessage = (PayloadMessage) recvMessage;
-                System.out.println("Payload " + payloadMessage.getPayload().getFormattedJSON());
+                if (payloadMessage.getPayload() == null) {
+                    System.out.println("Payload is null, checking enc...");
+                    continue;
+                } else if (payloadMessage.getEncPayload() != null) {
+                    System.out.println("Payload is not null, checking enc...");
+                    byte[] encPayload = payloadMessage.getEncPayload();
+                    System.out.println("enc payload: " + Base64.toBase64String(encPayload));
+                } else {
+                    System.out.println("Payload " + payloadMessage.getPayload().getFormattedJSON());
+                }
             }
             catch (Exception e) {
                 e.printStackTrace();

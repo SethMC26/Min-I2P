@@ -1,14 +1,9 @@
 package common.I2P.tunnels;
 
-import common.I2P.I2NP.EndpointPayload;
-import common.I2P.I2NP.I2NPHeader;
-import common.I2P.I2NP.I2NPMessage;
-import common.I2P.I2NP.TunnelBuildReplyMessage;
-import common.I2P.I2NP.TunnelDataMessage;
+import common.I2P.I2NP.*;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
 import common.transport.I2NPSocket;
-import merrimackutil.json.types.JSONObject;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
@@ -35,9 +30,9 @@ public class TunnelEndpoint extends TunnelObject {
      *                            to send the reply through
      * @param replyTunnelID       Integer TunnelID on next hop
      */
-    public TunnelEndpoint(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey,
+    public TunnelEndpoint(Integer tunnelID, SecretKey tunnelEncryptionKey, byte[] layerIv, SecretKey tunnelIVKey,
             SecretKey replyKey, byte[] replyIV, byte[] replyRouter, Integer replyTunnelID, NetDB netDB) {
-        super(TYPE.ENDPOINT, tunnelID, tunnelEncryptionKey, tunnelIVKey, replyKey, replyIV);
+        super(TYPE.ENDPOINT, tunnelID, tunnelEncryptionKey, layerIv, tunnelIVKey, replyKey, replyIV);
         this.replyRouter = replyRouter; // uhhhh
         this.replyTunnelID = replyTunnelID;
         this.netDB = netDB; // Initialize with actual NetDB instance if needed
@@ -45,35 +40,36 @@ public class TunnelEndpoint extends TunnelObject {
 
     @Override
     public void handleMessage(I2NPMessage message) throws IOException {
-        System.out.println("TunnelEndpoint received message");
 
         if (message instanceof TunnelDataMessage) {
-            System.out.println("TunnelEndpoint received TunnelDataMessage");
             handleTunnelDataMessage((TunnelDataMessage) message);
         } else if (message instanceof TunnelBuildReplyMessage) {
-            System.out.println("TunnelEndpoint received TunnelBuildReplyMessage");
             handleTunnelBuildReplyMessage((TunnelBuildReplyMessage) message);
         } else {
             // Handle other message types if necessary
-            System.out.println("Received unknown message type");
         }
         //System.out.println("TunnelEndpoint received message: " + message);
 
     }
 
     private void handleTunnelBuildReplyMessage(TunnelBuildReplyMessage message) {
-        System.out.println("TunnelEndpoint received TunnelBuildReplyMessage: " + message);
-        System.out.println("Seth how do i process this im ascarerhjkaahsdjk");
+        //System.out.println("TunnelEndpoint received TunnelBuildReplyMessage: " + message.toJSONType().getFormattedJSON());
+        //System.out.println("Seth how do i process this im ascarerhjkaahsdjk");
+       // System.out.println("Reminder to self: make build reply message go to the router durrrrr");
     }
 
     private void handleTunnelDataMessage(TunnelDataMessage message) {
+        System.out.println("TunnelEndpoint received TunnelDataMessage1: " + message.toJSONType().getFormattedJSON());
         // assume it is an endpoint payload
         EndpointPayload payload = new EndpointPayload(message.getPayload());
+        System.out.println("TunnelEndpoint received TunnelDataMessage: " + payload.toJSONType().getFormattedJSON());
+
+        payload.finalLayerDecrypt(tunnelEncryptionKey, layerIv); // different values so we gotta use this
 
         // reminder, the message.getpayload would be another endpoint payload (maybe?)
 
-        TunnelDataMessage tdm = new TunnelDataMessage(payload.getTunnelID(), payload.getJsonObject());
-
+        TunnelDataMessage tdm = new TunnelDataMessage(payload.getTunnelID(), payload.toJSONType());
+        System.out.println("TunnelEndpoint received TunnelDataMessage2: " + tdm.toJSONType().getFormattedJSON());
         int msgID = new SecureRandom().nextInt();
         // recasting to a new TunnelDataMessage here might be fine or might cause errors
         // - seth
@@ -82,7 +78,7 @@ public class TunnelEndpoint extends TunnelObject {
         I2NPSocket socket;
         try {
             socket = new I2NPSocket();
-            RouterInfo routerInfo = (RouterInfo) netDB.lookup(payload.getRouterID().getHash());
+            RouterInfo routerInfo = (RouterInfo) netDB.lookup(payload.getRouterID());
             socket.sendMessage(header, routerInfo);
         } catch (SocketException e) {
             // TODO Auto-generated catch block
@@ -91,5 +87,13 @@ public class TunnelEndpoint extends TunnelObject {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
+    }
+
+    public byte[] getIV() {
+        return super.layerIv;
+    }
+
+    public SecretKey getLayerKey() {
+        return tunnelEncryptionKey;
     }
 }
