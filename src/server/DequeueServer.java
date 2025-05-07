@@ -161,7 +161,6 @@ public class DequeueServer implements Runnable {
 
                     }
                     case SENDING -> {
-                        System.out.println("Dequeue: Sending command received");
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
                             System.out.println("User not authenticated");
@@ -196,8 +195,6 @@ public class DequeueServer implements Runnable {
 
                     }
                     case END -> {
-                        System.out.println("Dequeue: End command received");
-
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
                             System.out.println("User not authenticated");
@@ -220,13 +217,9 @@ public class DequeueServer implements Runnable {
 
                         List<byte[]> audioData = AUDIO_DATA_MAP.get(destEnd);
 
-                        System.out.println("Audio data before adding to database: " + audioData.size());
-
                         AUDIO_DATABASE.addAudio(clientState.getSongname(), audioData, clientState.getSongSize());
                         MAP.remove(Base64.toBase64String(clientState.getClientDest().getHash()));
                         AUDIO_DATA_MAP.remove(destEnd);
-
-                        System.out.println("Audio data added to the database");
 
                     }
                     case PLAY -> {
@@ -296,6 +289,14 @@ public class DequeueServer implements Runnable {
 
     }
 
+    /**
+     * Authentication protocol
+     *
+     * @param username - String name of the user
+     * @param password - String password of the user
+     * @param totp - int OTP of the user
+     * @return - boolean true if the user is authenticated, false otherwise
+     */
     private boolean authProtocol(String username, String password, int totp) {
         //check password
         User user = USERS_DATABASE.getUser(username);

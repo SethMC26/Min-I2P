@@ -38,6 +38,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class Client {
 
+    // -------- Private Variables -------- //
     public static InetAddress hostRouter;
     public static int routerPort;
     public static int servicePort ;
@@ -48,6 +49,9 @@ public class Client {
     private static I2CPSocket socket;
     private static String configFile = "test-data/config/clientConfig.json";
 
+    /**
+     * This method is used to display the usage of the client
+     */
     public static void usage() {
         System.out.println("Usage:");
         System.out.println("  client ");
@@ -58,11 +62,15 @@ public class Client {
         System.out.printf("  %-15s %-20s\n", "-c, --config", "The config file to use");
     }
 
+    /**
+     * This method processes the command line arguments
+     *
+     * @param args - String[] the command line arguments
+     */
     public static void processArgs(String[] args) {
         OptionParser parser;
 
         boolean doHelp = false;
-        boolean doStart = false;
 
         LongOption[] opts = new LongOption[2];
         opts[0] = new LongOption("help", false, 'h');
@@ -119,8 +127,6 @@ public class Client {
         // Start the client
         startClient();
 
-
-
     }
 
     public static void main(String[] args) {
@@ -131,6 +137,13 @@ public class Client {
         processArgs(args);
     }
 
+    /**
+     * This method deserializes the JSON object and sets the variables
+     *
+     * @param jsonType - JSONType the JSON object to deserialize
+     * @throws InvalidObjectException - if the JSON object is not valid
+     * @throws UnknownHostException - if the host is not valid
+     */
     private static void deserialize(JSONType jsonType) throws InvalidObjectException, UnknownHostException {
         // Check if the JSON object is a JSONObject
         if (!(jsonType instanceof JSONObject)) {
@@ -142,6 +155,7 @@ public class Client {
         // Check if the JSON object has the needed keys
         obj.checkValidity(new String[]{"serverhash", "host_BS", "port_BS", "host_router", "RSTPort", "CSTPort"});
 
+        // Get the values from the JSON object
         destHash = Base64.decode(obj.getString("serverhash"));
         routerPort = obj.getInt("RSTPort");
         servicePort = obj.getInt("CSTPort");
@@ -150,6 +164,9 @@ public class Client {
 
     }
 
+    /**
+     * This method starts the client and creates the router
+     */
     private static void startClient() {
         try {
             // speciality floodfill router
@@ -492,6 +509,11 @@ public class Client {
         }
     }
 
+    /**
+     * Generates an Elgamal key pair for the router
+     *
+     * @return - KeyPair the key pair for the router
+     */
     private static KeyPair generateKeyPairElGamal() {
         // Generate a key pair for the router
         try {
@@ -503,6 +525,11 @@ public class Client {
         }
     }
 
+    /**
+     * Generates an Ed25519 key pair for the router
+     *
+     * @return - KeyPair the key pair for the router
+     */
     private static KeyPair generateKeyPairEd() {
         // Generate a key pair for the router
         try {
@@ -513,6 +540,15 @@ public class Client {
         }
     }
 
+    /**
+     * This method authenticates the user with the server
+     *
+     * @param input - Scanner the input scanner
+     * @param currDest - Destination the current destination
+     * @return - boolean true if the user is authenticated, false otherwise
+     * @throws InterruptedException - if the thread is interrupted
+     * @throws IOException - if there is an error sending the message
+     */
     private static boolean authenticateUser(Scanner input, Destination currDest) throws InterruptedException, IOException {
         System.out.println("Please authenticate with your username, password, and otp code; ");
         System.out.print("Username: ");
@@ -565,6 +601,14 @@ public class Client {
         return true;
     }
 
+    /**
+     * This method sends the song to the server in chunks
+     *
+     * @param currDest - Destination the current destination
+     * @param chunks - List of byte[] the chunks of the song
+     * @throws IOException - if there is an error sending the message
+     * @throws InterruptedException - if the thread is interrupted
+     */
     private static void sendSong(Destination currDest, List<byte[]> chunks) throws IOException, InterruptedException {
         for (int id = 0; id < chunks.size(); id++) {
             byte[] chunk = chunks.get(id);

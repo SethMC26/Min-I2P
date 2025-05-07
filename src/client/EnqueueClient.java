@@ -33,51 +33,63 @@ public class EnqueueClient implements Runnable {
     public void run() {
         try {
 
+            // Wait for the first message from the server
             I2CPMessage recvMsg = SOCKET.getMessage();
 
+            // Check if the received message is a PayloadMessage
             if (!(recvMsg instanceof PayloadMessage)) {
                 System.err.println("Error: expected PayloadMessage, got " + recvMsg.getType());
                 return;
             }
 
+            // Extract the payload from the received message
             PayloadMessage payloadMessage = (PayloadMessage) recvMsg;
             Message recvMessage = new Message(payloadMessage.getPayload());
 
+            // Check if the received message is of type "Byte"
             while (recvMessage.getType().equals("Byte")) {
 
-                System.out.println("Received message type: " + recvMessage.getType());
-
+                // Extract the byte data from the received message
                 byte[] combinedAudio = new byte[0];
                 for (int i = 0; i < 64; i++) {
 
+                    // Wait for the next message from the server
                     if (!recvMessage.getType().equals("Byte")) {
                         System.err.println("Error: expected ByteMessage, got " + recvMessage.getType());
                         break;
                     }
 
+                    // Extract the byte data from the received message
                     ByteMessage byteMessage = new ByteMessage(payloadMessage.getPayload());
                     byte[] audio = byteMessage.getData();
 
+                    // Combine the received audio data with the existing data
                     combinedAudio = combineByteArrays(combinedAudio, audio);
 
+                    // Wait for the next message from the server
                     recvMsg = SOCKET.getMessage();
 
+                    // Check if the received message is a PayloadMessage
                     if (!(recvMsg instanceof PayloadMessage)) {
                         System.err.println("Error: expected PayloadMessage, got " + recvMsg.getType());
                         return;
                     }
 
+                    // Extract the payload from the received message
                     payloadMessage = (PayloadMessage) recvMsg;
                     recvMessage = new Message(payloadMessage.getPayload());
 
+                    // Check if the received message is of type "End"
                     if (recvMessage.getType().equals("End")) {
                         break;
                     }
 
                 }
 
+                // Add the combined audio data to the queue
                 QUEUE.add(combinedAudio);
 
+                // Check if the received message is of type "End"
                 if (recvMessage.getType().equals("End")) {
                     byte[] endAudio = new byte[1];
                     endAudio[0] = (byte) 0xff;

@@ -287,6 +287,11 @@ public class Server {
     }
 
 
+    /**
+     * Generates a key pair for the ElGamal encryption
+     *
+     * @return - KeyPair the generated key pair
+     */
     private static KeyPair generateKeyPairElGamal() {
         // Generate a key pair for the router
         try {
