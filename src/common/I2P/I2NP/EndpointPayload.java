@@ -1,27 +1,21 @@
 package common.I2P.I2NP;
 
-import common.I2P.IDs.RouterID;
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.JsonIO;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
+import org.bouncycastle.util.encoders.Base64;
 
+import javax.crypto.*;
+import javax.crypto.spec.GCMParameterSpec;
 import java.io.InvalidObjectException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
-
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.GCMParameterSpec;
-
-import org.bouncycastle.util.encoders.Base64;
 
 public class EndpointPayload implements JSONSerializable {
     private int tunnelID;
@@ -95,7 +89,7 @@ public class EndpointPayload implements JSONSerializable {
         // only encrypt the payload, not the whole object
         try {
             // Convert the payload (jsonObject) to bytes
-            byte[] payloadBytes = jsonObject.toString().getBytes("UTF-8");
+            byte[] payloadBytes = jsonObject.toJSON().getBytes(StandardCharsets.UTF_8);
 
             // Encrypt the payload using ElGamal
             javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("ElGamal");
