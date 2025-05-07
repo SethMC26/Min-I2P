@@ -131,7 +131,7 @@ public class Router implements Runnable {
             // give enough time for all the routers to send their messages/turn on
             Thread.sleep(1000);
             //check if we learned about bootstrap peer netDB should have at least 1 peer(bootstrap)
-            if (!netDB.getKClosestPeers(new byte[32], 1).isEmpty()) {
+            if (netDB.getKClosestRouterInfos(routerInfo.getHash(),1).isEmpty()) {
                 return false;
             }
         } catch (InterruptedException e) {
