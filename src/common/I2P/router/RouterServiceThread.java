@@ -99,7 +99,7 @@ public class RouterServiceThread implements Runnable {
     @Override
     public void run() {
         if (!recievedMessage.isPayloadValid()) {
-            System.out.println("Received corrupted payload" + recievedMessage.toJSONType().getFormattedJSON());
+            log.debug("Received corrupted payload" + recievedMessage.toJSONType().getFormattedJSON());
             log.warn("Received corrupted payload");
             // return;// corrupt message - may want to add response for reliable send in
             // future
@@ -155,7 +155,6 @@ public class RouterServiceThread implements Runnable {
                 break;
             case TUNNELBUILD:
                 // handle tunnel build message
-                System.out.println("TunnelBuildMessage: " + recievedMessage.toJSONType().getFormattedJSON());
                 TunnelBuild tunnelBuild = (TunnelBuild) recievedMessage.getMessage();
                 handleTunnelBuildMessage(tunnelBuild);
                 break;
@@ -184,16 +183,26 @@ public class RouterServiceThread implements Runnable {
         for (Map.Entry<Integer, TunnelObject> entry : tunnelObjects.entrySet()) {
             System.out.println("Tunnel ID: " + entry.getKey() + ", Tunnel Object: " + entry.getValue());
         }
+        TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelID);
 
         // get the tunnel from the tunnel manager
-        TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelID);
+
         if (cstMessages.containsKey(tunnelID)) {
+            EndpointPayload payload = new EndpointPayload(tunnelData.getPayload());
+            System.out.println("TunnelEndpoint received TunnelDataMessage: " + payload.toJSONType().getFormattedJSON());
+
+            //fuck it lets do it (this is a hacky cast should work hjahahahahah)
+            TunnelEndpoint endpoint = (TunnelEndpoint) tunnelObject;
+
+            payload.finalLayerDecrypt(endpoint.getLayerKey(), endpoint.getIV()); // different values so we gotta use this
             System.err.println("Found client message hurray! adding to queueu under " + tunnelID);
+            System.err.println(payload.toJSONType().getFormattedJSON());
             ConcurrentLinkedQueue<I2CPMessage> queue = cstMessages.get(tunnelID);
-            queue.add(new PayloadMessage(0, 0, tunnelData.getPayload()));
-            System.out.println(queue.size());
+            queue.add(new PayloadMessage(0, 0, payload.getEncMessage()));
             return;
         }
+
+
         System.err.println("Tunnel ID " + tunnelID + " not this inbound endpoint");
         if (tunnelObject == null) {
             log.warn("Tunnel object not found for tunnel ID: " + tunnelID);
@@ -220,7 +229,6 @@ public class RouterServiceThread implements Runnable {
         // all of this will need to change to search the records instead ermmmmmm....
         // later me project me thinks
 
-        System.out.println("nextTunnelId: " + tunnelBuildReply.getNextTunnel());
 
         if (tunnelManager.getTunnelObject(tunnelBuildReply.getNextTunnel()) != null) {
             System.out.println("Build reply is for this inbound tunnel");
@@ -282,7 +290,6 @@ public class RouterServiceThread implements Runnable {
         // to the toPeer field of the record, if they match we have found the correct
         // record for us
         //our record
-        System.out.println("got build request " + tunnelBuild.toJSONType().getFormattedJSON());
         String base64ourIdent = Base64.getEncoder().encodeToString(Arrays.copyOf(router.getHash(), 16));
 
         // for each record in the tunnel build message attempt to decrypt it with our secret key
@@ -296,10 +303,7 @@ public class RouterServiceThread implements Runnable {
             } catch (Exception e) {
                 continue; // skip this record if we can't decrypt its expected
             }
-            System.out.println("our toPeer is " + base64ourIdent);
-            System.out.println(record.getToPeer());
             if (Arrays.equals(record.getToPeer(), Base64.getDecoder().decode(base64ourIdent))) {
-                System.err.println("Found our record!!! " + record.toJSONType().getFormattedJSON());
                 ourRecord = record;
                 // once we find our record we can aes decrypt every record after it
                 // and then break out of the loop
@@ -311,8 +315,6 @@ public class RouterServiceThread implements Runnable {
             }
             record = new TunnelBuild.Record(temp); // create a new instance to ensure it's a copy
         }
-
-        System.out.println("our record is " + ourRecord.toJSONType().getFormattedJSON());
 
         // grrreat now we have our keys! from here we need to aes decrypt each record after this one with the reply key
         // Use the reply key from our record to AES decrypt every record after it
@@ -442,6 +444,10 @@ public class RouterServiceThread implements Runnable {
         SecretKey layerKey = new SecretKeySpec(new byte[32], "AES");
         random.nextBytes(layerKey.getEncoded());
 
+        // random iv bytes
+        byte[] layerIv = new byte[16];
+        random.nextBytes(layerIv);
+
         // iv key secret
         SecretKey ivKey = new SecretKeySpec(new byte[32], "AES");
         random.nextBytes(ivKey.getEncoded());
@@ -465,7 +471,7 @@ public class RouterServiceThread implements Runnable {
         // reply flag set to true here
         // this is also temp plain text
         TunnelBuild.Record replyRecord = new TunnelBuild.Record(toPeer, receiveTunnel, ourIdent, nextTunnel,
-                nextIdent, layerKey, ivKey, replyKey, replyIv, requestTime, sendMsgID, type, null, true);
+                nextIdent, layerKey, layerIv, ivKey, replyKey, replyIv, requestTime, sendMsgID, type, null, true);
 
         // we need to encrypt this but for now return the record
         // like this should return bytes in the future
@@ -479,6 +485,7 @@ public class RouterServiceThread implements Runnable {
             TunnelGateway tunnelGateway = new TunnelGateway(
                     record.getReceiveTunnel(),
                     record.getLayerKey(),
+                    record.getLayerIv(),
                     record.getIvKey(),
                     record.getReplyKey(),
                     record.getReplyIv(),
@@ -493,6 +500,7 @@ public class RouterServiceThread implements Runnable {
             TunnelEndpoint tunnelEndpoint = new TunnelEndpoint(
                     record.getReceiveTunnel(),
                     record.getLayerKey(),
+                    record.getLayerIv(),
                     record.getIvKey(),
                     record.getReplyKey(),
                     record.getReplyIv(),
@@ -505,6 +513,7 @@ public class RouterServiceThread implements Runnable {
             TunnelParticipant tunnelParticipant = new TunnelParticipant(
                     record.getReceiveTunnel(),
                     record.getLayerKey(),
+                    record.getLayerIv(),
                     record.getIvKey(),
                     record.getReplyKey(),
                     record.getReplyIv(),

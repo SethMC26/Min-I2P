@@ -5,15 +5,25 @@ import merrimackutil.json.types.JSONType;
 
 import java.io.InvalidObjectException;
 
+import org.bouncycastle.util.encoders.Base64;
+
 public class TunnelDataMessage extends I2NPMessage {
     private int tunnelID;
     private JSONObject payload;
+    private byte[] encPayload;
 
     public TunnelDataMessage(int tunnelID, JSONObject payload) {
         this.tunnelID = tunnelID;
         // reminder to self, change this to byte[] when we have the payload
         // this is just a placeholder for now while testing tunnel builds
         this.payload = payload;
+    }
+
+    public TunnelDataMessage(int tunnelID, byte[] payload) {
+        this.tunnelID = tunnelID;
+        // reminder to self, change this to byte[] when we have the payload
+        // this is just a placeholder for now while testing tunnel builds
+        this.encPayload = payload;
     }
 
     public TunnelDataMessage(JSONObject messageObj) throws InvalidObjectException {
@@ -32,17 +42,27 @@ public class TunnelDataMessage extends I2NPMessage {
         return payload;
     }
 
+    public byte[] getEncPayload() {
+        return encPayload;
+    }
+
     @Override
     public void deserialize(JSONType arg0) throws InvalidObjectException {
         if (!(arg0 instanceof JSONObject)) {
             throw new InvalidObjectException("Must be JSONObject");
         }
         JSONObject jsonObject = (JSONObject) arg0;
-        jsonObject.checkValidity(new String[] { "tunnelID", "payload" });
+        jsonObject.checkValidity(new String[] { "tunnelID" });
         this.tunnelID = jsonObject.getInt("tunnelID");
-        this.payload = jsonObject.getObject("payload"); // pray this works
+        if (jsonObject.containsKey("payload")) {
+            this.payload = jsonObject.getObject("payload");
+            this.payload = castDoublesToIntegers(this.payload); // fix any Double values to Integer
+        } else if (jsonObject.containsKey("encPayload")) {
+            this.encPayload = Base64.decode(jsonObject.getString("encPayload"));
+        } else {
+            throw new InvalidObjectException("Must contain payload or encPayload");
+        }
         // Cast any Double values in the payload to Integer
-        this.payload = castDoublesToIntegers(this.payload);
         System.out.println("TunnelDataMessage deserializes to: " + tunnelID + " " + payload);
     }
 
@@ -50,7 +70,11 @@ public class TunnelDataMessage extends I2NPMessage {
     public JSONObject toJSONType() {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("tunnelID", tunnelID);
-        jsonObject.put("payload", payload);
+        if (encPayload != null) {
+            jsonObject.put("encPayload", Base64.toBase64String(encPayload));
+        } else if (payload != null) {
+            jsonObject.put("payload", payload);
+        }
 
         return jsonObject;
     }

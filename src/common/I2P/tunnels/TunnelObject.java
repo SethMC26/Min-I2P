@@ -28,6 +28,10 @@ public abstract class TunnelObject {
      */
     protected SecretKey tunnelEncryptionKey;
     /**
+     * an AES IV for encrypting messages and instructions to the next hop
+     */
+    protected byte[] layerIv;
+    /**
      * an AES private key for double-encrypting the IV to the next hop
      */
     protected SecretKey tunnelIVKey;
@@ -49,14 +53,16 @@ public abstract class TunnelObject {
      * @param type Type of tunnel {@code {GATEWAY,PARTICIPANT,ENDPOINT}}
      * @param tunnelID Integer ID of tunnel
      * @param tunnelEncryptionKey AES key for encrypting messages
+     * @param layerIv byte[] IV for encrypting messages
      * @param tunnelIVKey AES key for IV encryption
      * @param replyKey AES key for encrypting reply
      * @param replyIV byte[] reply IV
      */
-    protected TunnelObject(TYPE type,Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey, SecretKey replyKey, byte[] replyIV ) {
+    protected TunnelObject(TYPE type,Integer tunnelID, SecretKey tunnelEncryptionKey, byte[] layerIv, SecretKey tunnelIVKey, SecretKey replyKey, byte[] replyIV ) {
         this.type = type;
         this.tunnelID = tunnelID;
         this.tunnelEncryptionKey = tunnelEncryptionKey;
+        this.layerIv = layerIv;
         this.tunnelIVKey = tunnelIVKey;
         this.replyKey = replyKey;
         this.replyIV = replyIV;
