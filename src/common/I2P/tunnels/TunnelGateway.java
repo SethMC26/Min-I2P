@@ -1,16 +1,9 @@
 package common.I2P.tunnels;
 
-import common.I2P.I2NP.EndpointPayload;
-import common.I2P.I2NP.I2NPHeader;
-import common.I2P.I2NP.I2NPMessage;
-import common.I2P.I2NP.TunnelBuildReplyMessage;
-import common.I2P.I2NP.TunnelDataMessage;
-import common.I2P.I2NP.TunnelHopInfo;
+import common.I2P.I2NP.*;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
-import common.Logger;
 import common.transport.I2NPSocket;
-import merrimackutil.json.types.JSONObject;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
@@ -114,11 +107,12 @@ public class TunnelGateway extends TunnelObject {
     private void handleTunnelDataMessage(TunnelDataMessage message) {
         message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
         System.out.println("TunnelGateway received TunnelDataMessage: " + message.toJSONType().getFormattedJSON());
-        encryptMessage(message); // encrypt the message for the next hop
-        sendDataToNextHop(message);
+        //encryptMessage(message); // encrypt the message for the next hop
+        //fuck it lets do ti
+        sendDataToNextHop(new TunnelDataMessage(message.getTunnelID(), encryptMessage(message).toJSONType()));
     }
 
-    private void encryptMessage(TunnelDataMessage message) {
+    private EndpointPayload encryptMessage(TunnelDataMessage message) {
         // assuming it is an endpoint payload cause man f type checking
         EndpointPayload payload = new EndpointPayload(message.getPayload());
         // we now iterate through each hopin the tunnel, right to left, skipping this one, and layer encrypt with their layer keys
@@ -134,6 +128,7 @@ public class TunnelGateway extends TunnelObject {
                 payload.layerEncrypt(layerKey, layerIV); // perform layer encryption with the hop's layer key
             }
         }
+        return payload;
     }
 
     private void sendDataToNextHop(I2NPMessage encryptedMessage) {

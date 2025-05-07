@@ -1,14 +1,9 @@
 package common.I2P.tunnels;
 
-import common.I2P.I2NP.EndpointPayload;
-import common.I2P.I2NP.I2NPHeader;
-import common.I2P.I2NP.I2NPMessage;
-import common.I2P.I2NP.TunnelBuildReplyMessage;
-import common.I2P.I2NP.TunnelDataMessage;
+import common.I2P.I2NP.*;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
 import common.transport.I2NPSocket;
-import merrimackutil.json.types.JSONObject;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
@@ -45,26 +40,22 @@ public class TunnelEndpoint extends TunnelObject {
 
     @Override
     public void handleMessage(I2NPMessage message) throws IOException {
-        System.out.println("TunnelEndpoint received message");
 
         if (message instanceof TunnelDataMessage) {
-            System.out.println("TunnelEndpoint received TunnelDataMessage");
             handleTunnelDataMessage((TunnelDataMessage) message);
         } else if (message instanceof TunnelBuildReplyMessage) {
-            System.out.println("TunnelEndpoint received TunnelBuildReplyMessage");
             handleTunnelBuildReplyMessage((TunnelBuildReplyMessage) message);
         } else {
             // Handle other message types if necessary
-            System.out.println("Received unknown message type");
         }
         //System.out.println("TunnelEndpoint received message: " + message);
 
     }
 
     private void handleTunnelBuildReplyMessage(TunnelBuildReplyMessage message) {
-        System.out.println("TunnelEndpoint received TunnelBuildReplyMessage: " + message.toJSONType().getFormattedJSON());
-        System.out.println("Seth how do i process this im ascarerhjkaahsdjk");
-        System.out.println("Reminder to self: make build reply message go to the router durrrrr");
+        //System.out.println("TunnelEndpoint received TunnelBuildReplyMessage: " + message.toJSONType().getFormattedJSON());
+        //System.out.println("Seth how do i process this im ascarerhjkaahsdjk");
+       // System.out.println("Reminder to self: make build reply message go to the router durrrrr");
     }
 
     private void handleTunnelDataMessage(TunnelDataMessage message) {

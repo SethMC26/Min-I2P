@@ -339,8 +339,6 @@ public class EndpointPayload implements JSONSerializable {
         if (routerID != null) {
             json.put("routerID", Base64.toBase64String(this.routerID));
         }
-        // System.out.println("EndpointPayload serializes to: " +
-        // json.getFormattedJSON());
         return json;
     }
 

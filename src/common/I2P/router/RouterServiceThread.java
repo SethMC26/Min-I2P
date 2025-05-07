@@ -99,7 +99,7 @@ public class RouterServiceThread implements Runnable {
     @Override
     public void run() {
         if (!recievedMessage.isPayloadValid()) {
-            System.out.println("Received corrupted payload" + recievedMessage.toJSONType().getFormattedJSON());
+            log.debug("Received corrupted payload" + recievedMessage.toJSONType().getFormattedJSON());
             log.warn("Received corrupted payload");
             // return;// corrupt message - may want to add response for reliable send in
             // future
@@ -155,7 +155,6 @@ public class RouterServiceThread implements Runnable {
                 break;
             case TUNNELBUILD:
                 // handle tunnel build message
-                System.out.println("TunnelBuildMessage: " + recievedMessage.toJSONType().getFormattedJSON());
                 TunnelBuild tunnelBuild = (TunnelBuild) recievedMessage.getMessage();
                 handleTunnelBuildMessage(tunnelBuild);
                 break;
@@ -191,7 +190,6 @@ public class RouterServiceThread implements Runnable {
             System.err.println("Found client message hurray! adding to queueu under " + tunnelID);
             ConcurrentLinkedQueue<I2CPMessage> queue = cstMessages.get(tunnelID);
             queue.add(new PayloadMessage(0, 0, tunnelData.getEncPayload()));
-            System.out.println(queue.size());
             return;
         }
         System.err.println("Tunnel ID " + tunnelID + " not this inbound endpoint");
@@ -220,7 +218,6 @@ public class RouterServiceThread implements Runnable {
         // all of this will need to change to search the records instead ermmmmmm....
         // later me project me thinks
 
-        System.out.println("nextTunnelId: " + tunnelBuildReply.getNextTunnel());
 
         if (tunnelManager.getTunnelObject(tunnelBuildReply.getNextTunnel()) != null) {
             System.out.println("Build reply is for this inbound tunnel");
@@ -282,7 +279,6 @@ public class RouterServiceThread implements Runnable {
         // to the toPeer field of the record, if they match we have found the correct
         // record for us
         //our record
-        System.out.println("got build request " + tunnelBuild.toJSONType().getFormattedJSON());
         String base64ourIdent = Base64.getEncoder().encodeToString(Arrays.copyOf(router.getHash(), 16));
 
         // for each record in the tunnel build message attempt to decrypt it with our secret key
@@ -296,10 +292,7 @@ public class RouterServiceThread implements Runnable {
             } catch (Exception e) {
                 continue; // skip this record if we can't decrypt its expected
             }
-            System.out.println("our toPeer is " + base64ourIdent);
-            System.out.println(record.getToPeer());
             if (Arrays.equals(record.getToPeer(), Base64.getDecoder().decode(base64ourIdent))) {
-                System.err.println("Found our record!!! " + record.toJSONType().getFormattedJSON());
                 ourRecord = record;
                 // once we find our record we can aes decrypt every record after it
                 // and then break out of the loop
@@ -311,8 +304,6 @@ public class RouterServiceThread implements Runnable {
             }
             record = new TunnelBuild.Record(temp); // create a new instance to ensure it's a copy
         }
-
-        System.out.println("our record is " + ourRecord.toJSONType().getFormattedJSON());
 
         // grrreat now we have our keys! from here we need to aes decrypt each record after this one with the reply key
         // Use the reply key from our record to AES decrypt every record after it

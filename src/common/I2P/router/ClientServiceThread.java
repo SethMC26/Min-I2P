@@ -165,20 +165,10 @@ public class ClientServiceThread implements Runnable {
                 // This will generate the inbound and outbound tunnels for the client
                 buildTunnel(clientDestination, router, true); // inbound
                 try {
-                    Thread.sleep(1000); // wait for tunnel to be created for a second
+                    Thread.sleep(5000); // wait for tunnel to be created for a second
                 } catch (InterruptedException e) {
-                    // TODO Auto-generated catch block
                     // this likely wont happen but if it does we will just ignore it
                     log.warn("CST-CCH: Tunnel creation wait interrupted", e);
-                }
-                // accept session
-                clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.CREATED));
-
-                try {
-                    Thread.sleep(5000);
-                }
-                catch (InterruptedException e) {
-                    log.warn("CST interrupted while waiting for tunne building attempting anyways", e);
                 }
 
                 //attempt to get tunnel information from router service thread
@@ -187,6 +177,9 @@ public class ClientServiceThread implements Runnable {
                     clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.REFUSED));
                     return;
                 }
+
+                // accept session
+                clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.CREATED));
 
                 I2CPMessage routerMsg = msgQueue.remove();
 
@@ -556,7 +549,6 @@ public class ClientServiceThread implements Runnable {
             I2NPSocket buildSocket = null;
             try {
                 System.out.println("Sending tunnel build message to " + firstPeer.getRouterID().getHash());
-                System.out.println("the message looks like... " + tunnelBuildMessage.toJSONType().getFormattedJSON());
                 buildSocket = new I2NPSocket();
                 buildSocket.sendMessage(tunnelBuildMessage, firstPeer);
                 buildSocket.close();

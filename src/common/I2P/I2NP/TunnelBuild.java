@@ -5,7 +5,6 @@ import merrimackutil.json.JsonIO;
 import merrimackutil.json.types.JSONArray;
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
-
 import org.bouncycastle.util.encoders.Base64;
 
 import javax.crypto.*;
@@ -15,8 +14,6 @@ import java.io.InvalidObjectException;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 
 public class TunnelBuild extends I2NPMessage implements JSONSerializable {
     /**
@@ -349,9 +346,6 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 this.replyKey = new SecretKeySpec(decryptedReplyKey, "AES");
                 this.replyIv = this.replyIv; // Keep replyIv as it is since it wasn't encrypted
                 this.layerIv = this.layerIv; // Keep layerIv as it is since it wasn't encrypted
-
-                System.out.println("Decrypted toPeer: " + Base64.toBase64String(this.toPeer));
-                System.out.println("Decrypted replyKey: " + Base64.toBase64String(this.replyKey.getEncoded()));
 
                 // Decrypt the remaining fields using AES
                 Cipher aesCipher = Cipher.getInstance("AES/GCM/NoPadding");
