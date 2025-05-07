@@ -123,7 +123,7 @@ public class TunnelGateway extends TunnelObject {
             SecretKey layerKey = hop.getLayerKey();
             byte[] layerIV = hop.getLayerIv();
             if (i == hops.size() - 1) { // first iteration
-                payload.firstLayerEncrypt(layerKey, layerIv); // different variables hence why we gotta use this
+                payload.firstLayerEncrypt(layerKey, layerIV); // different variables hence why we gotta use this
             } else {
                 payload.layerEncrypt(layerKey, layerIV); // perform layer encryption with the hop's layer key
             }
