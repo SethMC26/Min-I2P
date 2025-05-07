@@ -59,7 +59,6 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
         return jsonArray;
     }
 
-    
     public void decryptAES(SecretKey secretKey, byte[] iv) {
         for (Record record : records) {
             record.layeredDecrypt(secretKey, iv);
@@ -99,6 +98,10 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
          * 32 byte AES key for layer encryption
          */
         private SecretKey layerKey;
+        /**
+         * 16 byte AES IV for layer encryption
+         */
+        private byte[] layerIv;
         /**
          * 32 byte AES key for iv key
          */
@@ -198,7 +201,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
          * @param replyFlag     A flag indicating if this is a reply message.
          */
         public Record(byte[] toPeer, int receiveTunnel, byte[] ourIdent, int nextTunnel, byte[] nextIdent,
-                SecretKey layerKey,
+                SecretKey layerKey, byte[] layerIv,
                 SecretKey ivKey, SecretKey replyKey, byte[] replyIv, long requestTime, int sendMsgID, TYPE type,
                 ArrayList<TunnelHopInfo> hopInfo, boolean replyFlag) {
             this.toPeer = toPeer;
@@ -207,6 +210,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
             this.nextTunnel = nextTunnel;
             this.nextIdent = nextIdent;
             this.layerKey = layerKey;
+            this.layerIv = layerIv;
             this.ivKey = ivKey;
             this.replyKey = replyKey;
             this.replyIv = replyIv;
@@ -250,6 +254,7 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
                 this.encReplyKey = elgamalCipher.doFinal(this.replyKey.getEncoded());
                 this.replyIv = this.replyIv; // OoOoooOOoooOooo keep it unencrypteddddd - the ghost of Sam's past whos
                                              // made too many mistakes
+                this.layerIv = this.layerIv; 
 
                 // byte[] encryptedReplyIv = elgamalCipher.doFinal(this.replyIv);
 
@@ -307,13 +312,13 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
 
                 byte[] encryptedToPeer = elgamalCipher.doFinal(this.toPeer);
                 byte[] encryptedReplyKey = elgamalCipher.doFinal(this.replyKey.getEncoded());
-                byte[] encryptedReplyIv = elgamalCipher.doFinal(this.replyIv);
+                // byte[] encryptedReplyIv = elgamalCipher.doFinal(this.replyIv); // DO NOT ENCRYPT
 
                 // Store the encrypted data in a JSON object
                 JSONObject encryptedData = new JSONObject();
                 encryptedData.put("toPeer", Base64.toBase64String(encryptedToPeer));
                 encryptedData.put("replyKey", Base64.toBase64String(encryptedReplyKey));
-                encryptedData.put("replyIv", Base64.toBase64String(encryptedReplyIv));
+                encryptedData.put("replyIv", Base64.toBase64String(this.replyIv));
 
                 // Save to enc data as a byte array
                 this.encData = encryptedData.toJSON().getBytes(StandardCharsets.UTF_8);
@@ -573,6 +578,10 @@ public class TunnelBuild extends I2NPMessage implements JSONSerializable {
 
         public SecretKey getLayerKey() {
             return layerKey;
+        }
+
+        public byte[] getLayerIv() {
+            return layerIv;
         }
 
         public SecretKey getIvKey() {

@@ -1,5 +1,6 @@
 package common.I2P.tunnels;
 
+import common.I2P.I2NP.EndpointPayload;
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.I2NPMessage;
 import common.I2P.I2NP.TunnelBuildReplyMessage;
@@ -42,9 +43,9 @@ public class TunnelParticipant extends TunnelObject{
      * @param nextHop RouterID for next Router in path
      * @param nextTunnelID Integer TunnelID on next hop
      */
-    public TunnelParticipant(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey,
+    public TunnelParticipant(Integer tunnelID, SecretKey tunnelEncryptionKey, byte[] layerIv, SecretKey tunnelIVKey,
                              SecretKey replyKey, byte[] replyIV, byte[] nextHop, Integer nextTunnelID, NetDB netDB) {
-        super(TYPE.PARTICIPANT, tunnelID, tunnelEncryptionKey, tunnelIVKey, replyKey, replyIV);
+        super(TYPE.PARTICIPANT, tunnelID, tunnelEncryptionKey, layerIv, tunnelIVKey, replyKey, replyIV);
         this.nextHop = nextHop;
         this.nextTunnelID = nextTunnelID;
         this.netDB = netDB;
@@ -98,12 +99,13 @@ public class TunnelParticipant extends TunnelObject{
     private void handleTunnelDataMessage(TunnelDataMessage message) {
         message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
         System.out.println("TunnelParticipant received TunnelDataMessage: " + message.toJSONType().getFormattedJSON());
+        decryptMessage(message); // decrypt the message
         sendDataToNextHop(message);
     }
 
-    private I2NPMessage decryptMessage(I2NPMessage message) {
-        I2NPMessage currentPayload = message;
-        return currentPayload;
+    private void decryptMessage(TunnelDataMessage message) {
+        EndpointPayload payload = new EndpointPayload(message.getPayload());
+        payload.layerDecrypt(tunnelEncryptionKey, layerIv); // decrypt the payload
     }
 
     private void sendDataToNextHop(I2NPMessage encryptedMessage) {

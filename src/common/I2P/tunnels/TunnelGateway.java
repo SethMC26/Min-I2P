@@ -1,5 +1,6 @@
 package common.I2P.tunnels;
 
+import common.I2P.I2NP.EndpointPayload;
 import common.I2P.I2NP.I2NPHeader;
 import common.I2P.I2NP.I2NPMessage;
 import common.I2P.I2NP.TunnelBuildReplyMessage;
@@ -53,10 +54,10 @@ public class TunnelGateway extends TunnelObject {
      * @param nextHop             RouterID hash for next Router in path
      * @param nextTunnelID        Integer TunnelID on next hop
      */
-    public TunnelGateway(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey, SecretKey replyKey,
+    public TunnelGateway(Integer tunnelID, SecretKey tunnelEncryptionKey, byte[] layerIv, SecretKey tunnelIVKey, SecretKey replyKey,
             byte[] replyIV, byte[] nextHop, Integer nextTunnelID, RouterInfo routerInfo, ArrayList<TunnelHopInfo> hops,
             NetDB netDB) {
-        super(TYPE.GATEWAY, tunnelID, tunnelEncryptionKey, tunnelIVKey, replyKey, replyIV);
+        super(TYPE.GATEWAY, tunnelID, tunnelEncryptionKey, layerIv, tunnelIVKey, replyKey, replyIV);
         this.nextHop = nextHop;
         this.nextTunnelID = nextTunnelID;
         this.routerInfo = routerInfo;
@@ -113,12 +114,21 @@ public class TunnelGateway extends TunnelObject {
     private void handleTunnelDataMessage(TunnelDataMessage message) {
         message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
         System.out.println("TunnelGateway received TunnelDataMessage: " + message.toJSONType().getFormattedJSON());
+        encryptMessage(message); // encrypt the message for the next hop
         sendDataToNextHop(message);
     }
 
-    private I2NPMessage encryptMessage(I2NPMessage message) {
-        I2NPMessage currentPayload = message;
-        return currentPayload;
+    private void encryptMessage(TunnelDataMessage message) {
+        // assuming it is an endpoint payload cause man f type checking
+        EndpointPayload payload = new EndpointPayload(message.getPayload());
+        // we now iterate through each hopin the tunnel, right to left, skipping this one, and layer encrypt with their layer keys
+        // can access this info from the hops list
+        for (int i = hops.size() - 1; i >= 1; i--) { // skips gateway
+            TunnelHopInfo hop = hops.get(i);
+            SecretKey layerKey = hop.getLayerKey();
+            byte[] layerIV = hop.getLayerIv();
+            payload.layerEncrypt(layerKey, layerIV); // perform layer encryption with the hop's layer key
+        }
     }
 
     private void sendDataToNextHop(I2NPMessage encryptedMessage) {

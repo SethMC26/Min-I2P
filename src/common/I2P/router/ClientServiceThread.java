@@ -394,6 +394,8 @@ public class ClientServiceThread implements Runnable {
                 int receiveTunnel = hopTunnelIDs[i]; // tunnel id for the tunnel
 
                 SecretKey layerKey = generateAESKey(256);
+                byte[] layerIv = new byte[16];
+                random.nextBytes(layerIv); // generate a random iv for the layer key
                 SecretKey ivKey = generateAESKey(256);
                 SecretKey replyKey = generateAESKey(256);
 
@@ -407,7 +409,7 @@ public class ClientServiceThread implements Runnable {
 
                 boolean replyFlag = false; // this is for the hops in the tunnel - they change this later
 
-                TunnelHopInfo hopInfoItem = new TunnelHopInfo(toPeer, layerKey, ivKey,
+                TunnelHopInfo hopInfoItem = new TunnelHopInfo(toPeer, layerKey, layerIv, ivKey,
                         receiveTunnel);
                 hopInfo.add(0, hopInfoItem); // add to the front of the list
 
@@ -460,6 +462,7 @@ public class ClientServiceThread implements Runnable {
                         nextTunnel,
                         nextIdent,
                         layerKey,
+                        layerIv,
                         ivKey,
                         replyKey,
                         replyIv,

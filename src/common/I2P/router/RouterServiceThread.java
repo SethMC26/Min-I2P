@@ -190,7 +190,7 @@ public class RouterServiceThread implements Runnable {
         if (cstMessages.containsKey(tunnelID)) {
             System.err.println("Found client message hurray! adding to queueu under " + tunnelID);
             ConcurrentLinkedQueue<I2CPMessage> queue = cstMessages.get(tunnelID);
-            queue.add(new PayloadMessage(0, 0, tunnelData.getPayload()));
+            queue.add(new PayloadMessage(0, 0, tunnelData.getEncPayload()));
             System.out.println(queue.size());
             return;
         }
@@ -442,6 +442,10 @@ public class RouterServiceThread implements Runnable {
         SecretKey layerKey = new SecretKeySpec(new byte[32], "AES");
         random.nextBytes(layerKey.getEncoded());
 
+        // random iv bytes
+        byte[] layerIv = new byte[16];
+        random.nextBytes(layerIv);
+
         // iv key secret
         SecretKey ivKey = new SecretKeySpec(new byte[32], "AES");
         random.nextBytes(ivKey.getEncoded());
@@ -465,7 +469,7 @@ public class RouterServiceThread implements Runnable {
         // reply flag set to true here
         // this is also temp plain text
         TunnelBuild.Record replyRecord = new TunnelBuild.Record(toPeer, receiveTunnel, ourIdent, nextTunnel,
-                nextIdent, layerKey, ivKey, replyKey, replyIv, requestTime, sendMsgID, type, null, true);
+                nextIdent, layerKey, layerIv, ivKey, replyKey, replyIv, requestTime, sendMsgID, type, null, true);
 
         // we need to encrypt this but for now return the record
         // like this should return bytes in the future
@@ -479,6 +483,7 @@ public class RouterServiceThread implements Runnable {
             TunnelGateway tunnelGateway = new TunnelGateway(
                     record.getReceiveTunnel(),
                     record.getLayerKey(),
+                    record.getLayerIv(),
                     record.getIvKey(),
                     record.getReplyKey(),
                     record.getReplyIv(),
@@ -493,6 +498,7 @@ public class RouterServiceThread implements Runnable {
             TunnelEndpoint tunnelEndpoint = new TunnelEndpoint(
                     record.getReceiveTunnel(),
                     record.getLayerKey(),
+                    record.getLayerIv(),
                     record.getIvKey(),
                     record.getReplyKey(),
                     record.getReplyIv(),
@@ -505,6 +511,7 @@ public class RouterServiceThread implements Runnable {
             TunnelParticipant tunnelParticipant = new TunnelParticipant(
                     record.getReceiveTunnel(),
                     record.getLayerKey(),
+                    record.getLayerIv(),
                     record.getIvKey(),
                     record.getReplyKey(),
                     record.getReplyIv(),

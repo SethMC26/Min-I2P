@@ -35,9 +35,9 @@ public class TunnelEndpoint extends TunnelObject {
      *                            to send the reply through
      * @param replyTunnelID       Integer TunnelID on next hop
      */
-    public TunnelEndpoint(Integer tunnelID, SecretKey tunnelEncryptionKey, SecretKey tunnelIVKey,
+    public TunnelEndpoint(Integer tunnelID, SecretKey tunnelEncryptionKey, byte[] layerIv, SecretKey tunnelIVKey,
             SecretKey replyKey, byte[] replyIV, byte[] replyRouter, Integer replyTunnelID, NetDB netDB) {
-        super(TYPE.ENDPOINT, tunnelID, tunnelEncryptionKey, tunnelIVKey, replyKey, replyIV);
+        super(TYPE.ENDPOINT, tunnelID, tunnelEncryptionKey, layerIv, tunnelIVKey, replyKey, replyIV);
         this.replyRouter = replyRouter; // uhhhh
         this.replyTunnelID = replyTunnelID;
         this.netDB = netDB; // Initialize with actual NetDB instance if needed
@@ -72,6 +72,8 @@ public class TunnelEndpoint extends TunnelObject {
         // assume it is an endpoint payload
         EndpointPayload payload = new EndpointPayload(message.getPayload());
         System.out.println("TunnelEndpoint received TunnelDataMessage: " + payload.toJSONType().getFormattedJSON());
+
+        payload.layerDecrypt(tunnelEncryptionKey, layerIv);
 
         // reminder, the message.getpayload would be another endpoint payload (maybe?)
 
