@@ -59,10 +59,8 @@ public class TunnelEndpoint extends TunnelObject {
     }
 
     private void handleTunnelDataMessage(TunnelDataMessage message) {
-        System.out.println("TunnelEndpoint received TunnelDataMessage1: " + message.toJSONType().getFormattedJSON());
         // assume it is an endpoint payload
         EndpointPayload payload = new EndpointPayload(message.getPayload());
-        System.out.println("TunnelEndpoint received TunnelDataMessage: " + payload.toJSONType().getFormattedJSON());
 
         payload.finalLayerDecrypt(tunnelEncryptionKey, layerIv); // different values so we gotta use this
 

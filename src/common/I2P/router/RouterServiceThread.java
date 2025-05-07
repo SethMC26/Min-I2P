@@ -20,7 +20,10 @@ import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -165,7 +168,6 @@ public class RouterServiceThread implements Runnable {
                 break;
             case TUNNELDATA:
                 TunnelDataMessage tunnelData = (TunnelDataMessage) recievedMessage.getMessage();
-                System.out.println("TunnelDataMessage: " + tunnelData.toJSONType().getFormattedJSON());
                 handleTunnelDataMessage(tunnelData);
                 break;
             default:
@@ -177,33 +179,24 @@ public class RouterServiceThread implements Runnable {
     private void handleTunnelDataMessage(TunnelDataMessage tunnelData) {
         // get tunnel id from message
         int tunnelID = tunnelData.getTunnelID();
-        System.out.println("Tunnel ID from message: " + tunnelID);
-        System.out.println("Existing tunnel object ids: ");
-        ConcurrentHashMap<Integer, TunnelObject> tunnelObjects = tunnelManager.getTunnelObjects();
-        for (Map.Entry<Integer, TunnelObject> entry : tunnelObjects.entrySet()) {
-            System.out.println("Tunnel ID: " + entry.getKey() + ", Tunnel Object: " + entry.getValue());
-        }
+
         TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelID);
 
         // get the tunnel from the tunnel manager
 
         if (cstMessages.containsKey(tunnelID)) {
             EndpointPayload payload = new EndpointPayload(tunnelData.getPayload());
-            System.out.println("TunnelEndpoint received TunnelDataMessage: " + payload.toJSONType().getFormattedJSON());
 
             //fuck it lets do it (this is a hacky cast should work hjahahahahah)
             TunnelEndpoint endpoint = (TunnelEndpoint) tunnelObject;
 
             payload.finalLayerDecrypt(endpoint.getLayerKey(), endpoint.getIV()); // different values so we gotta use this
-            System.err.println("Found client message hurray! adding to queueu under " + tunnelID);
-            System.err.println(payload.toJSONType().getFormattedJSON());
             ConcurrentLinkedQueue<I2CPMessage> queue = cstMessages.get(tunnelID);
             queue.add(new PayloadMessage(0, 0, payload.getEncMessage()));
             return;
         }
 
 
-        System.err.println("Tunnel ID " + tunnelID + " not this inbound endpoint");
         if (tunnelObject == null) {
             log.warn("Tunnel object not found for tunnel ID: " + tunnelID);
             return; // Tunnel not found, handle error appropriately
@@ -231,19 +224,14 @@ public class RouterServiceThread implements Runnable {
 
 
         if (tunnelManager.getTunnelObject(tunnelBuildReply.getNextTunnel()) != null) {
-            System.out.println("Build reply is for this inbound tunnel");
             TunnelObject tunnelObject = tunnelManager.getTunnelObject(tunnelBuildReply.getNextTunnel());
             try {
-                // System.out.println("TunnelBuildReplyMessage: " + tunnelBuildReply.toJSONType().getFormattedJSON());
                 tunnelObject.handleMessage(tunnelBuildReply);
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
             }
             return true;
-        } else {
-            System.out.println("Build reply is not for this inbound tunnel");
-            // return false; // Build reply is not for this inbound tunnel
         }
 
         // find the tunnelid of the tunnel in the tunnel manager that contains an object
@@ -338,7 +326,6 @@ public class RouterServiceThread implements Runnable {
         }
         *
          */
-       // System.out.println("our record decrypted is " + ourRecord.toJSONType().getFormattedJSON());
         if (System.currentTimeMillis() > ourRecord.getRequestTime() + 60000) { // allow for 1 minute for
             // tunnelBuild
             log.warn("Invalid timestamp in tunnel request. Dropping record.");
@@ -609,7 +596,6 @@ public class RouterServiceThread implements Runnable {
                 respondSock.close();
             System.err.println("could not send message I/O error " + e.getMessage());
         }
-
         log.trace("Response message is " + result.toJSONType().getFormattedJSON());
 
     }
