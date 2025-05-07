@@ -1,4 +1,4 @@
-package server;
+package server.databases;
 
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.JsonIO;
@@ -8,7 +8,6 @@ import merrimackutil.json.types.JSONType;
 import org.bouncycastle.util.encoders.Base64;
 
 import java.io.*;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,10 +17,13 @@ public class AudioDatabase implements JSONSerializable {
     private File file;
     private String audioFilePath;
 
-    AudioDatabase(String path, String audioFilePath) {
+    public AudioDatabase(String path, String audioFilePath) {
         this.audioFilePath = audioFilePath;
         this.file = new File(path);
-        if (!file.exists()) {
+        if (!(file.length() > 0)) {
+            return;
+        }
+        else if (!file.exists()) {
             try {
                 //create directory if necessary
                 File parent = file.getParentFile();
@@ -50,35 +52,12 @@ public class AudioDatabase implements JSONSerializable {
                 throw new RuntimeException("Invalid object in users file. Please check the file format.", e);
             }
         }
-
-        if (file.length() == 0)
-            return;
-
-        try {
-            // Read and deserialize JSON data
-            deserialize(JsonIO.readArray(file));
-        }  catch (Exception e) {
-            System.err.println("Error reading users file: " + e.getMessage());
-        }
     }
 
-    public List<byte[]> getAudio(String audioName) {
+    public String getAudio(String audioName) {
         String audioPath = audioList.get(audioName).getAudio();
 
-        List<byte[]> byteList = new ArrayList<>();
-
-        try (BufferedReader br = new BufferedReader(new FileReader(audioPath))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                String base64Bytes = line.split("\n")[0];
-                byte[] bytes = Base64.decode(base64Bytes);
-                byteList.add(bytes);
-            }
-        } catch (IOException e) {
-            System.err.println("Error reading audio file: " + e.getMessage());
-        }
-
-        return byteList;
+        return audioPath;
 
     }
 
@@ -111,13 +90,13 @@ public class AudioDatabase implements JSONSerializable {
      * @param audioName - String the name of the audio
      * @param audio - String of the audio
      */
-    public void addAudio(String audioName, List<byte[]> audio) {
+    public void addAudio(String audioName, List<byte[]> audio, int size) {
         if (checkIfAudioExists(audioName)) {
             System.err.println("Audio already exists in the database");
             return;
         }
         saveAudioFile(audioFilePath + audioName + ".txt", audio);
-        Audio newAudio = new Audio(audioName, audioFilePath + audioName + ".txt");
+        Audio newAudio = new Audio(audioName, audioFilePath + audioName + ".txt", size);
         audioList.put(audioName, newAudio);
         saveUsers();
     }
@@ -189,9 +168,11 @@ public class AudioDatabase implements JSONSerializable {
         try (FileWriter fw = new FileWriter(path,true)) {
 
             for (byte[] base64Bytes : audio) {
-                String text = Base64.toBase64String(base64Bytes) + "\n";
-                fw.write(text);
-                fw.flush();
+                if (base64Bytes != null) {
+                    String text = Base64.toBase64String(base64Bytes) + "\n";
+                    fw.write(text);
+                    fw.flush();
+                }
             }
 
         } catch (IOException e) {

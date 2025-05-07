@@ -2,10 +2,9 @@ package common.I2P.I2NP;
 
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
+import org.bouncycastle.util.encoders.Base64;
 
 import java.io.InvalidObjectException;
-
-import org.bouncycastle.util.encoders.Base64;
 
 public class TunnelDataMessage extends I2NPMessage {
     private int tunnelID;
@@ -63,7 +62,6 @@ public class TunnelDataMessage extends I2NPMessage {
             throw new InvalidObjectException("Must contain payload or encPayload");
         }
         // Cast any Double values in the payload to Integer
-        System.out.println("TunnelDataMessage deserializes to: " + tunnelID + " " + payload);
     }
 
     @Override

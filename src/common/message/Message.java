@@ -9,6 +9,7 @@ import java.io.InvalidObjectException;
 public class Message implements JSONSerializable {
 
     protected String type;
+    protected String destHash;
 
     /**
      * Constructor creates a new message object from JSONobject by deserializing it
@@ -27,8 +28,29 @@ public class Message implements JSONSerializable {
     /**
      * Constructor creates a new message from parameters
      */
-    public Message(String type) {
+    public Message(String type, String destHash) {
         this.type = type;
+        this.destHash = destHash;
+    }
+
+    @Override
+    public void deserialize(JSONType jsonType) throws InvalidObjectException {
+        if (!(jsonType instanceof JSONObject))
+            throw new InvalidObjectException("jsonType must be a JSONObject");
+        JSONObject messageJSON = (JSONObject) jsonType;
+
+        messageJSON.checkValidity(new String[] { "type", "hash" });
+
+        type = messageJSON.getString("type");
+        destHash = messageJSON.getString("hash");
+    }
+
+    @Override
+    public JSONObject toJSONType() {
+        JSONObject messageJSON = new JSONObject();
+        messageJSON.put("type", type);
+        messageJSON.put("hash", destHash);
+        return messageJSON;
     }
 
     /**
@@ -40,21 +62,12 @@ public class Message implements JSONSerializable {
         return type;
     }
 
-    @Override
-    public void deserialize(JSONType jsonType) throws InvalidObjectException {
-        if (!(jsonType instanceof JSONObject))
-            throw new InvalidObjectException("jsonType must be a JSONObject");
-        JSONObject messageJSON = (JSONObject) jsonType;
-
-        messageJSON.checkValidity(new String[] { "type" });
-
-        type = messageJSON.getString("type");
-    }
-
-    @Override
-    public JSONObject toJSONType() {
-        JSONObject messageJSON = new JSONObject();
-        messageJSON.put("type", type);
-        return messageJSON;
+    /**
+     * Get destination hash
+     *
+     * @return String of destination hash
+     */
+    public String getDestHash() {
+        return destHash;
     }
 }

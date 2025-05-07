@@ -77,6 +77,7 @@ public class Router implements Runnable {
      * Logger for use in Router
      */
     private Logger log = Logger.getInstance();
+    Logger.Level minLevel = Logger.Level.ERROR;
 
     private int lastInboundTunnelID;
 
@@ -157,29 +158,6 @@ public class Router implements Runnable {
         });
         t1.start(); // will go to routerservicethread after (pray)
 
-        // // wait for client request
-        // Thread t2 = new Thread(new Runnable() {
-        //     public void run() {
-        //         try {
-        //             Logger.getInstance().debug("Net db " + netDB.logNetDB());
-        //             Thread.sleep(15000);
-        //             // create tunnel build for 3 hops
-        //             // temp usage of thread local random
-        //             // switch to secure random later
-        //             int tunnelID = ThreadLocalRandom.current().nextInt(); // random tunnel id for now
-        //             createTunnelBuild(3, tunnelID, true); // make inbound
-        //             Thread.sleep(1000); // wait for the message to be sent
-        //             tunnelID = ThreadLocalRandom.current().nextInt(); // random tunnel id for now
-        //             System.out.println("Creating outbound tunnel build");
-        //             createTunnelBuild(3, tunnelID, false); // make outbound
-        //             // double check this later
-        //         } catch (InterruptedException e) {
-        //             log.warn("Sleeping interrupted attempting to continue ", e);
-        //         }
-        //     }
-        // });
-        // t2.start();
-
     }
 
     /**
@@ -234,11 +212,9 @@ public class Router implements Runnable {
     public void run() {
         // Generate keys and create RouterInfo
         elgamalKeyPair = generateKeyPairElGamal();
-        System.err.println("Generated elgamal key");
 
         edKeyPair = generateKeyPairEd();
         routerID = new RouterID(elgamalKeyPair.getPublic(), edKeyPair.getPublic());
-        System.err.println("key used in router id");
         routerInfo = new RouterInfo(routerID, System.currentTimeMillis(), address.getHostName(), RSTPort, edKeyPair.getPrivate());
 
         // Initialize NetDB

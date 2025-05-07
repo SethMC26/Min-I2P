@@ -1,14 +1,9 @@
 package common.I2P.tunnels;
 
-import common.I2P.I2NP.EndpointPayload;
-import common.I2P.I2NP.I2NPHeader;
-import common.I2P.I2NP.I2NPMessage;
-import common.I2P.I2NP.TunnelBuildReplyMessage;
-import common.I2P.I2NP.TunnelDataMessage;
+import common.I2P.I2NP.*;
 import common.I2P.NetworkDB.NetDB;
 import common.I2P.NetworkDB.RouterInfo;
 import common.transport.I2NPSocket;
-import merrimackutil.json.types.JSONObject;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
@@ -59,21 +54,11 @@ public class TunnelParticipant extends TunnelObject{
         // skip for now
 
         if (message instanceof TunnelDataMessage) {
-            System.out.println("TunnelParticipant received TunnelDataMessage");
             handleTunnelDataMessage((TunnelDataMessage) message);
         } else if (message instanceof TunnelBuildReplyMessage) {
-            System.out.println("TunnelParticipant received TunnelBuildReplyMessage");
             handleTunnelBuildReplyMessage((TunnelBuildReplyMessage) message);
-        } else {
-            System.out.println("TunnelParticipant received unknown message type: " + message.getClass().getSimpleName());
-            return;
         }
 
-        // temporary just forward the message to the next hop
-        // I2NPMessage encryptedMessage = encryptMessage(message);
-        // message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
-
-        // sendToNextHop(message);
     }
 
     private void handleTunnelBuildReplyMessage(TunnelBuildReplyMessage message) {
@@ -98,7 +83,6 @@ public class TunnelParticipant extends TunnelObject{
 
     private void handleTunnelDataMessage(TunnelDataMessage message) {
         message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
-        System.out.println("TunnelParticipant received TunnelDataMessage: " + message.toJSONType().getFormattedJSON());
         // decryptMessage(message); // decrypt the message
         sendDataToNextHop(new TunnelDataMessage(message.getTunnelID(), decryptMessage(message).toJSONType()));
     }

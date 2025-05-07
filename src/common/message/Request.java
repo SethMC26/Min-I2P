@@ -11,7 +11,8 @@ public class Request extends Message {
     private String password;
     private String songname;
     private String songPath;
-    private Integer otp;
+    private int otp;
+    private int size;
 
     /**
      * Constructor for the user to request authentication with the server
@@ -21,28 +22,57 @@ public class Request extends Message {
      * @param password - String password of the user
      * @param otp - Integer otp of the user
      */
-    public Request(String type, String username, String password, Integer otp) {
-        super(type);
+    public Request(String type, String desthash, String username, String password, int otp) {
+        super(type, desthash);
         this.username = username;
         this.password = password;
         this.otp = otp;
     }
 
     /**
-     * Constructor for the user to request create user, or play, or list songs from the database
+     * Constructor for the user to request create user from the database
      *
      * @param type - String type of message
      * @param username - String username of the user
-     * @param passOrSong - String password or song name of the user
+     * @param password - String password or song name of the user
      */
-    public Request(String type, String username, String passOrSong) {
-        super(type);
+    public Request(String type, String desthash, String username, String password) {
+        super(type, desthash);
         this.username = username;
-        if (type.equals("Create")) {
-            this.password = passOrSong;
-        } else if (type.equals("Add") || type.equals("Play") || type.equals("List")) {
-            this.songname = passOrSong;
-        }
+        this.password = password;
+    }
+
+    /**
+     * Constructor for the user to request add song to the database
+     *
+     * @param type - String type of message
+     * @param songname - String song name of the user
+     * @param size - int size of the song
+     */
+    public Request(String type, String desthash, String songname, int size) {
+        super(type, desthash);
+        this.songname = songname;
+        this.size = size;
+    }
+
+    /**
+     * Constructor for the user to request play song from the database
+     *
+     * @param type - String type of message
+     * @param songname - String song name of the user
+     */
+    public Request(String type, String desthash, String songname) {
+        super(type, desthash);
+        this.songname = songname;
+    }
+
+    /**
+     * Constructor for the user to request list songs from the database
+     *
+     * @param type - String type of message
+     */
+    public Request(String type, String desthash) {
+        super(type, desthash);
     }
 
     /**
@@ -64,20 +94,24 @@ public class Request extends Message {
 
         JSONObject obj = (JSONObject) jsonType;
 
-        obj.checkValidity(new String[]{"type", "username"});
-        username = obj.getString("username");
-
         switch (super.type) {
             case "Create":
-                obj.checkValidity(new String[]{"password"});
+                obj.checkValidity(new String[]{"username", "password"});
+                username = obj.getString("username");
                 password = obj.getString("password");
                 break;
             case "Authenticate":
-                obj.checkValidity(new String[]{"password", "otp"});
+                obj.checkValidity(new String[]{"username", "password", "otp"});
+                username = obj.getString("username");
                 password = obj.getString("password");
                 otp = obj.getInt("otp");
                 break;
-            case "Add", "Play", "List":
+            case "Add":
+                obj.checkValidity(new String[]{"songname", "size"});
+                songname = obj.getString("songname");
+                size = obj.getInt("size");
+                break;
+            case "Play":
                 obj.checkValidity(new String[]{"songname"});
                 songname = obj.getString("songname");
                 break;
@@ -87,18 +121,24 @@ public class Request extends Message {
     @Override
     public JSONObject toJSONType() {
         JSONObject obj = super.toJSONType();
-        obj.put("username", username);
-
         switch (super.type) {
             case "Create":
+                obj.put("username", username);
                 obj.put("password", password);
                 break;
             case "Authenticate":
+                obj.put("username", username);
                 obj.put("password", password);
                 obj.put("otp", otp);
                 break;
-            case "Add", "Play", "List":
+            case "Add":
+                obj.put("size", size);
                 obj.put("songname", songname);
+                break;
+            case "Play":
+                obj.put("songname", songname);
+                break;
+            case "List":
                 break;
         }
         return obj;
@@ -114,6 +154,10 @@ public class Request extends Message {
 
     public String getSongname() {
         return songname;
+    }
+
+    public int getSize() {
+        return size;
     }
 
     public Integer getOtp() {

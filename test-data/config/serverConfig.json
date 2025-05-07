@@ -1,0 +1,16 @@
+{
+  "public": "MCowBQYDK2VwAyEAKANZ5XaEOE6Y4GJnFLbsDJj6udKrBwTBOPUkH6MQrt8=",
+  "private": "MFECAQEwBQYDK2VwBCIEIPv2eaPx8rupwPqtyp1OBGe55UOsSCzmvuh0EHeNsHSPgSEAKANZ5XaEOE6Y4GJnFLbsDJj6udKrBwTBOPUkH6MQrt8=",
+  "debug": true,
+  "database-file": "test-data/database/database.json",
+  "users-file": "test-data/database/users.json",
+  "audio-file": "test-data/database/audio/",
+
+  "host_BS" : "127.0.0.1",
+  "port_BS" : 8080,
+
+  "host_router" : "127.0.0.1",
+  "RSTPort": 10006,
+  "CSTPort": 20006
+
+}

@@ -144,8 +144,6 @@ public class LeaseSet extends Record implements JSONSerializable {
         for (int i = 0; i < leasesArray.size(); i++ ) {
             leases.add(new Lease(leasesArray.getObject(i)));
         }
-
-        //todo check to make sure signature is valid
     }
 
     /**

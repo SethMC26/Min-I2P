@@ -38,7 +38,6 @@ public class RequestLeaseSet extends I2CPMessage {
         leases = new ArrayList<>(); //create new array to hold leases
         JSONArray array = json.getArray("leases"); //get array of leases
         for(int i = 0 ; i < array.size() ; i++) {
-            System.err.println("Found lease");
             //add all leases in json array
             JSONObject obj = array.getObject(i);
             leases.add(new Lease(obj));

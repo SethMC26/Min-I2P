@@ -1,4 +1,4 @@
-package server;
+package server.databases;
 
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.JsonIO;
@@ -18,9 +18,12 @@ public class UsersDatabase implements JSONSerializable {
     private ConcurrentHashMap<String, User> users = new ConcurrentHashMap<>();
     private File file;
 
-    UsersDatabase(String path) {
+    public UsersDatabase(String path) {
         this.file = new File(path);
-        if (!file.exists()) {
+        if (!(file.length() > 0)) {
+            return;
+        }
+        else if (!file.exists()) {
             try {
                 //create directory if necessary
                 File parent = file.getParentFile();
@@ -49,17 +52,6 @@ public class UsersDatabase implements JSONSerializable {
                 throw new RuntimeException("Invalid object in users file. Please check the file format.", e);
             }
         }
-
-        if (file.length() == 0)
-            return;
-
-        try {
-            // Read and deserialize JSON data
-            deserialize(JsonIO.readArray(file));
-        }  catch (Exception e) {
-            System.err.println("Error reading users file: " + e.getMessage());
-        }
-
     }
 
 
@@ -156,5 +148,9 @@ public class UsersDatabase implements JSONSerializable {
     @Override
     public String serialize() {
         return this.toJSONType().getFormattedJSON();
+    }
+
+    public User getUser(String userName) {
+        return users.getOrDefault(userName, null);
     }
 }

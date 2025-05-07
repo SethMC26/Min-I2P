@@ -19,8 +19,8 @@ public class Response extends Message {
      * @param status - boolean status of the message
      * @param payload - String payload of the message
      */
-    public Response(String type, boolean status, String payload) {
-        super(type);
+    public Response(String type, String desthash, boolean status, String payload) {
+        super(type, desthash);
         this.status = status;
         this.payload = payload;
     }
@@ -44,6 +44,7 @@ public class Response extends Message {
         JSONObject messageJSON = (JSONObject) jsonType;
 
         messageJSON.checkValidity(new String[] { "status", "payload" });
+
         status = messageJSON.getBoolean("status");
         payload = messageJSON.getString("payload");
     }

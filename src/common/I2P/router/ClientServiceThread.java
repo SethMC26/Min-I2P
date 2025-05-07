@@ -306,17 +306,13 @@ public class ClientServiceThread implements Runnable {
                         PayloadMessage payload = (PayloadMessage) message;
                         payload.getEncPayload();
                         JSONObject json = null;
-                        System.out.println(payload.toJSONType().getFormattedJSON());
                         try {
                             // Decrypt the payload using ElGamal
                             javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("ElGamal");
                             cipher.init(javax.crypto.Cipher.DECRYPT_MODE, privateKey);
                             byte[] decryptedPayload = cipher.doFinal(payload.getEncPayload());
-                            System.err.println(new String(decryptedPayload, StandardCharsets.UTF_8));
                             // Convert the decrypted bytes back to a JSONObject
                             json = JsonIO.readObject(new String(decryptedPayload, StandardCharsets.UTF_8));
-                            System.out.println(json.getFormattedJSON());
-
                         } catch (IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | NoSuchPaddingException
                                  | InvalidKeyException e) {
                             System.err.println("Error decrypting payload: " + e.getMessage());
@@ -441,7 +437,6 @@ public class ClientServiceThread implements Runnable {
                 } else if (i == tempPeers.size() - 1) {
                     position = TunnelBuild.Record.TYPE.ENDPOINT;
                     if (isInbound) {
-                        System.err.println("queue under " + receiveTunnel);
                         tempPeers.set(i, router); // make sure to overwrite for later
                         next = router; // set to client creating request if real for testing set to gateway router
                         msgQueue = new ConcurrentLinkedQueue<>();
@@ -468,8 +463,6 @@ public class ClientServiceThread implements Runnable {
                     nextTunnel = hopTunnelIDs[i + 1]; // tunnel id for the next hop
                 }
                 byte[] nextIdent = next.getHash();
-
-                System.out.println("toPeer created: " + Base64.toBase64String(toPeer));
 
                 TunnelBuild.Record record = new TunnelBuild.Record(
                         toPeer,
@@ -498,10 +491,8 @@ public class ClientServiceThread implements Runnable {
 
             // save this list of peers to the tunnel manager for easy access later
             if (isInbound) {
-                System.out.println("Adding inbound tunnel: " + tunnelID);
                 tunnelManager.addInboundTunnel(tunnelID, potentialTunnel);
             } else {
-                System.out.println("Adding outbound tunnel: " + tunnelID);
                 tunnelManager.addOutboundTunnel(tunnelID, potentialTunnel);
             }
 
@@ -534,9 +525,6 @@ public class ClientServiceThread implements Runnable {
                     SecretKey aesKey = replyKeys.get(j); // Get the reply key for the previous record
                     byte[] iv = previousRecord.getReplyIv();
 
-                    System.out.println("Layering encryption with key: " + Base64.toBase64String(aesKey.getEncoded()));
-                    System.out.println("Layering encryption with iv: " + Base64.toBase64String(iv));
-
                     // Encrypt the current record with the replyKey and replyIv from the previous
                     // record
                     currentRecord.layeredEncrypt(aesKey, iv);
@@ -549,7 +537,6 @@ public class ClientServiceThread implements Runnable {
                     System.currentTimeMillis() + 100, new TunnelBuild(records));
             I2NPSocket buildSocket = null;
             try {
-                System.out.println("Sending tunnel build message to " + firstPeer.getRouterID().getHash());
                 buildSocket = new I2NPSocket();
                 buildSocket.sendMessage(tunnelBuildMessage, firstPeer);
                 buildSocket.close();

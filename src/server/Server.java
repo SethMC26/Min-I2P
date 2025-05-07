@@ -1,6 +1,11 @@
 package server;
 
-import common.MessageSocket;
+import common.I2P.IDs.Destination;
+import common.I2P.NetworkDB.Lease;
+import common.I2P.NetworkDB.LeaseSet;
+import common.I2P.router.Router;
+import common.Logger;
+import common.transport.I2CP.*;
 import merrimackutil.cli.LongOption;
 import merrimackutil.cli.OptionParser;
 import merrimackutil.json.JsonIO;
@@ -8,30 +13,44 @@ import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
 import merrimackutil.util.Tuple;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.util.encoders.Base64;
+import server.databases.AudioDatabase;
+import server.databases.UsersDatabase;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InvalidObjectException;
-import java.net.ServerSocket;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
+import java.security.*;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.ArrayList;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class Server {
 
-    // ------ Private Variables ------
-    private static String configFile = "test-data/config/config.json";
+    private static String configFile = "test-data/config/serverConfig.json";
     private static boolean debug = false;
-    private static int port;
     private static String databaseFile;
     private static String usersFile;
     private static String audioFile;
     private static AudioDatabase audioDatabase;
     private static UsersDatabase usersDatabase;
 
-    /**
-     * Prints the usage of the server
-     */
+    static int routerPort;
+    static int servicePort;
+    static InetSocketAddress bootstrapPeer;
+    static InetAddress hostRouter;
+
+    private static PublicKey publicKey;
+    private static PrivateKey privateKey;
+    private static int sessionID;
+
     public static void usage() {
         System.out.println("Usage: ");
         System.out.println("  Server");
@@ -42,11 +61,6 @@ public class Server {
         System.out.printf("  %-15s %-20s\n", "-c, --config", "Sets the config file for the server");
     }
 
-    /**
-     * Processes the command line arguments
-     *
-     * @param args The command line arguments
-     */
     public static void processArgs(String[] args) {
         OptionParser parser;
 
@@ -94,21 +108,20 @@ public class Server {
         // Check to see if the config file can be read as a JSON object
         try {
             deserialize(JsonIO.readObject(file));
-        } catch (InvalidObjectException | FileNotFoundException e) {
+        } catch (InvalidObjectException | FileNotFoundException | UnknownHostException e) {
             System.err.println("Error reading config file!!!");
             System.exit(1);
         }
 
         // Check to see if the database file exists
-        log("Port: " + port);
-        log("Database File: " + databaseFile);
-        log("Users File: " + usersFile);
-        log("Audio File: " + audioFile);
 
     }
 
-    public static void main(String[] args) {
-        BouncyCastleProvider c = new BouncyCastleProvider();
+    public static void main(String[] args) throws IOException {
+
+        // ------- Setting up the server -------- //
+        Security.addProvider(new BouncyCastleProvider());
+
         if (args.length >= 5) {
             System.err.println("Not a valid input!");
             usage();
@@ -118,7 +131,76 @@ public class Server {
         usersDatabase = new UsersDatabase(usersFile);
         audioDatabase = new AudioDatabase(databaseFile, audioFile);
 
-        serverStart();
+        // ------- Starting the router -------- //
+        int numberOfRouters = 5; // Specify the number of routers to create
+        Logger log = Logger.getInstance();
+        log.setMinLevel(Logger.Level.ERROR);
+
+        System.out.println("Starting router...");
+        //start router
+        Thread router = new Thread(new Router(hostRouter,routerPort, servicePort, bootstrapPeer));
+        router.start();
+
+        try {
+            Thread.sleep(20000); //wait until router setup
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        KeyPair destElgamalKey = generateKeyPairElGamal();
+
+        Destination clientDest = new Destination(publicKey);
+
+        //do client stuff
+        I2CPSocket socket = new I2CPSocket("127.0.0.1", servicePort);
+        socket.sendMessage(new CreateSession(clientDest));
+
+        I2CPMessage recvMessage;
+        recvMessage = socket.getMessage();
+
+        if (recvMessage.getType() != I2CPMessageTypes.SESSIONSTATUS) {
+            System.err.println("bad type: " + recvMessage.getType());
+            System.err.println(recvMessage.toJSONType().getFormattedJSON());
+            return;
+        }
+        SessionStatus sessionStatus = (SessionStatus) recvMessage;
+
+        if (sessionStatus.getStatus() != SessionStatus.Status.CREATED) {
+            System.err.println("could not create session " + sessionStatus.getStatus());
+            return;
+        }
+
+        //IMPORTANT NOTE this is the session ID since it is generated by the router
+        sessionID = sessionStatus.getSessionID();
+        recvMessage = socket.getMessage();
+
+        if (recvMessage.getType() != I2CPMessageTypes.REQUESTLEASESET) {
+            System.err.println("Bad type " + recvMessage.getType());
+            System.err.println(recvMessage.toJSONType().getFormattedJSON());
+        }
+
+        RequestLeaseSet requestLeaseSet = (RequestLeaseSet) recvMessage;
+        System.out.println("leases are" + requestLeaseSet.getLeases().size());
+        ArrayList<Lease> leases = new ArrayList<>();
+        leases.addAll(requestLeaseSet.getLeases());
+
+        LeaseSet leaseSet = new LeaseSet(leases, clientDest, destElgamalKey.getPublic(), privateKey);
+
+        socket.sendMessage(new CreateLeaseSet(sessionID, destElgamalKey.getPrivate(), leaseSet));
+
+        System.out.println("Router ready");
+        // --------- Processing Messages --------- //
+
+        LinkedBlockingQueue<ClientState> queue = new LinkedBlockingQueue<>();
+        ConcurrentHashMap<String, ClientState> clients = new ConcurrentHashMap<>();
+
+        // Start the server
+        Thread enqueue = new Thread(new EnqueueServer(sessionID, clients, queue, socket));
+        enqueue.start();
+
+        Thread dequeue = new Thread(new DequeueServer(sessionID, clients, queue, socket, audioDatabase, usersDatabase));
+        dequeue.start();
+
     }
 
     /**
@@ -127,7 +209,7 @@ public class Server {
      * @param jsonType The JSON object to deserialize
      * @throws InvalidObjectException If the JSON object is not a JSONObject or does not have the
      */
-    private static void deserialize(JSONType jsonType) throws InvalidObjectException {
+    private static void deserialize(JSONType jsonType) throws InvalidObjectException, UnknownHostException {
         // Check if the JSON object is a JSONObject
         if (!(jsonType instanceof JSONObject)) {
             throw new InvalidObjectException("JSONObject expected.");
@@ -136,16 +218,25 @@ public class Server {
         JSONObject obj = (JSONObject) jsonType;
 
         // Check if the JSON object has the needed keys
-        obj.checkValidity(new String[]{"port", "database-file", "users-file", "audio-file"});
+        obj.checkValidity(new String[]{"public", "private", "database-file", "users-file", "audio-file",
+            "host_BS", "port_BS", "host_router", "RSTPort", "CSTPort"});
 
         if (obj.containsKey("debug"))
             debug = obj.getBoolean("debug");
 
         // Set the variables to the values in the JSON object
-        port = obj.getInt("port");
         databaseFile = obj.getString("database-file");
         usersFile = obj.getString("users-file");
         audioFile = obj.getString("audio-file");
+
+        publicKey = getPublicKey(obj.getString("public"));
+        privateKey = getPrivateKey(obj.getString("private"));
+
+        routerPort = obj.getInt("RSTPort");
+        servicePort = obj.getInt("CSTPort");
+        bootstrapPeer = new InetSocketAddress(obj.getString("host_BS"), obj.getInt("port_BS"));
+        hostRouter = InetAddress.getByName(obj.getString("host_router"));
+
     }
 
     /**
@@ -159,22 +250,59 @@ public class Server {
         }
     }
 
-    private static void serverStart() {
-        ExecutorService executor = Executors.newFixedThreadPool(10);
+    /**
+     * Gets the public key from the given string
+     *
+     * @param key - String of the public key
+     * @return - PublicKey of the given string
+     */
+    private static PublicKey getPublicKey(String key) {
+        byte[] keyBytes = Base64.decode(key);
 
         try {
+            X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
+            KeyFactory kf = KeyFactory.getInstance("Ed25519", "BC");
 
-            ServerSocket serverSocket = new ServerSocket(port);
-
-            while(true) {
-
-                MessageSocket socket = new MessageSocket(serverSocket.accept());
-
-                executor.execute(new ServerConnectionHandler(socket, audioDatabase, usersDatabase));
-            }
-        } catch (IOException e) {
-            System.err.println("Error starting server: " + e.getMessage());
+            return kf.generatePublic(spec);
+        } catch (NoSuchProviderException | NoSuchAlgorithmException | InvalidKeySpecException e) {
+            throw new RuntimeException(e);
         }
-
     }
+
+    /**
+     * Gets the private key from the given string
+     *
+     * @param key - String of the private key
+     * @return - PrivateKey of the given string
+     */
+    private static PrivateKey getPrivateKey(String key) {
+        byte[] keyBytes = Base64.decode(key);
+
+        try {
+            PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
+            KeyFactory kf = KeyFactory.getInstance("Ed25519", "BC");
+
+            return kf.generatePrivate(spec);
+        } catch (NoSuchProviderException | NoSuchAlgorithmException | InvalidKeySpecException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
+    /**
+     * Generates a key pair for the ElGamal encryption
+     *
+     * @return - KeyPair the generated key pair
+     */
+    private static KeyPair generateKeyPairElGamal() {
+        // Generate a key pair for the router
+        try {
+            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("ElGamal");
+            keyGen.initialize(2048); // 2048 bits for RSA
+            return keyGen.generateKeyPair();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }

@@ -66,14 +66,9 @@ public class TunnelGateway extends TunnelObject {
         // skip for now
 
         if (message instanceof TunnelDataMessage) {
-            System.out.println("TunnelGateway received TunnelDataMessage");
             handleTunnelDataMessage((TunnelDataMessage) message);
         } else if (message instanceof TunnelBuildReplyMessage) {
-            System.out.println("TunnelGateway received TunnelBuildReplyMessage");
             handleTunnelBuildReplyMessage((TunnelBuildReplyMessage) message);
-        } else {
-            System.out.println("TunnelGateway received unknown message type: " + message.getClass().getSimpleName());
-            return;
         }
 
         // temporary just forward the message to the next hop
@@ -84,7 +79,6 @@ public class TunnelGateway extends TunnelObject {
     }
 
     private void handleTunnelBuildReplyMessage(TunnelBuildReplyMessage message) {
-        System.out.println("this is what the gateway thinks the next tunnel id is: " + nextTunnelID);
         message.setNextTunnel(nextTunnelID); // set the tunnel ID for the next hop
 
         int msgID = new SecureRandom().nextInt(); // generate a random message ID, with secure random
@@ -106,7 +100,6 @@ public class TunnelGateway extends TunnelObject {
 
     private void handleTunnelDataMessage(TunnelDataMessage message) {
         message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
-        System.out.println("TunnelGateway received TunnelDataMessage: " + message.toJSONType().getFormattedJSON());
         //encryptMessage(message); // encrypt the message for the next hop
         //fuck it lets do ti
         sendDataToNextHop(new TunnelDataMessage(message.getTunnelID(), encryptMessage(message).toJSONType()));
@@ -117,7 +110,6 @@ public class TunnelGateway extends TunnelObject {
         EndpointPayload payload = new EndpointPayload(message.getPayload());
         // we now iterate through each hopin the tunnel, right to left, skipping this one, and layer encrypt with their layer keys
         // can access this info from the hops list
-        System.out.println("this is the size of the hops list: " + hops.size());
         for (int i = hops.size() - 1; i >= 1; i--) { // skips gateway
             TunnelHopInfo hop = hops.get(i);
             SecretKey layerKey = hop.getLayerKey();

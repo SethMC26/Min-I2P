@@ -3,7 +3,7 @@ package client;
 import javax.sound.sampled.*;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class DequeueThread implements Runnable {
+public class DequeueClient implements Runnable {
 
     private final LinkedBlockingQueue<byte[]> QUEUE;
 
@@ -12,12 +12,18 @@ public class DequeueThread implements Runnable {
      *
      * @param queue - LinkedBlockingQueue of byte arrays
      */
-    public DequeueThread(LinkedBlockingQueue<byte[]> queue) {
+    public DequeueClient(LinkedBlockingQueue<byte[]> queue) {
         this.QUEUE = queue;
     }
 
     @Override
     public void run() {
+
+        try {
+            Thread.sleep(60000); // Sleep for 20 seconds if the queue is empty
+        } catch (InterruptedException e) {
+            System.err.println("Error: " + e.getMessage());
+        }
 
         // Wait for the first message from the queue
         byte[] audio;
@@ -59,6 +65,8 @@ public class DequeueThread implements Runnable {
 
         } catch (LineUnavailableException | InterruptedException e) {
             System.err.println("Error: " + e.getMessage());
+        } catch (IllegalArgumentException e) {
+
         }
 
     }
