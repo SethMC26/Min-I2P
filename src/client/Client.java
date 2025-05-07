@@ -251,10 +251,10 @@ public class Client {
                 Scanner input = new Scanner(System.in);
 
                 System.out.println("What would you like to do?");
-                System.out.println("1. Create a user (create)");
-                System.out.println("2. Add a song to the server (add)");
-                System.out.println("3. Play a song from the server (play)");
-                System.out.println("4. List all songs on the server (list)");
+                System.out.println("1. Create a user (1)");
+                System.out.println("2. Add a song to the server (2)");
+                System.out.println("3. Play a song from the server (3)");
+                System.out.println("4. List all songs on the server (4)");
 
                 System.out.print("Input: ");
                 int usercase = input.nextInt();
