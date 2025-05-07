@@ -13,14 +13,20 @@ import common.transport.I2CP.*;
 import merrimackutil.cli.LongOption;
 import merrimackutil.cli.OptionParser;
 import merrimackutil.codec.Base32;
+import merrimackutil.json.JsonIO;
+import merrimackutil.json.types.JSONObject;
+import merrimackutil.json.types.JSONType;
 import merrimackutil.util.Tuple;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.encoders.Base64;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InvalidObjectException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.*;
@@ -32,22 +38,24 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class Client {
 
-    public static int routerPort = 10007;
-    public static int servicePort = 20007;
-    public static InetSocketAddress bootstrapPeer = new InetSocketAddress("127.0.0.1", 8080);
+    public static InetAddress hostRouter;
+    public static int routerPort;
+    public static int servicePort ;
+    public static InetSocketAddress bootstrapPeer;
     private static byte[] destHash;
     private static String clientHash;
     private static int sessionID;
     private static I2CPSocket socket;
+    private static String configFile = "test-data/config/clientConfig.json";
 
     public static void usage() {
         System.out.println("Usage:");
+        System.out.println("  client ");
         System.out.println("  client --help");
-        System.out.println("  client --start --destination <destination_hash>");
+        System.out.println("  client --config <config_file>");
         System.out.println("Options:");
         System.out.printf("  %-15s %-20s\n", "-h, --help", "Display this help message");
-        System.out.printf("  %-15s %-20s\n", "-s, --start", "Starts up the client router connection");
-        System.out.printf("  %-15s %-20s\n", "-d, --destination", "The destination hash to connect to");
+        System.out.printf("  %-15s %-20s\n", "-c, --config", "The config file to use");
     }
 
     public static void processArgs(String[] args) {
@@ -56,17 +64,16 @@ public class Client {
         boolean doHelp = false;
         boolean doStart = false;
 
-        LongOption[] opts = new LongOption[3];
+        LongOption[] opts = new LongOption[2];
         opts[0] = new LongOption("help", false, 'h');
-        opts[1] = new LongOption("start", false, 's');
-        opts[2] = new LongOption("destination", true, 'd');
+        opts[1] = new LongOption("config", true, 'c');
 
         Tuple<Character, String> currOpt;
 
         parser = new OptionParser(args);
         parser.setLongOpts(opts);
 
-        parser.setOptString("hsd:");
+        parser.setOptString("hc:");
 
         while (parser.getOptIdx() != args.length) {
             currOpt = parser.getOpt();
@@ -74,16 +81,10 @@ public class Client {
                 case 'h':
                     doHelp = true;
                     break;
-                case 's':
-                    doStart = true;
-                    break;
-                case 'd':
-                    String temp = currOpt.getSecond();
-                    destHash = Base64.decode(temp);
+                case 'c':
+                    configFile = currOpt.getSecond();
                     break;
                 default:
-                    System.out.println("Unknown option: " + currOpt.getFirst());
-                    break;
             }
         }
 
@@ -93,28 +94,60 @@ public class Client {
             System.exit(0);
         }
 
-        // Check if the user requested to start the client
-        if (doStart) {
-            // Check if the destination hash is provided
-            if (destHash == null) {
-                System.out.println("Destination hash is required");
-                usage();
-                System.exit(1);
-            }
-
-            // Start the client
-            startClient();
+        // Check if the destination hash is provided
+        if (destHash == null && configFile == null) {
+            System.out.println("Destination hash is required");
+            usage();
+            System.exit(1);
         }
+
+        // Since the config file is a path have to check to see if it exists
+        File file = new File(configFile);
+        if (!file.exists() || file.length() == 0) {
+            System.err.println("No valid config file provided!!!");
+            System.exit(1);
+        }
+
+        // Check to see if the config file can be read as a JSON object
+        try {
+            deserialize(JsonIO.readObject(file));
+        } catch (InvalidObjectException | FileNotFoundException | UnknownHostException e) {
+            System.err.println("Error reading config file!!!");
+            System.exit(1);
+        }
+
+        // Start the client
+        startClient();
+
 
 
     }
 
     public static void main(String[] args) {
-        if (args.length == 0 || args.length > 3) {
+        if (args.length > 3) {
             usage();
             System.exit(1);
         }
         processArgs(args);
+    }
+
+    private static void deserialize(JSONType jsonType) throws InvalidObjectException, UnknownHostException {
+        // Check if the JSON object is a JSONObject
+        if (!(jsonType instanceof JSONObject)) {
+            throw new InvalidObjectException("JSONObject expected.");
+        }
+
+        JSONObject obj = (JSONObject) jsonType;
+
+        // Check if the JSON object has the needed keys
+        obj.checkValidity(new String[]{"serverhash", "host_BS", "port_BS", "host_router", "RSTPort", "CSTPort"});
+
+        destHash = Base64.decode(obj.getString("serverhash"));
+        routerPort = obj.getInt("RSTPort");
+        servicePort = obj.getInt("CSTPort");
+        bootstrapPeer = new InetSocketAddress(obj.getString("host_BS"), obj.getInt("port_BS"));
+        hostRouter = InetAddress.getByName(obj.getString("host_router"));
+
     }
 
     private static void startClient() {
@@ -127,7 +160,7 @@ public class Client {
             log.setMinLevel(Logger.Level.ERROR);
 
             //start router
-            Thread router = new Thread(new Router(InetAddress.getLoopbackAddress(), routerPort, servicePort, bootstrapPeer));
+            Thread router = new Thread(new Router(hostRouter, routerPort, servicePort, bootstrapPeer));
             router.start();
 
             try {
@@ -286,7 +319,7 @@ public class Client {
                             throw new RuntimeException(e);
                         }
 
-                        List<byte[]> chunks = chunkAudioData(audioBytes, 1024); // 1024 bytes per chunk
+                        List<byte[]> chunks = chunkAudioData(audioBytes, 128); // 128 bytes per chunk
 
                         Request request = new Request("Add", clientHash, songname, chunks.size());
                         SendMessage msg = new SendMessage(sessionID, currDest, new byte[4], request.toJSONType());
@@ -447,6 +480,7 @@ public class Client {
                 String cont = input.nextLine();
                 if (cont.equalsIgnoreCase("n")) {
                     System.out.println("Exiting...");
+                    socket.sendMessage(new DestroySession(sessionID));
                     socket.close();
                     System.exit(0);
                 }
@@ -540,9 +574,7 @@ public class Client {
 
             // Send the message 3 times
             socket.sendMessage(msg);
-            // iterate the id for each chunk
-
-            Thread.sleep(5);
+            Thread.sleep(1);
 
         }
 
@@ -551,6 +583,8 @@ public class Client {
         Message message = new Message("End", clientHash);
         SendMessage msg = new SendMessage(sessionID, currDest, new byte[4], message.toJSONType());
         socket.sendMessage(msg);
+
+        System.out.println("Size of chunks: " + chunks.size());
 
     }
 

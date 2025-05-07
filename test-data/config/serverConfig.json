@@ -4,5 +4,13 @@
   "debug": true,
   "database-file": "test-data/database/database.json",
   "users-file": "test-data/database/users.json",
-  "audio-file": "test-data/database/audio/"
+  "audio-file": "test-data/database/audio/",
+
+  "host_BS" : "127.0.0.1",
+  "port_BS" : 8080,
+
+  "host_router" : "127.0.0.1",
+  "RSTPort": 10006,
+  "CSTPort": 20006
+
 }

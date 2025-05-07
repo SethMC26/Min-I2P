@@ -56,9 +56,7 @@ public class DequeueServer implements Runnable {
                 ClientState clientState = QUEUE.take();
 
                 // Process the client state
-                System.out.println("Processing client state command type");
                 CommandType commandType = clientState.getCommandType();
-                System.out.println("Command type: " + commandType);
 
                 switch (commandType) {
                     case CREATE -> {
@@ -163,6 +161,7 @@ public class DequeueServer implements Runnable {
 
                     }
                     case SENDING -> {
+                        System.out.println("Dequeue: Sending command received");
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
                             System.out.println("User not authenticated");
@@ -197,6 +196,7 @@ public class DequeueServer implements Runnable {
 
                     }
                     case END -> {
+                        System.out.println("Dequeue: End command received");
 
                         // Check if the user is authenticated
                         if (!clientState.isAuthenticated()) {
@@ -220,9 +220,13 @@ public class DequeueServer implements Runnable {
 
                         List<byte[]> audioData = AUDIO_DATA_MAP.get(destEnd);
 
+                        System.out.println("Audio data before adding to database: " + audioData.size());
+
                         AUDIO_DATABASE.addAudio(clientState.getSongname(), audioData, clientState.getSongSize());
                         MAP.remove(Base64.toBase64String(clientState.getClientDest().getHash()));
                         AUDIO_DATA_MAP.remove(destEnd);
+
+                        System.out.println("Audio data added to the database");
 
                     }
                     case PLAY -> {

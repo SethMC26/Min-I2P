@@ -252,29 +252,21 @@ public class EnqueueServer implements Runnable {
 
                         ClientState client;
 
-                        // Check if the client is already in the map
-                        if (MAP.containsKey(destHash)) {
-                            ClientState existingClient = MAP.get(destHash);
-                            existingClient.cleanSongData();
+                        client = new ClientState(dest, CommandType.SENDING);
+                        client.setSongData(songData);
+                        client.setByteID(id);
 
-                            existingClient.setSongData(songData);
-                            existingClient.setByteID(id);
-                            existingClient.setCommandType(CommandType.SENDING);
+                        boolean isClientAuth = MAP.get(destHash).isAuthenticated();
 
-                            client = existingClient;
-                        } else {
-                            client = new ClientState(dest, CommandType.SENDING);
-                            client.setSongData(songData);
-                            client.setByteID(id);
+                        client.setAuthenticated(isClientAuth);
 
-                            MAP.put(destHash, client);
-                        }
                         QUEUE.add(client);
 
                     }
 
                     // End of the user sending the song bytes
                     case "End" -> {
+                        System.out.println("EnqueueServer: End of song");
 
                         ClientState client;
 
@@ -291,7 +283,9 @@ public class EnqueueServer implements Runnable {
 
                             MAP.put(destHash, client);
                         }
+                        System.out.println("EnqueueServer: Before adding to queue: " + QUEUE.size());
                         QUEUE.add(client);
+                        System.out.println("EnqueueServer: Added client to queue: " + QUEUE.size());
                     }
                 }
 

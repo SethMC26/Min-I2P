@@ -1,3 +1,10 @@
 {
-  "serverhash": "cDc+7zJGIrX9pttItlaNOwKTz9/cWCgtbRYLD0vwz7g="
+  "serverhash": "cDc+7zJGIrX9pttItlaNOwKTz9/cWCgtbRYLD0vwz7g=",
+
+  "host_BS" : "127.0.0.1",
+  "port_BS" : 8080,
+
+  "host_router" : "127.0.0.1",
+  "RSTPort": 10007,
+  "CSTPort": 20007
 }

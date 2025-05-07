@@ -19,12 +19,10 @@ public class DequeueClient implements Runnable {
     @Override
     public void run() {
 
-        while (QUEUE.isEmpty()) {
-            try {
-                Thread.sleep(3000);
-            } catch (InterruptedException e) {
-                System.err.println("Error: " + e.getMessage());
-            }
+        try {
+            Thread.sleep(30000); // Sleep for 20 seconds if the queue is empty
+        } catch (InterruptedException e) {
+            System.err.println("Error: " + e.getMessage());
         }
 
         // Wait for the first message from the queue

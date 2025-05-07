@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -41,9 +42,10 @@ public class Server {
     private static AudioDatabase audioDatabase;
     private static UsersDatabase usersDatabase;
 
-    static int routerPort = 10006;
-    static int servicePort = 20006;
-    static InetSocketAddress bootstrapPeer = new InetSocketAddress("127.0.0.1", 8080);
+    static int routerPort;
+    static int servicePort;
+    static InetSocketAddress bootstrapPeer;
+    static InetAddress hostRouter;
 
     private static PublicKey publicKey;
     private static PrivateKey privateKey;
@@ -106,7 +108,7 @@ public class Server {
         // Check to see if the config file can be read as a JSON object
         try {
             deserialize(JsonIO.readObject(file));
-        } catch (InvalidObjectException | FileNotFoundException e) {
+        } catch (InvalidObjectException | FileNotFoundException | UnknownHostException e) {
             System.err.println("Error reading config file!!!");
             System.exit(1);
         }
@@ -135,7 +137,7 @@ public class Server {
         log.setMinLevel(Logger.Level.ERROR);
 
         //start router
-        Thread router = new Thread(new Router(InetAddress.getLoopbackAddress(),routerPort, servicePort, bootstrapPeer));
+        Thread router = new Thread(new Router(hostRouter,routerPort, servicePort, bootstrapPeer));
         router.start();
 
         try {
@@ -205,7 +207,7 @@ public class Server {
      * @param jsonType The JSON object to deserialize
      * @throws InvalidObjectException If the JSON object is not a JSONObject or does not have the
      */
-    private static void deserialize(JSONType jsonType) throws InvalidObjectException {
+    private static void deserialize(JSONType jsonType) throws InvalidObjectException, UnknownHostException {
         // Check if the JSON object is a JSONObject
         if (!(jsonType instanceof JSONObject)) {
             throw new InvalidObjectException("JSONObject expected.");
@@ -214,7 +216,8 @@ public class Server {
         JSONObject obj = (JSONObject) jsonType;
 
         // Check if the JSON object has the needed keys
-        obj.checkValidity(new String[]{"public", "private", "database-file", "users-file", "audio-file"});
+        obj.checkValidity(new String[]{"public", "private", "database-file", "users-file", "audio-file",
+            "host_BS", "port_BS", "host_router", "RSTPort", "CSTPort"});
 
         if (obj.containsKey("debug"))
             debug = obj.getBoolean("debug");
@@ -226,6 +229,12 @@ public class Server {
 
         publicKey = getPublicKey(obj.getString("public"));
         privateKey = getPrivateKey(obj.getString("private"));
+
+        routerPort = obj.getInt("RSTPort");
+        servicePort = obj.getInt("CSTPort");
+        bootstrapPeer = new InetSocketAddress(obj.getString("host_BS"), obj.getInt("port_BS"));
+        hostRouter = InetAddress.getByName(obj.getString("host_router"));
+
     }
 
     /**
