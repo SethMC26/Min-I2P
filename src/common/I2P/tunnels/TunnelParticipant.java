@@ -99,13 +99,14 @@ public class TunnelParticipant extends TunnelObject{
     private void handleTunnelDataMessage(TunnelDataMessage message) {
         message.setTunnelID(nextTunnelID); // set the tunnel ID for the next hop
         System.out.println("TunnelParticipant received TunnelDataMessage: " + message.toJSONType().getFormattedJSON());
-        decryptMessage(message); // decrypt the message
-        sendDataToNextHop(message);
+        // decryptMessage(message); // decrypt the message
+        sendDataToNextHop(new TunnelDataMessage(message.getTunnelID(), decryptMessage(message).toJSONType()));
     }
 
-    private void decryptMessage(TunnelDataMessage message) {
+    private EndpointPayload decryptMessage(TunnelDataMessage message) {
         EndpointPayload payload = new EndpointPayload(message.getPayload());
         payload.layerDecrypt(tunnelEncryptionKey, layerIv); // decrypt the payload
+        return payload; // return the decrypted payload
     }
 
     private void sendDataToNextHop(I2NPMessage encryptedMessage) {

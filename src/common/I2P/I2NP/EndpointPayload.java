@@ -144,6 +144,8 @@ public class EndpointPayload implements JSONSerializable {
      */
     public void firstLayerEncrypt(SecretKey sk, byte[] iv) {
         // Encrypt the tunnelID and routerID using ElGamal
+        System.out.println("Encryption Key: " + Base64.toBase64String(sk.getEncoded()));
+        System.out.println("Encryption IV: " + Base64.toBase64String(iv));
         try {
             Cipher enc1 = Cipher.getInstance("AES/GCM/NoPadding");
             GCMParameterSpec gcmSpec1 = new GCMParameterSpec(128, iv);
@@ -163,7 +165,7 @@ public class EndpointPayload implements JSONSerializable {
 
             this.tunnelID = -1;
             this.routerID = null;
-            
+
             System.out.println("Encrypted tunnelID: " + this.toJSONType().getFormattedJSON());
 
         } catch (IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | NoSuchPaddingException
@@ -183,8 +185,10 @@ public class EndpointPayload implements JSONSerializable {
      * @param sk
      */
     public void finalLayerDecrypt(SecretKey sk, byte[] iv) {
-        // Decrypt the tunnelID and routerID using ElGamal
         try {
+            System.out.println("Decrypting with Key: " + Base64.toBase64String(sk.getEncoded()));
+            System.out.println("Decrypting with IV: " + Base64.toBase64String(iv));
+
             Cipher dec1 = Cipher.getInstance("AES/GCM/NoPadding");
             GCMParameterSpec gcmSpec1 = new GCMParameterSpec(128, iv);
             dec1.init(Cipher.DECRYPT_MODE, sk, gcmSpec1);
@@ -199,13 +203,16 @@ public class EndpointPayload implements JSONSerializable {
             Cipher dec3 = Cipher.getInstance("AES/GCM/NoPadding");
             GCMParameterSpec gcmSpec3 = new GCMParameterSpec(128, iv);
             dec3.init(Cipher.DECRYPT_MODE, sk, gcmSpec3);
-            encMessage = dec3.doFinal(encMessage); // still in encrypted form
+            encMessage = dec3.doFinal(encMessage);
 
             this.encRouterID = null;
             this.encTunnelID = null;
 
-        } catch (IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | NoSuchPaddingException
-                | InvalidKeyException | InvalidAlgorithmParameterException e) {
+        } catch (AEADBadTagException e) {
+            System.err
+                    .println("Decryption failed: Tag mismatch. Possible causes: mismatched key/IV or data corruption.");
+            e.printStackTrace();
+        } catch (Exception e) {
             System.err.println("Error decrypting tunnelID: " + e.getMessage());
             e.printStackTrace();
         }
