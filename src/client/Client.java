@@ -336,7 +336,7 @@ public class Client {
                             throw new RuntimeException(e);
                         }
 
-                        List<byte[]> chunks = chunkAudioData(audioBytes, 128); // 128 bytes per chunk
+                        List<byte[]> chunks = chunkAudioData(audioBytes, 64); // 128 bytes per chunk
 
                         Request request = new Request("Add", clientHash, songname, chunks.size());
                         SendMessage msg = new SendMessage(sessionID, currDest, new byte[4], request.toJSONType());
