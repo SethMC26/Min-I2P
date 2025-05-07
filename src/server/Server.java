@@ -136,6 +136,7 @@ public class Server {
         Logger log = Logger.getInstance();
         log.setMinLevel(Logger.Level.ERROR);
 
+        System.out.println("Starting router...");
         //start router
         Thread router = new Thread(new Router(hostRouter,routerPort, servicePort, bootstrapPeer));
         router.start();
@@ -187,6 +188,7 @@ public class Server {
 
         socket.sendMessage(new CreateLeaseSet(sessionID, destElgamalKey.getPrivate(), leaseSet));
 
+        System.out.println("Router ready");
         // --------- Processing Messages --------- //
 
         LinkedBlockingQueue<ClientState> queue = new LinkedBlockingQueue<>();

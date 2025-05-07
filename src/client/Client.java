@@ -176,6 +176,7 @@ public class Client {
             Logger log = Logger.getInstance();
             log.setMinLevel(Logger.Level.ERROR);
 
+            System.out.println("Starting router");
             //start router
             Thread router = new Thread(new Router(hostRouter, routerPort, servicePort, bootstrapPeer));
             router.start();
@@ -245,7 +246,7 @@ public class Client {
                 System.err.println("Destination not found :(");
                 System.exit(1);
             }
-
+            System.out.println("Router ready");
             while (true) {
                 // basic testing loop
                 Scanner input = new Scanner(System.in);
