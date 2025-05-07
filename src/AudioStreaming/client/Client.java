@@ -1,14 +1,14 @@
-package client;
+package AudioStreaming.client;
 
 import common.I2P.IDs.Destination;
 import common.I2P.NetworkDB.Lease;
 import common.I2P.NetworkDB.LeaseSet;
 import common.I2P.router.Router;
 import common.Logger;
-import common.message.ByteMessage;
-import common.message.Message;
-import common.message.Request;
-import common.message.Response;
+import AudioStreaming.message.ByteMessage;
+import AudioStreaming.message.Message;
+import AudioStreaming.message.Request;
+import AudioStreaming.message.Response;
 import common.transport.I2CP.*;
 import merrimackutil.cli.LongOption;
 import merrimackutil.cli.OptionParser;
@@ -50,13 +50,13 @@ public class Client {
     private static String configFile = "test-data/config/clientConfig.json";
 
     /**
-     * This method is used to display the usage of the client
+     * This method is used to display the usage of the AudioStreaming.client
      */
     public static void usage() {
         System.out.println("Usage:");
         System.out.println("  client ");
-        System.out.println("  client --help");
-        System.out.println("  client --config <config_file>");
+        System.out.println("  AudioStreaming.client --help");
+        System.out.println("  AudioStreaming.client --config <config_file>");
         System.out.println("Options:");
         System.out.printf("  %-15s %-20s\n", "-h, --help", "Display this help message");
         System.out.printf("  %-15s %-20s\n", "-c, --config", "The config file to use");
@@ -124,7 +124,7 @@ public class Client {
             System.exit(1);
         }
 
-        // Start the client
+        // Start the AudioStreaming.client
         startClient();
 
     }
@@ -165,7 +165,7 @@ public class Client {
     }
 
     /**
-     * This method starts the client and creates the router
+     * This method starts the AudioStreaming.client and creates the router
      */
     private static void startClient() {
         try {
@@ -182,7 +182,7 @@ public class Client {
             router.start();
 
             try {
-                Thread.sleep(20000); //wait until router setup
+                Thread.sleep(10000); //wait until router setup
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -191,7 +191,7 @@ public class Client {
 
             Destination clientDest = new Destination(destEd25519Key.getPublic());
 
-            //do client stuff
+            //do AudioStreaming.client stuff
             socket = new I2CPSocket("127.0.0.1", servicePort);
             socket.sendMessage(new CreateSession(clientDest));
 
@@ -253,9 +253,9 @@ public class Client {
 
                 System.out.println("What would you like to do?");
                 System.out.println("1. Create a user (1)");
-                System.out.println("2. Add a song to the server (2)");
-                System.out.println("3. Play a song from the server (3)");
-                System.out.println("4. List all songs on the server (4)");
+                System.out.println("2. Add a song to the AudioStreaming.server (2)");
+                System.out.println("3. Play a song from the AudioStreaming.server (3)");
+                System.out.println("4. List all songs on the AudioStreaming.server (4)");
 
                 System.out.print("Input: ");
                 int usercase = input.nextInt();
@@ -312,7 +312,7 @@ public class Client {
 
                     }
 
-                    // Add a song to the server
+                    // Add a song to the AudioStreaming.server
                     case 2 -> {
                         if (!authenticateUser(input, currDest)) {
                             break;
@@ -388,7 +388,7 @@ public class Client {
 
                     }
 
-                    // Play a song from the server
+                    // Play a song from the AudioStreaming.server
                     case 3 -> {
                         if (!authenticateUser(input, currDest)) {
                             break;
@@ -443,7 +443,7 @@ public class Client {
 
                     }
 
-                    // List all songs on the server
+                    // List all songs on the AudioStreaming.server
                     case 4 -> {
                         if (!authenticateUser(input, currDest)) {
                             break;
@@ -486,7 +486,7 @@ public class Client {
                             break;
                         }
 
-                        System.out.println("Songs on the server: ");
+                        System.out.println("Songs on the AudioStreaming.server: ");
                         String payload = response.getPayload();
                         if (payload != null) {
                             String[] songs = payload.split(",");
@@ -548,7 +548,7 @@ public class Client {
     }
 
     /**
-     * This method authenticates the user with the server
+     * This method authenticates the user with the AudioStreaming.server
      *
      * @param input - Scanner the input scanner
      * @param currDest - Destination the current destination
@@ -609,7 +609,7 @@ public class Client {
     }
 
     /**
-     * This method sends the song to the server in chunks
+     * This method sends the song to the AudioStreaming.server in chunks
      *
      * @param currDest - Destination the current destination
      * @param chunks - List of byte[] the chunks of the song

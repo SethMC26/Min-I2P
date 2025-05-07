@@ -1,4 +1,4 @@
-package client;
+package AudioStreaming.client;
 
 import javax.sound.sampled.*;
 import java.util.concurrent.LinkedBlockingQueue;

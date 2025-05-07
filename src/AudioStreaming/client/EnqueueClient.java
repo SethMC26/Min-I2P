@@ -1,7 +1,7 @@
-package client;
+package AudioStreaming.client;
 
-import common.message.ByteMessage;
-import common.message.Message;
+import AudioStreaming.message.ByteMessage;
+import AudioStreaming.message.Message;
 import common.transport.I2CP.I2CPMessage;
 import common.transport.I2CP.I2CPSocket;
 import common.transport.I2CP.PayloadMessage;
@@ -19,7 +19,7 @@ public class EnqueueClient implements Runnable {
      * This constructor initializes the enqueue thread which makes sure that the queue is not empty.
      *
      * @param queue - ConcurrentLinkedQueue of byte arrays
-     * @param socket - MessageSocket object to communicate with the server
+     * @param socket - MessageSocket object to communicate with the AudioStreaming.server
      */
     public EnqueueClient(LinkedBlockingQueue<byte[]> queue, I2CPSocket socket) {
         this.QUEUE = queue;
@@ -27,13 +27,13 @@ public class EnqueueClient implements Runnable {
     }
 
     /**
-     * This method runs the thread and receives messages from the server.
+     * This method runs the thread and receives messages from the AudioStreaming.server.
      */
     @Override
     public void run() {
         try {
 
-            // Wait for the first message from the server
+            // Wait for the first message from the AudioStreaming.server
             I2CPMessage recvMsg = SOCKET.getMessage();
 
             // Check if the received message is a PayloadMessage
@@ -53,7 +53,7 @@ public class EnqueueClient implements Runnable {
                 byte[] combinedAudio = new byte[0];
                 for (int i = 0; i < 64; i++) {
 
-                    // Wait for the next message from the server
+                    // Wait for the next message from the AudioStreaming.server
                     if (!recvMessage.getType().equals("Byte")) {
                         System.err.println("Error: expected ByteMessage, got " + recvMessage.getType());
                         break;
@@ -66,7 +66,7 @@ public class EnqueueClient implements Runnable {
                     // Combine the received audio data with the existing data
                     combinedAudio = combineByteArrays(combinedAudio, audio);
 
-                    // Wait for the next message from the server
+                    // Wait for the next message from the AudioStreaming.server
                     recvMsg = SOCKET.getMessage();
 
                     // Check if the received message is a PayloadMessage

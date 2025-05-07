@@ -29,7 +29,7 @@
           security checks are different between those OSes and Linux.
          -->
         <copy file="lib/bcprov.jar" todir="${dist}" />
-        <!-- Assemble the verification server program -->
+        <!-- Assemble the verification AudioStreaming.server program -->
         <jar jarfile="${dist}/peer.jar" basedir="${build}">
             <exclude name="relay/"/>
             <manifest>
@@ -39,11 +39,11 @@
             <zipfileset src="lib/merrimackutil.jar" excludes="META-INF/*.SF" />
         </jar>
 
-        <!-- Assemble the verification server program -->
+        <!-- Assemble the verification AudioStreaming.server program -->
         <jar jarfile="${dist}/client.jar" basedir="${build}">
-            <exclude name="server/"/>
+            <exclude name="AudioStreaming.server/"/>
             <manifest>
-                <attribute name="Main-Class" value="client.Client" />
+                <attribute name="Main-Class" value="AudioStreaming.client.Client" />
                 <attribute name="Class-Path" value="bcprov.jar" />
             </manifest>
             <zipfileset src="lib/merrimackutil.jar" excludes="META-INF/*.SF" />
@@ -51,9 +51,9 @@
 
         <!-- Assemble the soft token program -->
         <jar jarfile="${dist}/server.jar" basedir="${build}">
-            <exclude name="client/" />
+            <exclude name="AudioStreaming.client/" />
             <manifest>
-                <attribute name="Main-Class" value="server.Server" />
+                <attribute name="Main-Class" value="AudioStreaming.server.Server" />
                 <attribute name="Class-Path" value="bcprov.jar" />
             </manifest>
             <zipfileset src="lib/merrimackutil.jar" excludes="META-INF/*.SF" />

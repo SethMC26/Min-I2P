@@ -1,4 +1,4 @@
-package common.message;
+package AudioStreaming.message;
 
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;
@@ -15,7 +15,7 @@ public class Request extends Message {
     private int size;
 
     /**
-     * Constructor for the user to request authentication with the server
+     * Constructor for the user to request authentication with the AudioStreaming.server
      *
      * @param type - String type of message
      * @param username - String username of the user
@@ -76,7 +76,7 @@ public class Request extends Message {
     }
 
     /**
-     * Constructor for the user to request something with the server
+     * Constructor for the user to request something with the AudioStreaming.server
      *
      * @param jsonMessage - JSONObject to deserialize
      */

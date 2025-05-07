@@ -1,4 +1,4 @@
-package server.databases;
+package AudioStreaming.server.databases;
 
 import merrimackutil.json.JSONSerializable;
 import merrimackutil.json.JsonIO;

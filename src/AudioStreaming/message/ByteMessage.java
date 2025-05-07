@@ -1,4 +1,4 @@
-package common.message;
+package AudioStreaming.message;
 
 import merrimackutil.json.types.JSONObject;
 import merrimackutil.json.types.JSONType;

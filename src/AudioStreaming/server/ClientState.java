@@ -1,4 +1,4 @@
-package server;
+package AudioStreaming.server;
 
 import common.I2P.IDs.Destination;
 
@@ -18,9 +18,9 @@ public class ClientState {
     private int byteID;
 
     /**
-     * Creates the client state for the server to store so it knows the state of the client
+     * Creates the AudioStreaming.client state for the AudioStreaming.server to store so it knows the state of the AudioStreaming.client
      *
-     * @param clientDest - Destination of the client
+     * @param clientDest - Destination of the AudioStreaming.client
      * @param commandType - CommandType of the previous command
      */
     public ClientState(Destination clientDest, CommandType commandType) {
@@ -111,7 +111,7 @@ public class ClientState {
     // -------- Other Methods -------- //
 
     /**
-     * Cleans the client state so it can be reused
+     * Cleans the AudioStreaming.client state so it can be reused
      */
     public void clean() {
         this.clientName = null;

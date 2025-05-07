@@ -1,4 +1,4 @@
-package server;
+package AudioStreaming.server;
 
 import common.I2P.IDs.Destination;
 import common.I2P.NetworkDB.Lease;
@@ -14,8 +14,8 @@ import merrimackutil.json.types.JSONType;
 import merrimackutil.util.Tuple;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.encoders.Base64;
-import server.databases.AudioDatabase;
-import server.databases.UsersDatabase;
+import AudioStreaming.server.databases.AudioDatabase;
+import AudioStreaming.server.databases.UsersDatabase;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -58,7 +58,7 @@ public class Server {
         System.out.println("  Server --config <config_file>");
         System.out.println("Options: ");
         System.out.printf("  %-15s %-20s\n", "-h, --help", "Show this help message");
-        System.out.printf("  %-15s %-20s\n", "-c, --config", "Sets the config file for the server");
+        System.out.printf("  %-15s %-20s\n", "-c, --config", "Sets the config file for the AudioStreaming.server");
     }
 
     public static void processArgs(String[] args) {
@@ -119,7 +119,7 @@ public class Server {
 
     public static void main(String[] args) throws IOException {
 
-        // ------- Setting up the server -------- //
+        // ------- Setting up the AudioStreaming.server -------- //
         Security.addProvider(new BouncyCastleProvider());
 
         if (args.length >= 5) {
@@ -142,7 +142,7 @@ public class Server {
         router.start();
 
         try {
-            Thread.sleep(20000); //wait until router setup
+            Thread.sleep(10000); //wait until router setup
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -151,7 +151,7 @@ public class Server {
 
         Destination clientDest = new Destination(publicKey);
 
-        //do client stuff
+        //do AudioStreaming.client stuff
         I2CPSocket socket = new I2CPSocket("127.0.0.1", servicePort);
         socket.sendMessage(new CreateSession(clientDest));
 
@@ -194,7 +194,7 @@ public class Server {
         LinkedBlockingQueue<ClientState> queue = new LinkedBlockingQueue<>();
         ConcurrentHashMap<String, ClientState> clients = new ConcurrentHashMap<>();
 
-        // Start the server
+        // Start the AudioStreaming.server
         Thread enqueue = new Thread(new EnqueueServer(sessionID, clients, queue, socket));
         enqueue.start();
 
@@ -204,7 +204,7 @@ public class Server {
     }
 
     /**
-     * Deserializes the JSON object into the server variables
+     * Deserializes the JSON object into the AudioStreaming.server variables
      *
      * @param jsonType The JSON object to deserialize
      * @throws InvalidObjectException If the JSON object is not a JSONObject or does not have the

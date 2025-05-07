@@ -1,7 +1,7 @@
-package server;
+package AudioStreaming.server;
 
-import common.message.ByteMessage;
-import common.message.Message;
+import AudioStreaming.message.ByteMessage;
+import AudioStreaming.message.Message;
 import common.transport.I2CP.I2CPSocket;
 import common.transport.I2CP.SendMessage;
 import org.bouncycastle.util.encoders.Base64;

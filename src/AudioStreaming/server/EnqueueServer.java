@@ -1,15 +1,14 @@
-package server;
+package AudioStreaming.server;
 
 import common.I2P.IDs.Destination;
-import common.message.ByteMessage;
-import common.message.Message;
-import common.message.Request;
+import AudioStreaming.message.ByteMessage;
+import AudioStreaming.message.Message;
+import AudioStreaming.message.Request;
 import common.transport.I2CP.*;
 import merrimackutil.json.types.JSONObject;
 import org.bouncycastle.util.encoders.Base64;
 
 import java.io.IOException;
-import java.io.InvalidObjectException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -96,20 +95,20 @@ public class EnqueueServer implements Runnable {
 
                         ClientState client;
 
-                        // Check if the client is already in the map
+                        // Check if the AudioStreaming.client is already in the map
                         if (MAP.containsKey(destHash)) {
-                            // Gets the client from the map and cleans it
+                            // Gets the AudioStreaming.client from the map and cleans it
                             ClientState existingClient = MAP.get(destHash);
                             existingClient.clean();
 
-                            // Sets the client name and password
+                            // Sets the AudioStreaming.client name and password
                             existingClient.setClientName(username);
                             existingClient.setClientPassword(password);
                             existingClient.setCommandType(CommandType.CREATE);
 
                             client = existingClient;
                         } else {
-                            // Creates a new client and sets the name and password
+                            // Creates a new AudioStreaming.client and sets the name and password
                             client = new ClientState(dest, CommandType.CREATE);
                             client.setClientName(username);
                             client.setClientPassword(password);
@@ -131,13 +130,13 @@ public class EnqueueServer implements Runnable {
 
                         ClientState client;
 
-                        // Check if the client is already in the map
+                        // Check if the AudioStreaming.client is already in the map
                         if (MAP.containsKey(destHash)) {
-                            // Gets the client from the map and cleans it
+                            // Gets the AudioStreaming.client from the map and cleans it
                             ClientState existingClient = MAP.get(destHash);
                             existingClient.clean();
 
-                            // Sets the client name, password and otp
+                            // Sets the AudioStreaming.client name, password and otp
                             existingClient.setClientName(username);
                             existingClient.setClientPassword(password);
                             existingClient.setClientOTP(otp);
@@ -145,7 +144,7 @@ public class EnqueueServer implements Runnable {
 
                             client = existingClient;
                         } else {
-                            // Creates a new client and sets the name, password and otp
+                            // Creates a new AudioStreaming.client and sets the name, password and otp
                             client = new ClientState(dest, CommandType.AUTHENTICATE);
                             client.setClientName(username);
                             client.setClientPassword(password);
@@ -168,7 +167,7 @@ public class EnqueueServer implements Runnable {
                         ClientState client;
 
                         if (MAP.containsKey(destHash)) {
-                            // Gets the client from the map and cleans it
+                            // Gets the AudioStreaming.client from the map and cleans it
                             ClientState existingClient = MAP.get(destHash);
                             existingClient.clean();
 
@@ -179,7 +178,7 @@ public class EnqueueServer implements Runnable {
 
                             client = existingClient;
                         } else {
-                            // Creates a new client and sets the song name and size
+                            // Creates a new AudioStreaming.client and sets the song name and size
                             client = new ClientState(dest, CommandType.ADD);
                             client.setSongname(songName);
                             client.setSongSize(songSize);
@@ -198,9 +197,9 @@ public class EnqueueServer implements Runnable {
 
                         ClientState client;
 
-                        // Check if the client is already in the map
+                        // Check if the AudioStreaming.client is already in the map
                         if (MAP.containsKey(destHash)) {
-                            // Gets the client from the map and cleans it
+                            // Gets the AudioStreaming.client from the map and cleans it
                             ClientState existingClient = MAP.get(destHash);
                             existingClient.clean();
 
@@ -210,7 +209,7 @@ public class EnqueueServer implements Runnable {
 
                             client = existingClient;
                         } else {
-                            // Creates a new client and sets the song name
+                            // Creates a new AudioStreaming.client and sets the song name
                             client = new ClientState(dest, CommandType.PLAY);
                             client.setSongname(songName);
 
@@ -223,9 +222,9 @@ public class EnqueueServer implements Runnable {
                     case "List" -> {
                         ClientState client;
 
-                        // Check if the client is already in the map
+                        // Check if the AudioStreaming.client is already in the map
                         if (MAP.containsKey(destHash)) {
-                            // Gets the client from the map and cleans it
+                            // Gets the AudioStreaming.client from the map and cleans it
                             ClientState existingClient = MAP.get(destHash);
                             existingClient.clean();
 
@@ -234,7 +233,7 @@ public class EnqueueServer implements Runnable {
 
                             client = existingClient;
                         } else {
-                            // Creates a new client and sets the song name
+                            // Creates a new AudioStreaming.client and sets the song name
                             client = new ClientState(dest, CommandType.LIST);
 
                             MAP.put(destHash, client);
@@ -270,7 +269,7 @@ public class EnqueueServer implements Runnable {
 
                         ClientState client;
 
-                        // Check if the client is already in the map
+                        // Check if the AudioStreaming.client is already in the map
                         if (MAP.containsKey(destHash)) {
                             ClientState existingClient = MAP.get(destHash);
                             existingClient.cleanSongData();
@@ -285,7 +284,7 @@ public class EnqueueServer implements Runnable {
                         }
                         System.out.println("EnqueueServer: Before adding to queue: " + QUEUE.size());
                         QUEUE.add(client);
-                        System.out.println("EnqueueServer: Added client to queue: " + QUEUE.size());
+                        System.out.println("EnqueueServer: Added AudioStreaming.client to queue: " + QUEUE.size());
                     }
                 }
 
