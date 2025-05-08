@@ -1,9 +1,9 @@
 package common;
 
-import common.message.ByteMessage;
-import common.message.Message;
-import common.message.Request;
-import common.message.Response;
+import AudioStreaming.message.ByteMessage;
+import AudioStreaming.message.Message;
+import AudioStreaming.message.Request;
+import AudioStreaming.message.Response;
 import merrimackutil.json.JsonIO;
 import merrimackutil.json.types.JSONObject;
 

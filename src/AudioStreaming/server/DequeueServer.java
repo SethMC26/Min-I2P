@@ -1,15 +1,13 @@
-package server;
+package AudioStreaming.server;
 
 import common.I2P.IDs.Destination;
-import common.message.ByteMessage;
-import common.message.Response;
+import AudioStreaming.message.Response;
 import common.transport.I2CP.I2CPSocket;
 import common.transport.I2CP.SendMessage;
-import org.bouncycastle.util.encoders.Base32;
 import org.bouncycastle.util.encoders.Base64;
-import server.databases.AudioDatabase;
-import server.databases.User;
-import server.databases.UsersDatabase;
+import AudioStreaming.server.databases.AudioDatabase;
+import AudioStreaming.server.databases.User;
+import AudioStreaming.server.databases.UsersDatabase;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
@@ -22,7 +20,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -55,12 +52,12 @@ public class DequeueServer implements Runnable {
             try {
                 ClientState clientState = QUEUE.take();
 
-                // Process the client state
+                // Process the AudioStreaming.client state
                 CommandType commandType = clientState.getCommandType();
 
                 switch (commandType) {
                     case CREATE -> {
-                        // Get the client name and password from the client state
+                        // Get the AudioStreaming.client name and password from the AudioStreaming.client state
                         String clientNameCreate = clientState.getClientName();
                         String clientPasswordCreate = clientState.getClientPassword();
 
@@ -81,15 +78,15 @@ public class DequeueServer implements Runnable {
                         // Store the user in the database
                         USERS_DATABASE.addUser(clientNameCreate, clientPasswordCreate, totp);
 
-                        // Store the client state in the map
+                        // Store the AudioStreaming.client state in the map
                         Response response = new Response("Status", "", true, totp);
                         SendMessage send = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], response.toJSONType());
 
-                        // Send the response to the client
+                        // Send the response to the AudioStreaming.client
                         SOCKET.sendMessage(send);
                     }
                     case AUTHENTICATE -> {
-                        // Get the client name, password, and OTP from the client state
+                        // Get the AudioStreaming.client name, password, and OTP from the AudioStreaming.client state
                         String clientNameAuth = clientState.getClientName();
                         String clientPasswordAuth = clientState.getClientPassword();
                         int clientOTPAuth = clientState.getClientOTP();
@@ -115,7 +112,7 @@ public class DequeueServer implements Runnable {
                         // Authentication successful
                         clientState.setAuthenticated(true);
 
-                        // Store the client state in the map
+                        // Store the AudioStreaming.client state in the map
                         System.out.println("Authentication successful");
                         Response responseAuthSuccess = new Response("Status", "", true, "Authentication successful");
                         SendMessage sendAuthSuccess = new SendMessage(SESSION_ID, clientState.getClientDest(), new byte[4], responseAuthSuccess.toJSONType());
@@ -133,7 +130,7 @@ public class DequeueServer implements Runnable {
                             break;
                         }
 
-                        // Get the song name and size from the client state
+                        // Get the song name and size from the AudioStreaming.client state
                         String clientSongNameAdd = clientState.getSongname();
                         int clientSongSizeAdd = clientState.getSongSize();
 
@@ -170,7 +167,7 @@ public class DequeueServer implements Runnable {
                             break;
                         }
 
-                        // Get the song data and byte ID from the client state
+                        // Get the song data and byte ID from the AudioStreaming.client state
                         byte[] clientSongData = clientState.getSongData();
                         int clientByteID = clientState.getByteID();
 

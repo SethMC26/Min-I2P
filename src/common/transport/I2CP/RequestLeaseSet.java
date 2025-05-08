@@ -17,7 +17,7 @@ public class RequestLeaseSet extends I2CPMessage {
     /**
      * Router send to Client to authorize set of tunnels
      * @param sessionID SessionID this message belongs to
-     * @param leases Lease router wishes client to authorize
+     * @param leases Lease router wishes AudioStreaming.client to authorize
      */
     public RequestLeaseSet(int sessionID, ArrayList<Lease> leases) {
         super(sessionID, I2CPMessageTypes.REQUESTLEASESET);

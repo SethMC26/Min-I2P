@@ -45,7 +45,7 @@ public class ClientServiceThread implements Runnable {
      */
     private TunnelManager tunnelManager;
     /**
-     * Server for client connections
+     * Server for AudioStreaming.client connections
      */
     private ServerSocket server;
     /**
@@ -57,7 +57,7 @@ public class ClientServiceThread implements Runnable {
      */
     private SecureRandom random = new SecureRandom();
     /**
-     * Hashmap with client connections stored under session IDs and queues of
+     * Hashmap with AudioStreaming.client connections stored under session IDs and queues of
      * messages for those sessions
      */
     private ConcurrentHashMap<Integer, ConcurrentLinkedQueue<I2CPMessage>> clientMessages;
@@ -67,12 +67,12 @@ public class ClientServiceThread implements Runnable {
     private NetDB netDB;
 
     /**
-     * Create new thread to service incoming client connects
+     * Create new thread to service incoming AudioStreaming.client connects
      * 
      * @param router         This router we are apart of
      * @param netDB          network database for this router
      * @param port           Port for clients to connect on
-     * @param clientMessages Queue of messages from client
+     * @param clientMessages Queue of messages from AudioStreaming.client
      * @throws IOException if could not create ServerSocket or I2NPSocket
      */
     public ClientServiceThread(RouterInfo router, TunnelManager tunnelManager, NetDB netDB, int port,
@@ -88,9 +88,9 @@ public class ClientServiceThread implements Runnable {
     @Override
     public void run() {
         try {
-            ExecutorService threadpool = Executors.newFixedThreadPool(1); // we only have one client application so we
+            ExecutorService threadpool = Executors.newFixedThreadPool(1); // we only have one AudioStreaming.client application so we
                                                                           // dont need multiple threads
-            // todo ask sean if it is helpful for the server to have multiple connections
+            // todo ask sean if it is helpful for the AudioStreaming.server to have multiple connections
             // wait for connections
             while (true) {
                 I2CPSocket clientSock = new I2CPSocket(server.accept());
@@ -113,9 +113,9 @@ public class ClientServiceThread implements Runnable {
 
     private class ClientConnectionHandler implements Runnable {
         /**
-         * Socket for client communication for this session
+         * Socket for AudioStreaming.client communication for this session
          */
-        private I2CPSocket clientSock; // socket to communicate with client
+        private I2CPSocket clientSock; // socket to communicate with AudioStreaming.client
         /**
          * ID of session
          */
@@ -124,9 +124,9 @@ public class ClientServiceThread implements Runnable {
         private ConcurrentLinkedQueue<I2CPMessage> msgQueue;
 
         /**
-         * Create new connection for the client
+         * Create new connection for the AudioStreaming.client
          * 
-         * @param clientSock I2CP socket for communication with the client
+         * @param clientSock I2CP socket for communication with the AudioStreaming.client
          */
         ClientConnectionHandler(I2CPSocket clientSock) {
             this.clientSock = clientSock;
@@ -135,7 +135,7 @@ public class ClientServiceThread implements Runnable {
         @Override
         public void run() {
             try {
-                log.debug("CST: Got connection from client");
+                log.debug("CST: Got connection from AudioStreaming.client");
                 I2CPMessage recvMsg = clientSock.getMessage();
 
                 if (recvMsg.getType() == DESTLOOKUP) { // Simple session preform lookup, reply then return
@@ -159,10 +159,10 @@ public class ClientServiceThread implements Runnable {
 
                 // todo sam plz help me create inbound tunnels for this destination
                 // we can store these inbound tunnels under the sessionID to identifiy them to
-                // this client
+                // this AudioStreaming.client
                 Destination clientDestination = createSession.getDestination();
 
-                // This will generate the inbound and outbound tunnels for the client
+                // This will generate the inbound and outbound tunnels for the AudioStreaming.client
                 buildTunnel(clientDestination, router, true); // inbound
                 try {
                     Thread.sleep(5000); // wait for tunnel to be created for a second
@@ -191,7 +191,7 @@ public class ClientServiceThread implements Runnable {
                 }
 
                 RequestLeaseSet leases = (RequestLeaseSet) routerMsg;
-                // ask client to authorize leaseSets
+                // ask AudioStreaming.client to authorize leaseSets
                 clientSock.sendMessage(new RequestLeaseSet(sessionID, leases.getLeases()));
 
                 // get authorization
@@ -220,7 +220,7 @@ public class ClientServiceThread implements Runnable {
                     if (!clientSock.hasMessage() && msgQueue.isEmpty())
                         continue;
 
-                    // deal with client messages
+                    // deal with AudioStreaming.client messages
                     if (clientSock.hasMessage()) {
                         recvMsg = clientSock.getMessage();
                         log.debug("Handling message type " + recvMsg.getType());
@@ -287,7 +287,7 @@ public class ClientServiceThread implements Runnable {
                                 return; // close thread
                             }
                             default -> {
-                                log.error("Bad type received from client only send and destroy allowed "
+                                log.error("Bad type received from AudioStreaming.client only send and destroy allowed "
                                         + recvMsg.getType());
                                 MessageStatus status = new MessageStatus(sessionID, 0, new byte[4],
                                         MessageStatus.Status.BADMESSAGE);
@@ -298,7 +298,7 @@ public class ClientServiceThread implements Runnable {
 
                     if (!msgQueue.isEmpty()) {
                         I2CPMessage message = msgQueue.remove();
-                        // todo handle getting message from router and giving it back to the client
+                        // todo handle getting message from router and giving it back to the AudioStreaming.client
                         if (message.getType() != PAYLOADMESSAGE) {
                             log.warn("Bad message from router" + message.toJSONType().getFormattedJSON());
                             continue;
@@ -328,7 +328,7 @@ public class ClientServiceThread implements Runnable {
                     clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.DESTROYED));
                     clientSock.close();
                 } catch (IOException ex) {
-                    log.warn("Could not close client sock", e);
+                    log.warn("Could not close AudioStreaming.client sock", e);
                 }
             } catch (IOException e) {
                 log.error("CST-CCH: IOException occured", e);
@@ -336,19 +336,19 @@ public class ClientServiceThread implements Runnable {
                     clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.DESTROYED));
                     clientSock.close();
                 } catch (IOException ex) {
-                    log.warn("Could not close client sock", e);
+                    log.warn("Could not close AudioStreaming.client sock", e);
                 }
             }
         }
 
         /**
-         * Create inbound tunnel for the client destination
+         * Create inbound tunnel for the AudioStreaming.client destination
          * 
-         * @param destination Destination of the client
+         * @param destination Destination of the AudioStreaming.client
          * @param router      RouterInfo of this router
          */
         private void buildTunnel(Destination destination, RouterInfo router, boolean isInbound) {
-            // note: client destination is not hard set to endpoint of tunnel
+            // note: AudioStreaming.client destination is not hard set to endpoint of tunnel
             // it is tacked on to the messge itself so the endpoint knows where to forward
 
             // hold the records for the tunnel
@@ -438,7 +438,7 @@ public class ClientServiceThread implements Runnable {
                     position = TunnelBuild.Record.TYPE.ENDPOINT;
                     if (isInbound) {
                         tempPeers.set(i, router); // make sure to overwrite for later
-                        next = router; // set to client creating request if real for testing set to gateway router
+                        next = router; // set to AudioStreaming.client creating request if real for testing set to gateway router
                         msgQueue = new ConcurrentLinkedQueue<>();
                         // currInboundTunnelID = receiveTunnel;
                         clientMessages.put(receiveTunnel, msgQueue);

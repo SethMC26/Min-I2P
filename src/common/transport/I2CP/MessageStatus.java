@@ -9,7 +9,7 @@ import java.io.InvalidObjectException;
 import static common.transport.I2CP.I2CPMessageTypes.MESSAGESTATUS;
 
 /**
- * Message status notifies a client about the state of an incoming or outgoing message
+ * Message status notifies a AudioStreaming.client about the state of an incoming or outgoing message
  */
 public class MessageStatus extends I2CPMessage{
     /**
@@ -20,7 +20,7 @@ public class MessageStatus extends I2CPMessage{
      * <p>{@code ROUTERFAILURE} Router failed fatal could not send message</p>
      * <p>{@code BADDESTINATION} Destination was bad/invalid</p>
      * <p>{@code BADLEASESET} Leaseset was bad/invalid</p>
-     * <p>{@code BADMESSAGE} Bad message from client</p>
+     * <p>{@code BADMESSAGE} Bad message from AudioStreaming.client</p>
      */
     public enum Status {
         ACCEPTED,

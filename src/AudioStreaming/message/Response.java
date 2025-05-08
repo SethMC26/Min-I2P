@@ -1,4 +1,4 @@
-package common.message;
+package AudioStreaming.message;
 
 import merrimackutil.json.types.JSONArray;
 import merrimackutil.json.types.JSONObject;
@@ -13,7 +13,7 @@ public class Response extends Message {
     private String payload;
 
     /**
-     * This is the constuctor for the server sending a response to the user
+     * This is the constuctor for the AudioStreaming.server sending a response to the user
      *
      * @param type - String type of message
      * @param status - boolean status of the message
@@ -26,7 +26,7 @@ public class Response extends Message {
     }
 
     /**
-     * This is the constructor for the server sending a response to the user
+     * This is the constructor for the AudioStreaming.server sending a response to the user
      *
      * @param JSONMessage - JSONObject to deserialize
      */
