@@ -77,7 +77,6 @@ public class Router implements Runnable {
      * Logger for use in Router
      */
     private Logger log = Logger.getInstance();
-    Logger.Level minLevel = Logger.Level.INFO;
 
     /**
      * Create router from specified config file
@@ -131,7 +130,7 @@ public class Router implements Runnable {
             // give enough time for all the routers to send their messages/turn on
             Thread.sleep(1000);
             //check if we learned about bootstrap peer netDB should have at least 1 peer(bootstrap)
-            if (netDB.getKClosestRouterInfos(routerInfo.getHash(),1).isEmpty()) {
+            if (netDB.getKClosestPeers(routerInfo.getHash(),1).isEmpty()) {
                 return false;
             }
         } catch (InterruptedException e) {
@@ -201,8 +200,6 @@ public class Router implements Runnable {
                             message = socket.getMessage();
                             RouterServiceThread rst = new RouterServiceThread(netDB, routerInfo, message, clientMessages,
                                     tunnelManager, elgamalKeyPair.getPrivate(), edKeyPair.getPrivate());
-                            // To sam, this will turn on floodfill, from your favorite NetDB implementor
-                            // Seth
                             // rst.setFloodFill(true);
                             threadpool.execute(rst);
                         }
@@ -222,6 +219,12 @@ public class Router implements Runnable {
                 return;
             }
 
+            //create and start CST
+            Thread cst = new Thread(new ClientServiceThread(routerInfo, tunnelManager, netDB, CSTPort, clientMessages));
+            cst.start();
+
+            //attempt bootstrap process 5 times if we still cannot connect to network we will fail
+            //each attempt takes about ~2 seconds
             boolean startup = false;
             for (int i = 0; i < 5; i++) {
                 if (setUp()) {
@@ -236,10 +239,6 @@ public class Router implements Runnable {
                 log.info("Please try restarting router make sure Bootstrap peer online");
                 System.exit(1);
             }
-
-            //create and start CST
-            Thread cst = new Thread(new ClientServiceThread(routerInfo, tunnelManager, netDB, CSTPort, clientMessages));
-            cst.start();
 
         } catch (IOException e) {
             log.error("Fatal could not setup router", e);
