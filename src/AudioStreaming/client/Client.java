@@ -182,9 +182,10 @@ public class Client {
             router.start();
 
             try {
-                Thread.sleep(10000); //wait until router setup
+                Thread.sleep(100); // wait for tunnel to be created for a second
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                // this likely wont happen but if it does we will just ignore it
+                log.warn("CST-CCH: Tunnel creation wait interrupted", e);
             }
             KeyPair destEd25519Key = generateKeyPairEd();
             KeyPair destElgamalKey = generateKeyPairElGamal();

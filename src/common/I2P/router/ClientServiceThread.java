@@ -88,9 +88,8 @@ public class ClientServiceThread implements Runnable {
     @Override
     public void run() {
         try {
-            ExecutorService threadpool = Executors.newFixedThreadPool(1); // we only have one AudioStreaming.client application so we
-                                                                          // dont need multiple threads
-            // todo ask sean if it is helpful for the AudioStreaming.server to have multiple connections
+            //we only have one client application so we only need one thread
+            ExecutorService threadpool = Executors.newFixedThreadPool(1);
             // wait for connections
             while (true) {
                 I2CPSocket clientSock = new I2CPSocket(server.accept());
@@ -120,7 +119,9 @@ public class ClientServiceThread implements Runnable {
          * ID of session
          */
         private int sessionID;
-
+        /**
+         * Queue of messages for this connection to the client
+         */
         private ConcurrentLinkedQueue<I2CPMessage> msgQueue;
 
         /**
@@ -138,6 +139,26 @@ public class ClientServiceThread implements Runnable {
                 log.debug("CST: Got connection from AudioStreaming.client");
                 I2CPMessage recvMsg = clientSock.getMessage();
 
+                boolean startup = false;
+                for (int i = 0; i < 10; i++) {
+                    if (netDB.getKClosestPeers(new byte[32], 5).size() > 3) {
+                        startup = true;
+                        break;
+                    }
+                    try {
+                        Thread.sleep(2000); // wait for tunnel to be created for a second
+                    } catch (InterruptedException e) {
+                        // this likely wont happen but if it does we will just ignore it
+                        log.warn("CST-CCH: Tunnel creation wait interrupted", e);
+                    }
+                }
+
+                if (!startup) {
+                    log.error("RST did not startup as expected");
+                    clientSock.sendMessage(new SessionStatus(recvMsg.getSessionID(), SessionStatus.Status.REFUSED));
+                    return;
+                }
+
                 if (recvMsg.getType() == DESTLOOKUP) { // Simple session preform lookup, reply then return
                     DestinationLookup lookup = (DestinationLookup) recvMsg;
                     Destination dest = destLookup(lookup.getHash());
@@ -146,6 +167,8 @@ public class ClientServiceThread implements Runnable {
                 }
 
                 if (isTypeBad(recvMsg, CREATESESSION)) { // bad type we(router) will refuse connection
+                    log.error("Received bad message from client, router will refuse this connection" + recvMsg.getType());
+                    log.debug("Bad message " + recvMsg.toJSONType().getFormattedJSON());
                     clientSock.sendMessage(new SessionStatus(recvMsg.getSessionID(), SessionStatus.Status.REFUSED));
                     clientSock.close();
 
@@ -157,32 +180,34 @@ public class ClientServiceThread implements Runnable {
                 // generate new id for session
                 sessionID = random.nextInt();
 
-                // todo sam plz help me create inbound tunnels for this destination
-                // we can store these inbound tunnels under the sessionID to identifiy them to
-                // this AudioStreaming.client
+                // we can store these inbound tunnels under the sessionID to identifiy them to this connection
                 Destination clientDestination = createSession.getDestination();
 
-                // This will generate the inbound and outbound tunnels for the AudioStreaming.client
+                // This will generate the inbound tunnels for the client
                 buildTunnel(clientDestination, router, true); // inbound
-                try {
-                    Thread.sleep(5000); // wait for tunnel to be created for a second
-                } catch (InterruptedException e) {
-                    // this likely wont happen but if it does we will just ignore it
-                    log.warn("CST-CCH: Tunnel creation wait interrupted", e);
+
+                I2CPMessage routerMsg = null;
+                for (int i = 0; i<10; i++) {
+                    try {
+                        Thread.sleep(500); // wait for tunnel to be created for a second
+                    } catch (InterruptedException e) {
+                        // this likely wont happen but if it does we will just ignore it
+                        log.warn("CST-CCH: Tunnel creation wait interrupted", e);
+                    }
+                    //attempt to get tunnel information from router service thread
+                    if (!msgQueue.isEmpty()) { //if we have a message then tunnelbuild was successful
+                       routerMsg = msgQueue.remove();
+                    }
                 }
 
-                //attempt to get tunnel information from router service thread
-                if (msgQueue.isEmpty()) {
+                if (routerMsg == null) {
                     log.error("Unable to make tunnel please restart router");
                     clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.REFUSED));
                     return;
                 }
+                // accept session we have inbound tunnels to destination
 
-                // accept session
                 clientSock.sendMessage(new SessionStatus(sessionID, SessionStatus.Status.CREATED));
-
-                I2CPMessage routerMsg = msgQueue.remove();
-
 
                 if (routerMsg.getType() != REQUESTLEASESET) {
                     log.error("Message given to CST is wrong type must be leaseset)");
@@ -214,7 +239,10 @@ public class ClientServiceThread implements Runnable {
                     //send to nearby peers
                     routerSock.sendMessage(store, peer);
                 }
+
+                //build outbound tunnels
                 buildTunnel(clientDestination, router, false); // outbound
+
                 while (true) { // might be a better way to do this that avoids busy waiting
                     // wait until a new message on socket or a new message has arrived from router
                     if (!clientSock.hasMessage() && msgQueue.isEmpty())
@@ -430,6 +458,7 @@ public class ClientServiceThread implements Runnable {
                 RouterInfo next;
                 int nextTunnel = 0; // this is the tunnel id for the next hop default to 0 for outbound creation
                 if (i == 0) {
+
                     position = TunnelBuild.Record.TYPE.GATEWAY;
                     hopInfoInput = new ArrayList<>(hopInfo);
                     next = tempPeers.get(i + 1);
